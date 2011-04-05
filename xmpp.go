@@ -70,7 +70,7 @@ func NewClient(host, user, passwd string) (*Client, os.Error) {
 			addr = url.Host
 		}
 	}
-	c, err := net.Dial("tcp", "", addr)
+	c, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
