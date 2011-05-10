@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+var server   = flag.String("server", "talk.google.com:443", "server")
 var username = flag.String("username", "", "username")
 var password = flag.String("password", "", "password")
 
@@ -24,7 +25,7 @@ func main() {
 		flag.Usage()
 	}
 
-	talk, err := xmpp.NewClient("talk.google.com:443", *username, *password)
+	talk, err := xmpp.NewClient(*server, *username, *password)
 	if err != nil {
 		log.Fatal(err)
 	}
