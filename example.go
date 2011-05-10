@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"flag"
 	"github.com/kless/go-readin/readin"
-	"github.com/mattn/xmpp"
+	"github.com/mattn/go-xmpp"
 	"log"
 	"os"
 	"strings"
