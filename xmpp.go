@@ -420,9 +420,9 @@ func next(p *xml.Parser) (xml.Name, interface{}, os.Error) {
 
 	// The map lookup got us a pointer.
 	// Put it in an interface and allocate one.
-	pv := reflect.NewValue(v).(*reflect.PtrValue)
-	zv := reflect.MakeZero(pv.Type().(*reflect.PtrType).Elem())
-	pv.PointTo(zv)
+	pv := reflect.ValueOf(v)
+	zv := reflect.Zero(pv.Type().Elem())
+	pv.Set(zv.Addr())
 
 	// Unmarshal into that storage.
 	if err = p.Unmarshal(pv.Interface(), &se); err != nil {
