@@ -23,7 +23,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"reflect"
 	"strings"
 	"xml"
 )
@@ -379,30 +378,6 @@ func nextStart(p *xml.Parser) (xml.StartElement, os.Error) {
 	panic("unreachable")
 }
 
-// Prototypical nil pointers for specific XML element names.
-var proto = map[string]interface{}{
-	nsStream + " features": (*streamFeatures)(nil),
-	nsStream + " error":    (*streamError)(nil),
-
-	nsTLS + " starttls": (*tlsStartTLS)(nil),
-	nsTLS + " proceed":  (*tlsProceed)(nil),
-	nsTLS + " failure":  (*tlsFailure)(nil),
-
-	nsSASL + " mechanisms": (*saslMechanisms)(nil),
-	nsSASL + " challenge":  (*saslChallenge)(nil),
-	nsSASL + " response":   (*saslResponse)(nil),
-	nsSASL + " abort":      (*saslAbort)(nil),
-	nsSASL + " success":    (*saslSuccess)(nil),
-	nsSASL + " failure":    (*saslFailure)(nil),
-
-	nsBind + " bind": (*bindBind)(nil),
-
-	nsClient + " message":  (*clientMessage)(nil),
-	nsClient + " presence": (*clientPresence)(nil),
-	nsClient + " iq":       (*clientIQ)(nil),
-	nsClient + " error":    (*clientError)(nil),
-}
-
 // Scan XML token stream for next element and save into val.
 // If val == nil, allocate new element based on proto map.
 // Either way, return val.
@@ -412,23 +387,36 @@ func next(p *xml.Parser) (xml.Name, interface{}, os.Error) {
 	if err != nil {
 		return xml.Name{}, nil, err
 	}
-	v, ok := proto[se.Name.Space+" "+se.Name.Local]
-	if !ok {
+
+	// Put it in an interface and allocate one.
+	var nv interface{}
+	switch (se.Name.Space+" "+se.Name.Local) {
+	case nsStream + " features": nv = &streamFeatures{}
+	case nsStream + " error":    nv = &streamError{}
+	case nsTLS + " starttls":    nv = &tlsStartTLS{}
+	case nsTLS + " proceed":     nv = &tlsProceed{}
+	case nsTLS + " failure":     nv = &tlsFailure{}
+	case nsSASL + " mechanisms": nv = &saslMechanisms{}
+	case nsSASL + " challenge":  nv = ""
+	case nsSASL + " response":   nv = ""
+	case nsSASL + " abort":      nv = &saslAbort{}
+	case nsSASL + " success":    nv = &saslSuccess{}
+	case nsSASL + " failure":    nv = &saslFailure{}
+	case nsBind + " bind":       nv = &bindBind{}
+	case nsClient + " message":  nv = &clientMessage{}
+	case nsClient + " presence": nv = &clientPresence{}
+	case nsClient + " iq":       nv = &clientIQ{}
+	case nsClient + " error":    nv = &clientError{}
+	default:
 		return xml.Name{}, nil, os.ErrorString("unexpected XMPP message " +
 			se.Name.Space + " <" + se.Name.Local + "/>")
 	}
 
-	// The map lookup got us a pointer.
-	// Put it in an interface and allocate one.
-	pv := reflect.ValueOf(v)
-	zv := reflect.Zero(pv.Type().Elem())
-	pv.Set(zv.Addr())
-
 	// Unmarshal into that storage.
-	if err = p.Unmarshal(pv.Interface(), &se); err != nil {
+	if err = p.Unmarshal(nv, &se); err != nil {
 		return xml.Name{}, nil, err
 	}
-	return se.Name, pv.Interface(), err
+	return se.Name, nv, err
 }
 
 var xmlSpecial = map[byte]string{
