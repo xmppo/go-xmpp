@@ -193,7 +193,7 @@ func (c *Client) init(user, passwd string) os.Error {
 		return os.ErrorString("expected <stream>, got <" + se.Name.Local + "> in " + se.Name.Space)
 	}
 	if err = c.p.Unmarshal(&f, nil); err != nil {
-		// TODO: often stream stop. 
+		// TODO: often stream stop.
 		//return os.ErrorString("unmarshal <features>: " + err.String())
 	}
 
@@ -203,7 +203,7 @@ func (c *Client) init(user, passwd string) os.Error {
 	if err = c.p.Unmarshal(&iq, nil); err != nil {
 		return os.ErrorString("unmarshal <iq>: " + err.String())
 	}
-	if iq.Bind == nil {
+	if &iq.Bind == nil {
 		return os.ErrorString("<iq> result missing <bind>")
 	}
 	c.jid = iq.Bind.Jid // our local id
@@ -246,9 +246,9 @@ func (c *Client) Send(chat Chat) {
 
 type streamFeatures struct {
 	XMLName    xml.Name "http://etherx.jabber.org/streams features"
-	StartTLS   *tlsStartTLS
-	Mechanisms *saslMechanisms
-	Bind       *bindBind
+	StartTLS   tlsStartTLS
+	Mechanisms saslMechanisms
+	Bind       bindBind
 	Session    bool
 }
 
@@ -351,8 +351,8 @@ type clientIQ struct { // info/query
 	Id      string   "attr"
 	To      string   "attr"
 	Type    string   "attr" // error, get, result, set
-	Error   *clientError
-	Bind    *bindBind
+	Error   clientError
+	Bind    bindBind
 }
 
 type clientError struct {
