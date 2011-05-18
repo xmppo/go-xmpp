@@ -79,7 +79,8 @@ func NewClient(host, user, passwd string) (*Client, os.Error) {
 		fmt.Fprintf(c, "Host: %s\r\n", host)
 		fmt.Fprintf(c, "\r\n")
 		br := bufio.NewReader(c)
-		resp, err := http.ReadResponse(br, "CONNECT")
+		req, _ := http.NewRequest("CONNECT", host, nil)
+		resp, err := http.ReadResponse(br, req)
 		if err != nil {
 			return nil, err
 		}
