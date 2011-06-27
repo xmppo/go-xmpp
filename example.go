@@ -30,11 +30,13 @@ func main() {
 	}
 
 	go func() {
-		chat, err := talk.Recv()
-		if err != nil {
-			log.Fatal(err)
+		for {
+			chat, err := talk.Recv()
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Println(chat.Remote, chat.Text)
 		}
-		fmt.Println(chat.Remote, chat.Text)
 	}()
 	for {
 		line, err := readin.RepeatPrompt("")
