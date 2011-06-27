@@ -86,7 +86,7 @@ func NewClient(host, user, passwd string) (*Client, os.Error) {
 		}
 		if resp.StatusCode != 200 {
 			f := strings.Split(resp.Status, " ", 2)
-			return nil, os.ErrorString(f[1])
+			return nil, os.NewError(f[1])
 		}
 	}
 
@@ -122,7 +122,7 @@ func (c *Client) init(user, passwd string) os.Error {
 
 	a := strings.Split(user, "@", 2)
 	if len(a) != 2 {
-		return os.ErrorString("xmpp: invalid username (want user@domain): " + user)
+		return os.NewError("xmpp: invalid username (want user@domain): " + user)
 	}
 	user = a[0]
 	domain := a[1]
@@ -139,7 +139,7 @@ func (c *Client) init(user, passwd string) os.Error {
 		return err
 	}
 	if se.Name.Space != nsStream || se.Name.Local != "stream" {
-		return os.ErrorString("xmpp: expected <stream> but got <" + se.Name.Local + "> in " + se.Name.Space)
+		return os.NewError("xmpp: expected <stream> but got <" + se.Name.Local + "> in " + se.Name.Space)
 	}
 
 	// Now we're in the stream and can use Unmarshal.
@@ -147,7 +147,7 @@ func (c *Client) init(user, passwd string) os.Error {
 	// See section 4.6 in RFC 3920.
 	var f streamFeatures
 	if err = c.p.Unmarshal(&f, nil); err != nil {
-		return os.ErrorString("unmarshal <features>: " + err.String())
+		return os.NewError("unmarshal <features>: " + err.String())
 	}
 	havePlain := false
 	for _, m := range f.Mechanisms.Mechanism {
@@ -157,7 +157,7 @@ func (c *Client) init(user, passwd string) os.Error {
 		}
 	}
 	if !havePlain {
-		return os.ErrorString(fmt.Sprintf("PLAIN authentication is not an option: %v", f.Mechanisms.Mechanism))
+		return os.NewError(fmt.Sprintf("PLAIN authentication is not an option: %v", f.Mechanisms.Mechanism))
 	}
 
 	// Plain authentication: send base64-encoded \x00 user \x00 password.
@@ -174,9 +174,9 @@ func (c *Client) init(user, passwd string) os.Error {
 	case *saslFailure:
 		// v.Any is type of sub-element in failure,
 		// which gives a description of what failed.
-		return os.ErrorString("auth failure: " + v.Any.Local)
+		return os.NewError("auth failure: " + v.Any.Local)
 	default:
-		return os.ErrorString("expected <success> or <failure>, got <" + name.Local + "> in " + name.Space)
+		return os.NewError("expected <success> or <failure>, got <" + name.Local + "> in " + name.Space)
 	}
 
 	// Now that we're authenticated, we're supposed to start the stream over again.
@@ -191,21 +191,21 @@ func (c *Client) init(user, passwd string) os.Error {
 		return err
 	}
 	if se.Name.Space != nsStream || se.Name.Local != "stream" {
-		return os.ErrorString("expected <stream>, got <" + se.Name.Local + "> in " + se.Name.Space)
+		return os.NewError("expected <stream>, got <" + se.Name.Local + "> in " + se.Name.Space)
 	}
 	if err = c.p.Unmarshal(&f, nil); err != nil {
 		// TODO: often stream stop.
-		//return os.ErrorString("unmarshal <features>: " + err.String())
+		//return os.NewError("unmarshal <features>: " + err.String())
 	}
 
 	// Send IQ message asking to bind to the local user name.
 	fmt.Fprintf(c.tls, "<iq type='set' id='x'><bind xmlns='%s'/></iq>\n", nsBind)
 	var iq clientIQ
 	if err = c.p.Unmarshal(&iq, nil); err != nil {
-		return os.ErrorString("unmarshal <iq>: " + err.String())
+		return os.NewError("unmarshal <iq>: " + err.String())
 	}
 	if &iq.Bind == nil {
-		return os.ErrorString("<iq> result missing <bind>")
+		return os.NewError("<iq> result missing <bind>")
 	}
 	c.jid = iq.Bind.Jid // our local id
 
@@ -409,7 +409,7 @@ func next(p *xml.Parser) (xml.Name, interface{}, os.Error) {
 	case nsClient + " iq":       nv = &clientIQ{}
 	case nsClient + " error":    nv = &clientError{}
 	default:
-		return xml.Name{}, nil, os.ErrorString("unexpected XMPP message " +
+		return xml.Name{}, nil, os.NewError("unexpected XMPP message " +
 			se.Name.Space + " <" + se.Name.Local + "/>")
 	}
 
