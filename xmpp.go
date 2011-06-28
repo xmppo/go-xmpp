@@ -50,12 +50,12 @@ func NewClient(host, user, passwd string) (*Client, os.Error) {
 	addr := host
 
 	if strings.TrimSpace(host) == "" {
-		a := strings.Split(user, "@", 2)
+		a := strings.SplitN(user, "@", 2)
 		if len(a) == 2 {
 			host = a[1]
 		}
 	}
-	a := strings.Split(host, ":", 2)
+	a := strings.SplitN(host, ":", 2)
 	if len(a) == 1 {
 		host += ":5222"
 	}
@@ -85,7 +85,7 @@ func NewClient(host, user, passwd string) (*Client, os.Error) {
 			return nil, err
 		}
 		if resp.StatusCode != 200 {
-			f := strings.Split(resp.Status, " ", 2)
+			f := strings.SplitN(resp.Status, " ", 2)
 			return nil, os.NewError(f[1])
 		}
 	}
@@ -120,7 +120,7 @@ func (c *Client) init(user, passwd string) os.Error {
 	// c.p = xml.NewParser(tee{c.tls, os.Stdout});
 	c.p = xml.NewParser(c.tls)
 
-	a := strings.Split(user, "@", 2)
+	a := strings.SplitN(user, "@", 2)
 	if len(a) != 2 {
 		return os.NewError("xmpp: invalid username (want user@domain): " + user)
 	}
