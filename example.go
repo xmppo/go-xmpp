@@ -45,7 +45,7 @@ func main() {
 			continue
 		}
 
-		tokens := strings.SplitN(line, " ", 2)
+		tokens := strings.Split(line, " ", 2)
 		if len(tokens) == 2 {
 			talk.Send(xmpp.Chat{Remote: tokens[0], Type: "chat", Text: tokens[1]})
 		}

@@ -45,17 +45,17 @@ type Client struct {
 
 // NewClient creates a new connection to a host given as "hostname" or "hostname:port".
 // If host is not specified, the  DNS SRV should be used to find the host from the domainpart of the JID.
-// Default the port to 5222. 
+// Default the port to 5222.
 func NewClient(host, user, passwd string) (*Client, os.Error) {
 	addr := host
 
 	if strings.TrimSpace(host) == "" {
-		a := strings.SplitN(user, "@", 2)
+		a := strings.Split(user, "@", 2)
 		if len(a) == 2 {
 			host = a[1]
 		}
 	}
-	a := strings.SplitN(host, ":", 2)
+	a := strings.Split(host, ":", 2)
 	if len(a) == 1 {
 		host += ":5222"
 	}
@@ -85,7 +85,7 @@ func NewClient(host, user, passwd string) (*Client, os.Error) {
 			return nil, err
 		}
 		if resp.StatusCode != 200 {
-			f := strings.SplitN(resp.Status, " ", 2)
+			f := strings.Split(resp.Status, " ", 2)
 			return nil, os.NewError(f[1])
 		}
 	}
@@ -120,7 +120,7 @@ func (c *Client) init(user, passwd string) os.Error {
 	// c.p = xml.NewParser(tee{c.tls, os.Stdout});
 	c.p = xml.NewParser(c.tls)
 
-	a := strings.SplitN(user, "@", 2)
+	a := strings.Split(user, "@", 2)
 	if len(a) != 2 {
 		return os.NewError("xmpp: invalid username (want user@domain): " + user)
 	}
@@ -391,23 +391,39 @@ func next(p *xml.Parser) (xml.Name, interface{}, os.Error) {
 
 	// Put it in an interface and allocate one.
 	var nv interface{}
-	switch (se.Name.Space+" "+se.Name.Local) {
-	case nsStream + " features": nv = &streamFeatures{}
-	case nsStream + " error":    nv = &streamError{}
-	case nsTLS + " starttls":    nv = &tlsStartTLS{}
-	case nsTLS + " proceed":     nv = &tlsProceed{}
-	case nsTLS + " failure":     nv = &tlsFailure{}
-	case nsSASL + " mechanisms": nv = &saslMechanisms{}
-	case nsSASL + " challenge":  nv = ""
-	case nsSASL + " response":   nv = ""
-	case nsSASL + " abort":      nv = &saslAbort{}
-	case nsSASL + " success":    nv = &saslSuccess{}
-	case nsSASL + " failure":    nv = &saslFailure{}
-	case nsBind + " bind":       nv = &bindBind{}
-	case nsClient + " message":  nv = &clientMessage{}
-	case nsClient + " presence": nv = &clientPresence{}
-	case nsClient + " iq":       nv = &clientIQ{}
-	case nsClient + " error":    nv = &clientError{}
+	switch se.Name.Space + " " + se.Name.Local {
+	case nsStream + " features":
+		nv = &streamFeatures{}
+	case nsStream + " error":
+		nv = &streamError{}
+	case nsTLS + " starttls":
+		nv = &tlsStartTLS{}
+	case nsTLS + " proceed":
+		nv = &tlsProceed{}
+	case nsTLS + " failure":
+		nv = &tlsFailure{}
+	case nsSASL + " mechanisms":
+		nv = &saslMechanisms{}
+	case nsSASL + " challenge":
+		nv = ""
+	case nsSASL + " response":
+		nv = ""
+	case nsSASL + " abort":
+		nv = &saslAbort{}
+	case nsSASL + " success":
+		nv = &saslSuccess{}
+	case nsSASL + " failure":
+		nv = &saslFailure{}
+	case nsBind + " bind":
+		nv = &bindBind{}
+	case nsClient + " message":
+		nv = &clientMessage{}
+	case nsClient + " presence":
+		nv = &clientPresence{}
+	case nsClient + " iq":
+		nv = &clientIQ{}
+	case nsClient + " error":
+		nv = &clientError{}
 	default:
 		return xml.Name{}, nil, os.NewError("unexpected XMPP message " +
 			se.Name.Space + " <" + se.Name.Local + "/>")
