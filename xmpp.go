@@ -45,7 +45,7 @@ type Client struct {
 
 // NewClient creates a new connection to a host given as "hostname" or "hostname:port".
 // If host is not specified, the  DNS SRV should be used to find the host from the domainpart of the JID.
-// Default the port to 5222. 
+// Default the port to 5222.
 func NewClient(host, user, passwd string) (*Client, os.Error) {
 	addr := host
 
