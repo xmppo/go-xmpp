@@ -5,6 +5,7 @@ import (
 	"flag"
 	"github.com/kless/go-readin/readin"
 	"github.com/mattn/go-xmpp"
+	"github.com/mattn/go-iconv/iconv"
 	"log"
 	"os"
 	"strings"
@@ -13,6 +14,26 @@ import (
 var server   = flag.String("server", "talk.google.com:443", "server")
 var username = flag.String("username", "", "username")
 var password = flag.String("password", "", "password")
+
+func fromUTF8(s string) string {
+	ic, err := iconv.Open("char", "UTF-8")
+	if err != nil {
+		return s
+	}
+	defer ic.Close()
+	ret, _ := ic.Conv(s)
+	return ret
+}
+
+func toUTF8(s string) string {
+	ic, err := iconv.Open("UTF-8", "char")
+	if err != nil {
+		return s
+	}
+	defer ic.Close()
+	ret, _ := ic.Conv(s)
+	return ret
+}
 
 func main() {
 	flag.Usage = func() {
@@ -36,7 +57,7 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			fmt.Println(chat.Remote, chat.Text)
+			fmt.Println(chat.Remote, fromUTF8(chat.Text))
 		}
 	}()
 	for {
@@ -48,7 +69,7 @@ func main() {
 
 		tokens := strings.SplitN(line, " ", 2)
 		if len(tokens) == 2 {
-			talk.Send(xmpp.Chat{Remote: tokens[0], Type: "chat", Text: tokens[1]})
+			talk.Send(xmpp.Chat{Remote: tokens[0], Type: "chat", Text: toUTF8(tokens[1])})
 		}
 	}
 }
