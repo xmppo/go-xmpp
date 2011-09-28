@@ -25,6 +25,7 @@ import (
 	"os"
 	"strings"
 	"xml"
+	"url"
 )
 
 const (
@@ -64,7 +65,7 @@ func NewClient(host, user, passwd string) (*Client, os.Error) {
 		proxy = os.Getenv("http_proxy")
 	}
 	if proxy != "" {
-		url, err := http.ParseRequestURL(proxy)
+		url, err := url.Parse(proxy)
 		if err == nil {
 			addr = url.Host
 		}
@@ -246,7 +247,7 @@ func (c *Client) Send(chat Chat) {
 // RFC 3920  C.1  Streams name space
 
 type streamFeatures struct {
-	XMLName    xml.Name "http://etherx.jabber.org/streams features"
+	XMLName    xml.Name `xml:"http://etherx.jabber.org/streams features"`
 	StartTLS   tlsStartTLS
 	Mechanisms saslMechanisms
 	Bind       bindBind
@@ -254,7 +255,7 @@ type streamFeatures struct {
 }
 
 type streamError struct {
-	XMLName xml.Name "http://etherx.jabber.org/streams error"
+	XMLName xml.Name `xml:"http://etherx.jabber.org/streams error"`
 	Any     xml.Name
 	Text    string
 }
@@ -262,28 +263,28 @@ type streamError struct {
 // RFC 3920  C.3  TLS name space
 
 type tlsStartTLS struct {
-	XMLName  xml.Name ":ietf:params:xml:ns:xmpp-tls starttls"
+	XMLName  xml.Name `xml:":ietf:params:xml:ns:xmpp-tls starttls"`
 	Required bool
 }
 
 type tlsProceed struct {
-	XMLName xml.Name "urn:ietf:params:xml:ns:xmpp-tls proceed"
+	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-tls proceed"`
 }
 
 type tlsFailure struct {
-	XMLName xml.Name "urn:ietf:params:xml:ns:xmpp-tls failure"
+	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-tls failure"`
 }
 
 // RFC 3920  C.4  SASL name space
 
 type saslMechanisms struct {
-	XMLName   xml.Name "urn:ietf:params:xml:ns:xmpp-sasl mechanisms"
+	XMLName   xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-sasl mechanisms"`
 	Mechanism []string
 }
 
 type saslAuth struct {
-	XMLName   xml.Name "urn:ietf:params:xml:ns:xmpp-sasl auth"
-	Mechanism string   "attr"
+	XMLName   xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-sasl auth"`
+	Mechanism string   `xml:"attr"`
 }
 
 type saslChallenge string
@@ -291,22 +292,22 @@ type saslChallenge string
 type saslResponse string
 
 type saslAbort struct {
-	XMLName xml.Name "urn:ietf:params:xml:ns:xmpp-sasl abort"
+	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-sasl abort"`
 }
 
 type saslSuccess struct {
-	XMLName xml.Name "urn:ietf:params:xml:ns:xmpp-sasl success"
+	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-sasl success"`
 }
 
 type saslFailure struct {
-	XMLName xml.Name "urn:ietf:params:xml:ns:xmpp-sasl failure"
+	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-sasl failure"`
 	Any     xml.Name
 }
 
 // RFC 3920  C.5  Resource binding name space
 
 type bindBind struct {
-	XMLName  xml.Name "urn:ietf:params:xml:ns:xmpp-bind bind"
+	XMLName  xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-bind bind"`
 	Resource string
 	Jid      string
 }
@@ -314,11 +315,11 @@ type bindBind struct {
 // RFC 3921  B.1  jabber:client
 
 type clientMessage struct {
-	XMLName xml.Name "jabber:client message"
-	From    string   "attr"
-	Id      string   "attr"
-	To      string   "attr"
-	Type    string   "attr" // chat, error, groupchat, headline, or normal
+	XMLName xml.Name `xml:"jabber:client message"`
+	From    string   `xml:"attr"`
+	Id      string   `xml:"attr"`
+	To      string   `xml:"attr"`
+	Type    string   `xml:"attr"` // chat, error, groupchat, headline, or normal
 
 	// These should technically be []clientText,
 	// but string is much more convenient.
@@ -328,17 +329,17 @@ type clientMessage struct {
 }
 
 type clientText struct {
-	Lang string "attr"
-	Body string "chardata"
+	Lang string `xml:"attr"`
+	Body string `xml:"chardata"`
 }
 
 type clientPresence struct {
-	XMLName xml.Name "jabber:client presence"
-	From    string   "attr"
-	Id      string   "attr"
-	To      string   "attr"
-	Type    string   "attr" // error, probe, subscribe, subscribed, unavailable, unsubscribe, unsubscribed
-	Lang    string   "attr"
+	XMLName xml.Name `xml:"jabber:client presence"`
+	From    string   `xml:"attr"`
+	Id      string   `xml:"attr"`
+	To      string   `xml:"attr"`
+	Type    string   `xml:"attr"` // error, probe, subscribe, subscribed, unavailable, unsubscribe, unsubscribed
+	Lang    string   `xml:"attr"`
 
 	Show     string // away, chat, dnd, xa
 	Status   string // sb []clientText
@@ -347,19 +348,19 @@ type clientPresence struct {
 }
 
 type clientIQ struct { // info/query
-	XMLName xml.Name "jabber:client iq"
-	From    string   "attr"
-	Id      string   "attr"
-	To      string   "attr"
-	Type    string   "attr" // error, get, result, set
+	XMLName xml.Name `xml:"jabber:client iq"`
+	From    string   `xml:"attr"`
+	Id      string   `xml:"attr"`
+	To      string   `xml:"attr"`
+	Type    string   `xml:"attr"` // error, get, result, set
 	Error   clientError
 	Bind    bindBind
 }
 
 type clientError struct {
-	XMLName xml.Name "jabber:client error"
-	Code    string   "attr"
-	Type    string   "attr"
+	XMLName xml.Name `xml:"jabber:client error"`
+	Code    string   `xml:"attr"`
+	Type    string   `xml:"attr"`
 	Any     xml.Name
 	Text    string
 }
