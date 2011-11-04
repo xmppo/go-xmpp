@@ -1,9 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"flag"
-	"github.com/kless/go-readin/readin"
 	"github.com/mattn/go-xmpp"
 	"github.com/mattn/go-iconv"
 	"log"
@@ -61,11 +61,12 @@ func main() {
 		}
 	}()
 	for {
-		line, err := readin.RepeatPrompt("")
+		in := bufio.NewReader(os.Stdin)
+		line, err := in.ReadString('\n')
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err.String())
 			continue
 		}
+		line = strings.TrimRight(line, "\n")
 
 		tokens := strings.SplitN(line, " ", 2)
 		if len(tokens) == 2 {
