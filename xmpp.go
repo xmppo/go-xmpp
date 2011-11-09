@@ -17,16 +17,16 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/xml"
 	"errors"
 	"fmt"
-	"http"
 	"io"
 	"log"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"strings"
-	"url"
-	"xml"
 )
 
 const (
