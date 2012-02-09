@@ -42,7 +42,7 @@ var DefaultConfig tls.Config
 type Client struct {
 	tls *tls.Conn // connection to server
 	jid string    // Jabber ID for our connection
-	p   *xml.Parser
+	p   *xml.Decoder
 }
 
 // NewClient creates a new connection to a host given as "hostname" or "hostname:port".
@@ -120,7 +120,7 @@ func (c *Client) Close() error {
 func (c *Client) init(user, passwd string) error {
 	// For debugging: the following causes the plaintext of the connection to be duplicated to stdout.
 	// c.p = xml.NewParser(tee{c.tls, os.Stdout});
-	c.p = xml.NewParser(c.tls)
+	c.p = xml.NewDecoder(c.tls)
 
 	a := strings.SplitN(user, "@", 2)
 	if len(a) != 2 {
@@ -148,7 +148,7 @@ func (c *Client) init(user, passwd string) error {
 	// Next message should be <features> to tell us authentication options.
 	// See section 4.6 in RFC 3920.
 	var f streamFeatures
-	if err = c.p.Unmarshal(&f, nil); err != nil {
+	if err = c.p.DecodeElement(&f, nil); err != nil {
 		return errors.New("unmarshal <features>: " + err.Error())
 	}
 	havePlain := false
@@ -195,7 +195,7 @@ func (c *Client) init(user, passwd string) error {
 	if se.Name.Space != nsStream || se.Name.Local != "stream" {
 		return errors.New("expected <stream>, got <" + se.Name.Local + "> in " + se.Name.Space)
 	}
-	if err = c.p.Unmarshal(&f, nil); err != nil {
+	if err = c.p.DecodeElement(&f, nil); err != nil {
 		// TODO: often stream stop.
 		//return os.NewError("unmarshal <features>: " + err.String())
 	}
@@ -203,7 +203,7 @@ func (c *Client) init(user, passwd string) error {
 	// Send IQ message asking to bind to the local user name.
 	fmt.Fprintf(c.tls, "<iq type='set' id='x'><bind xmlns='%s'/></iq>\n", nsBind)
 	var iq clientIQ
-	if err = c.p.Unmarshal(&iq, nil); err != nil {
+	if err = c.p.DecodeElement(&iq, nil); err != nil {
 		return errors.New("unmarshal <iq>: " + err.Error())
 	}
 	if &iq.Bind == nil {
@@ -366,7 +366,7 @@ type clientError struct {
 }
 
 // Scan XML token stream to find next StartElement.
-func nextStart(p *xml.Parser) (xml.StartElement, error) {
+func nextStart(p *xml.Decoder) (xml.StartElement, error) {
 	for {
 		t, err := p.Token()
 		if err != nil {
@@ -383,7 +383,7 @@ func nextStart(p *xml.Parser) (xml.StartElement, error) {
 // Scan XML token stream for next element and save into val.
 // If val == nil, allocate new element based on proto map.
 // Either way, return val.
-func next(p *xml.Parser) (xml.Name, interface{}, error) {
+func next(p *xml.Decoder) (xml.Name, interface{}, error) {
 	// Read start element to find out what type we want.
 	se, err := nextStart(p)
 	if err != nil {
@@ -431,7 +431,7 @@ func next(p *xml.Parser) (xml.Name, interface{}, error) {
 	}
 
 	// Unmarshal into that storage.
-	if err = p.Unmarshal(nv, &se); err != nil {
+	if err = p.DecodeElement(nv, &se); err != nil {
 		return xml.Name{}, nil, err
 	}
 	return se.Name, nv, err
