@@ -238,10 +238,9 @@ func (c *Client) Recv() (chat Chat, err error) {
 
 // Send sends message text.
 func (c *Client) Send(chat Chat) {
-	fmt.Fprintf(c.tls, "<message to='%s' from='%s' type='chat' xml:lang='en'>"+
+	fmt.Fprintf(c.tls, "<message to='%s' type='chat' xml:lang='en'>"+
 		"<body>%s</body></message>",
-		xmlEscape(chat.Remote), xmlEscape(c.jid),
-		xmlEscape(chat.Text))
+		xmlEscape(chat.Remote), xmlEscape(chat.Text))
 }
 
 // RFC 3920  C.1  Streams name space
