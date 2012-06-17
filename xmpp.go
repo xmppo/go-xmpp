@@ -334,15 +334,15 @@ type clientText struct {
 
 type clientPresence struct {
 	XMLName xml.Name `xml:"jabber:client presence"`
-	From    string   `xml:",attr"`
-	Id      string   `xml:",attr"`
-	To      string   `xml:",attr"`
-	Type    string   `xml:",attr"` // error, probe, subscribe, subscribed, unavailable, unsubscribe, unsubscribed
-	Lang    string   `xml:",attr"`
+	From    string   `xml:"from,attr"`
+	Id      string   `xml:"id,attr"`
+	To      string   `xml:"to,attr"`
+	Type    string   `xml:"type,attr"` // error, probe, subscribe, subscribed, unavailable, unsubscribe, unsubscribed
+	Lang    string   `xml:"lang,attr"`
 
-	Show     string // away, chat, dnd, xa
-	Status   string // sb []clientText
-	Priority string
+	Show     string  `xml:"show,attr"`// away, chat, dnd, xa
+	Status   string  `xml:"status,attr"`// sb []clientText
+	Priority string  `xml:"priority,attr"`
 	Error    *clientError
 }
 
