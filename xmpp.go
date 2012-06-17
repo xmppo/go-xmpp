@@ -119,7 +119,7 @@ func (c *Client) Close() error {
 
 func (c *Client) init(user, passwd string) error {
 	// For debugging: the following causes the plaintext of the connection to be duplicated to stdout.
-	//c.p = xml.NewDecoder(tee{c.tls, os.Stdout});
+	//c.p = xml.NewDecoder(tee{c.tls, os.Stdout})
 	c.p = xml.NewDecoder(c.tls)
 
 	a := strings.SplitN(user, "@", 2)
@@ -315,16 +315,16 @@ type bindBind struct {
 
 type clientMessage struct {
 	XMLName xml.Name `xml:"jabber:client message"`
-	From    string   `xml:",attr"`
-	Id      string   `xml:",attr"`
-	To      string   `xml:",attr"`
-	Type    string   `xml:",attr"` // chat, error, groupchat, headline, or normal
+	From    string   `xml:"from,attr"`
+	Id      string   `xml:"id,attr"`
+	To      string   `xml:"to,attr"`
+	Type    string   `xml:"type,attr"` // chat, error, groupchat, headline, or normal
 
 	// These should technically be []clientText,
 	// but string is much more convenient.
-	Subject string
-	Body    string
-	Thread  string
+	Subject string `xml:"subject"`
+	Body    string `xml:"body"`
+	Thread  string `xml:"thread"`
 }
 
 type clientText struct {
@@ -334,15 +334,15 @@ type clientText struct {
 
 type clientPresence struct {
 	XMLName xml.Name `xml:"jabber:client presence"`
-	From    string   `xml:",attr"`
-	Id      string   `xml:",attr"`
-	To      string   `xml:",attr"`
-	Type    string   `xml:",attr"` // error, probe, subscribe, subscribed, unavailable, unsubscribe, unsubscribed
-	Lang    string   `xml:",attr"`
+	From    string   `xml:"from,attr"`
+	Id      string   `xml:"id,attr"`
+	To      string   `xml:"to,attr"`
+	Type    string   `xml:"type,attr"` // error, probe, subscribe, subscribed, unavailable, unsubscribe, unsubscribed
+	Lang    string   `xml:"lang,attr"`
 
-	Show     string // away, chat, dnd, xa
-	Status   string // sb []clientText
-	Priority string
+	Show     string  `xml:"show,attr"`// away, chat, dnd, xa
+	Status   string  `xml:"status,attr"`// sb []clientText
+	Priority string  `xml:"priority,attr"`
 	Error    *clientError
 }
 
