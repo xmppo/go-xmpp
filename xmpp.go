@@ -20,7 +20,6 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -42,7 +41,7 @@ var DefaultConfig tls.Config
 type Client struct {
 	tls *tls.Conn // connection to server
 	jid string    // Jabber ID for our connection
-	p   *xml.Decoder
+	dec *xml.Decoder
 }
 
 // NewClient creates a new connection to a host given as "hostname" or "hostname:port".
@@ -119,8 +118,7 @@ func (c *Client) Close() error {
 
 func (c *Client) init(user, passwd string) error {
 	// For debugging: the following causes the plaintext of the connection to be duplicated to stdout.
-	//c.p = xml.NewDecoder(tee{c.tls, os.Stdout})
-	c.p = xml.NewDecoder(c.tls)
+	c.dec = xml.NewDecoder(c.tls)
 
 	a := strings.SplitN(user, "@", 2)
 	if len(a) != 2 {
@@ -136,7 +134,7 @@ func (c *Client) init(user, passwd string) error {
 		xmlEscape(domain), nsClient, nsStream)
 
 	// Server should respond with a stream opening.
-	se, err := nextStart(c.p)
+	se, err := nextStart(c.dec)
 	if err != nil {
 		return err
 	}
@@ -148,7 +146,7 @@ func (c *Client) init(user, passwd string) error {
 	// Next message should be <features> to tell us authentication options.
 	// See section 4.6 in RFC 3920.
 	var f streamFeatures
-	if err = c.p.DecodeElement(&f, nil); err != nil {
+	if err = c.dec.DecodeElement(&f, nil); err != nil {
 		return errors.New("unmarshal <features>: " + err.Error())
 	}
 	havePlain := false
@@ -170,7 +168,7 @@ func (c *Client) init(user, passwd string) error {
 		nsSASL, enc)
 
 	// Next message should be either success or failure.
-	name, val, err := next(c.p)
+	name, val, err := next(c.dec)
 	switch v := val.(type) {
 	case *saslSuccess:
 	case *saslFailure:
@@ -188,14 +186,14 @@ func (c *Client) init(user, passwd string) error {
 		xmlEscape(domain), nsClient, nsStream)
 
 	// Here comes another <stream> and <features>.
-	se, err = nextStart(c.p)
+	se, err = nextStart(c.dec)
 	if err != nil {
 		return err
 	}
 	if se.Name.Space != nsStream || se.Name.Local != "stream" {
 		return errors.New("expected <stream>, got <" + se.Name.Local + "> in " + se.Name.Space)
 	}
-	if err = c.p.DecodeElement(&f, nil); err != nil {
+	if err = c.dec.DecodeElement(&f, nil); err != nil {
 		// TODO: often stream stop.
 		//return os.NewError("unmarshal <features>: " + err.String())
 	}
@@ -203,7 +201,7 @@ func (c *Client) init(user, passwd string) error {
 	// Send IQ message asking to bind to the local user name.
 	fmt.Fprintf(c.tls, "<iq type='set' id='x'><bind xmlns='%s'/></iq>\n", nsBind)
 	var iq clientIQ
-	if err = c.p.DecodeElement(&iq, nil); err != nil {
+	if err = c.dec.DecodeElement(&iq, nil); err != nil {
 		return errors.New("unmarshal <iq>: " + err.Error())
 	}
 	if &iq.Bind == nil {
@@ -225,7 +223,7 @@ type Chat struct {
 // Recv wait next token of chat.
 func (c *Client) Recv() (chat Chat, err error) {
 	for {
-		_, val, err := next(c.p)
+		_, val, err := next(c.dec)
 		if err != nil {
 			return Chat{}, err
 		}
@@ -340,9 +338,9 @@ type clientPresence struct {
 	Type    string   `xml:"type,attr"` // error, probe, subscribe, subscribed, unavailable, unsubscribe, unsubscribed
 	Lang    string   `xml:"lang,attr"`
 
-	Show     string  `xml:"show,attr"`// away, chat, dnd, xa
-	Status   string  `xml:"status,attr"`// sb []clientText
-	Priority string  `xml:"priority,attr"`
+	Show     string `xml:"show,attr"`   // away, chat, dnd, xa
+	Status   string `xml:"status,attr"` // sb []clientText
+	Priority string `xml:"priority,attr"`
 	Error    *clientError
 }
 
@@ -455,17 +453,4 @@ func xmlEscape(s string) string {
 		}
 	}
 	return b.String()
-}
-
-type tee struct {
-	r io.Reader
-	w io.Writer
-}
-
-func (t tee) Read(p []byte) (n int, err error) {
-	n, err = t.r.Read(p)
-	if n > 0 {
-		t.w.Write(p[0:n])
-	}
-	return
 }
