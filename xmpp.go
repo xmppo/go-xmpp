@@ -230,6 +230,11 @@ func (c *Client) init(user, passwd string) error {
 	return nil
 }
 
+// returns the JID for this connection
+func (c *Client) Jid() string {
+	return c.jid
+}
+
 // Recv waits until the next *Message or *Presence is received.
 func (c *Client) Recv() (event interface{}, err error) {
 	for {
