@@ -41,6 +41,7 @@ var DefaultConfig struct {
 	TLS   tls.Config
 	Debug struct {
 		R io.Writer // all received data will be copied to this writer
+		W io.Writer // all sent data will be copied to this writer
 	}
 }
 
@@ -48,6 +49,7 @@ type Client struct {
 	tls *tls.Conn // connection to server
 	jid string    // Jabber ID for our connection
 	dec *xml.Decoder
+	enc *xml.Encoder
 }
 
 // NewClient creates a new connection to a host given as "hostname" or "hostname:port".
@@ -127,6 +129,11 @@ func (c *Client) init(user, passwd string) error {
 		c.dec = xml.NewDecoder(io.TeeReader(c.tls, DefaultConfig.Debug.R))
 	} else {
 		c.dec = xml.NewDecoder(c.tls)
+	}
+	if DefaultConfig.Debug.W != nil {
+		c.enc = xml.NewEncoder(io.MultiWriter(DefaultConfig.Debug.W, c.tls))
+	} else {
+		c.enc = xml.NewEncoder(c.tls)
 	}
 
 	a := strings.SplitN(user, "@", 2)
