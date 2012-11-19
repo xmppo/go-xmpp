@@ -36,7 +36,9 @@ const (
 	nsClient = "jabber:client"
 )
 
-var DefaultConfig tls.Config
+var DefaultConfig struct {
+	TLS tls.Config
+}
 
 type Client struct {
 	tls *tls.Conn // connection to server
@@ -91,7 +93,7 @@ func NewClient(host, user, passwd string) (*Client, error) {
 		}
 	}
 
-	tlsconn := tls.Client(c, &DefaultConfig)
+	tlsconn := tls.Client(c, &DefaultConfig.TLS)
 	if err = tlsconn.Handshake(); err != nil {
 		return nil, err
 	}
