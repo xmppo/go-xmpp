@@ -1,11 +1,11 @@
 package main
 
 import (
+	".."
 	"bufio"
 	"flag"
 	"fmt"
 	"github.com/mattn/go-iconv"
-	"github.com/mattn/go-xmpp"
 	"log"
 	"os"
 	"strings"
@@ -16,6 +16,7 @@ var username = flag.String("username", "", "username")
 var password = flag.String("password", "", "password")
 var insecure = flag.Bool("insecure", false, "ignore certificates")
 var trace = flag.Bool("trace", false, "prints raw data to stderr")
+var room = flag.String("room", "", "joins the specified room")
 
 func fromUTF8(s string) string {
 	ic, err := iconv.Open("char", "UTF-8")
@@ -53,19 +54,29 @@ func main() {
 	if *trace {
 		xmpp.DefaultConfig.Debug.R = os.Stderr
 	}
-
 	talk, err := xmpp.NewClient(*server, *username, *password)
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	if *room != "" {
+		var p xmpp.Presence
+		nick := strings.SplitN(*username, "@", 2)[0]
+		p.From = talk.Jid()
+		p.To = *room + "/" + nick
+		err = talk.Send(&p)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 	go func() {
 		for {
-			chat, err := talk.Recv()
+			evt, err := talk.Recv()
 			if err != nil {
 				log.Fatal(err)
 			}
-			fmt.Println(chat.Remote, fromUTF8(chat.Text))
+			if chat, ok := evt.(*xmpp.Message); ok {
+				fmt.Println(chat.From, fromUTF8(chat.Body))
+			}
 		}
 	}()
 	for {
@@ -78,7 +89,14 @@ func main() {
 
 		tokens := strings.SplitN(line, " ", 2)
 		if len(tokens) == 2 {
-			talk.Send(xmpp.Chat{Remote: tokens[0], Type: "chat", Text: toUTF8(tokens[1])})
+			var msg xmpp.Message
+			msg.To, msg.Body = tokens[0], toUTF8(tokens[1])
+			if msg.To == *room {
+				msg.Type = "groupchat"
+			} else {
+				msg.Type = "chat"
+			}
+			talk.Send(&msg)
 		}
 	}
 }
