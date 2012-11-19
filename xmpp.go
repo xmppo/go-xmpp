@@ -20,6 +20,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -37,7 +38,10 @@ const (
 )
 
 var DefaultConfig struct {
-	TLS tls.Config
+	TLS   tls.Config
+	Debug struct {
+		R io.Writer // all received data will be copied to this writer
+	}
 }
 
 type Client struct {
@@ -119,8 +123,11 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) init(user, passwd string) error {
-	// For debugging: the following causes the plaintext of the connection to be duplicated to stdout.
-	c.dec = xml.NewDecoder(c.tls)
+	if DefaultConfig.Debug.R != nil {
+		c.dec = xml.NewDecoder(io.TeeReader(c.tls, DefaultConfig.Debug.R))
+	} else {
+		c.dec = xml.NewDecoder(c.tls)
+	}
 
 	a := strings.SplitN(user, "@", 2)
 	if len(a) != 2 {
