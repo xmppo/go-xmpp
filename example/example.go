@@ -2,18 +2,20 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"flag"
-	"github.com/mattn/go-xmpp"
+	"fmt"
 	"github.com/mattn/go-iconv"
+	"github.com/mattn/go-xmpp"
 	"log"
 	"os"
 	"strings"
 )
 
-var server   = flag.String("server", "talk.google.com:443", "server")
+var server = flag.String("server", "talk.google.com:443", "server")
 var username = flag.String("username", "", "username")
 var password = flag.String("password", "", "password")
+var insecure = flag.Bool("insecure", false, "ignore certificates")
+var trace = flag.Bool("trace", false, "prints raw data to stderr")
 
 func fromUTF8(s string) string {
 	ic, err := iconv.Open("char", "UTF-8")
@@ -44,6 +46,12 @@ func main() {
 	flag.Parse()
 	if *username == "" || *password == "" {
 		flag.Usage()
+	}
+	if *insecure {
+		xmpp.DefaultConfig.TLS.InsecureSkipVerify = true
+	}
+	if *trace {
+		xmpp.DefaultConfig.Debug.R = os.Stderr
 	}
 
 	talk, err := xmpp.NewClient(*server, *username, *password)

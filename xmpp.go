@@ -230,31 +230,31 @@ func (c *Client) init(user, passwd string) error {
 	return nil
 }
 
-type Chat struct {
-	Remote string
-	Type   string
-	Text   string
-}
-
-// Recv wait next token of chat.
-func (c *Client) Recv() (chat Chat, err error) {
+// Recv waits until the next *Message or *Presence is received.
+func (c *Client) Recv() (event interface{}, err error) {
 	for {
 		_, val, err := next(c.dec)
 		if err != nil {
-			return Chat{}, err
+			return nil, err
 		}
-		if v, ok := val.(*clientMessage); ok {
-			return Chat{v.From, v.Type, v.Body}, nil
+		if v, ok := val.(*Message); ok {
+			return v, nil
 		}
+		if v, ok := val.(*Presence); ok {
+			return v, nil
+		}
+		fmt.Println(val)
 	}
 	panic("unreachable")
 }
 
-// Send sends message text.
-func (c *Client) Send(chat Chat) {
-	fmt.Fprintf(c.tls, "<message to='%s' type='chat' xml:lang='en'>"+
-		"<body>%s</body></message>",
-		xmlEscape(chat.Remote), xmlEscape(chat.Text))
+// Send sends an XML encoded event.
+func (c *Client) Send(v interface{}) error {
+	err := c.enc.Encode(v)
+	if err != nil {
+		return err
+	}
+	return c.enc.Flush() //TODO(swd): is this Flush necessary?
 }
 
 // RFC 3920  C.1  Streams name space
@@ -327,7 +327,7 @@ type bindBind struct {
 
 // RFC 3921  B.1  jabber:client
 
-type clientMessage struct {
+type Message struct {
 	XMLName xml.Name `xml:"jabber:client message"`
 	From    string   `xml:"from,attr"`
 	Id      string   `xml:"id,attr"`
@@ -346,7 +346,7 @@ type clientText struct {
 	Body string `xml:"chardata"`
 }
 
-type clientPresence struct {
+type Presence struct {
 	XMLName xml.Name `xml:"jabber:client presence"`
 	From    string   `xml:"from,attr"`
 	Id      string   `xml:"id,attr"`
@@ -431,9 +431,9 @@ func next(p *xml.Decoder) (xml.Name, interface{}, error) {
 	case nsBind + " bind":
 		nv = &bindBind{}
 	case nsClient + " message":
-		nv = &clientMessage{}
+		nv = &Message{}
 	case nsClient + " presence":
-		nv = &clientPresence{}
+		nv = &Presence{}
 	case nsClient + " iq":
 		nv = &clientIQ{}
 	case nsClient + " error":
