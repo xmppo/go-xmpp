@@ -248,13 +248,12 @@ func (c *Client) Recv() (event interface{}, err error) {
 
 // Send sends message text.
 func (c *Client) Send(chat Chat) {
-	fmt.Fprintf(c.tls, "<message to='%s' type='chat' xml:lang='en'>"+
+	fmt.Fprintf(c.tls, "<message to='%s' type='%s' xml:lang='en'>"+
 		"<body>%s</body></message>",
-		xmlEscape(chat.Remote), xmlEscape(chat.Text))
+		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text))
 }
 
 // RFC 3920  C.1  Streams name space
-
 type streamFeatures struct {
 	XMLName    xml.Name `xml:"http://etherx.jabber.org/streams features"`
 	StartTLS   tlsStartTLS
