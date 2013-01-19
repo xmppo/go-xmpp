@@ -308,7 +308,7 @@ type saslFailure struct {
 type bindBind struct {
 	XMLName  xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-bind bind"`
 	Resource string
-	Jid      string
+	Jid      string `xml:"jid"`
 }
 
 // RFC 3921  B.1  jabber:client
