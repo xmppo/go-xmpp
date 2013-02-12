@@ -54,8 +54,8 @@ func main() {
 	password.SetVisibility(false)
 	hbox.Add(password)
 
-	dialog.AddButton(gtk.STOCK_OK, int(gtk.RESPONSE_OK))
-	dialog.AddButton(gtk.STOCK_CANCEL, int(gtk.RESPONSE_CANCEL))
+	dialog.AddButton(gtk.STOCK_OK, gtk.RESPONSE_OK)
+	dialog.AddButton(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
 	dialog.SetDefaultResponse(int(gtk.RESPONSE_OK))
 	dialog.SetTransientFor(window)
 	dialog.ShowAll()
@@ -95,7 +95,9 @@ func main() {
 
 				var iter gtk.TextIter
 				buffer.GetStartIter(&iter)
-				buffer.Insert(&iter, chat.Remote+": "+chat.Text+"\n")
+				if msg, ok := chat.(xmpp.Chat); ok {
+					buffer.Insert(&iter, msg.Remote+": "+msg.Text+"\n")
+				}
 			}()
 		}
 	}()
