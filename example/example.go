@@ -57,7 +57,12 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			fmt.Println(chat.Remote, fromUTF8(chat.Text))
+			switch v := chat.(type) {
+			case xmpp.Chat:
+				fmt.Println(v.Remote, fromUTF8(v.Text))
+			case xmpp.Presence:
+				fmt.Println(v.From, fromUTF8(v.Show))
+			}
 		}
 	}()
 	for {
