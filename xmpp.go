@@ -15,6 +15,8 @@ package xmpp
 import (
 	"bufio"
 	"bytes"
+	"crypto/md5"
+	"crypto/rand"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/xml"
@@ -22,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/big"
 	"net"
 	"net/http"
 	"net/url"
@@ -40,15 +43,13 @@ const (
 var DefaultConfig tls.Config
 
 type Client struct {
-	tls *tls.Conn // connection to server
+	conn net.Conn // connection to server
 	jid string    // Jabber ID for our connection
+	domain string
 	p   *xml.Decoder
 }
 
-// NewClient creates a new connection to a host given as "hostname" or "hostname:port".
-// If host is not specified, the  DNS SRV should be used to find the host from the domainpart of the JID.
-// Default the port to 5222.
-func NewClient(host, user, passwd string) (*Client, error) {
+func connect(host, user, passwd string) (net.Conn, error) {
 	addr := host
 
 	if strings.TrimSpace(host) == "" {
@@ -91,6 +92,17 @@ func NewClient(host, user, passwd string) (*Client, error) {
 			return nil, errors.New(f[1])
 		}
 	}
+	return c, nil
+}
+
+// NewClient creates a new connection to a host given as "hostname" or "hostname:port".
+// If host is not specified, the  DNS SRV should be used to find the host from the domainpart of the JID.
+// Default the port to 5222.
+func NewClient(host, user, passwd string) (*Client, error) {
+	c, err := connect(host, user, passwd)
+	if err != nil {
+		return nil, err
+	}
 
 	tlsconn := tls.Client(c, &DefaultConfig)
 	if err = tlsconn.Handshake(); err != nil {
@@ -105,7 +117,22 @@ func NewClient(host, user, passwd string) (*Client, error) {
 	}
 
 	client := new(Client)
-	client.tls = tlsconn
+	client.conn = tlsconn
+	if err := client.init(user, passwd); err != nil {
+		client.Close()
+		return nil, err
+	}
+	return client, nil
+}
+
+func NewClientNoTLS(host, user, passwd string) (*Client, error) {
+	c, err := connect(host, user, passwd)
+	if err != nil {
+		return nil, err
+	}
+
+	client := new(Client)
+	client.conn = c
 	if err := client.init(user, passwd); err != nil {
 		client.Close()
 		return nil, err
@@ -114,13 +141,46 @@ func NewClient(host, user, passwd string) (*Client, error) {
 }
 
 func (c *Client) Close() error {
-	return c.tls.Close()
+	return c.conn.Close()
+}
+
+func saslDigestResponse(username, realm, passwd, nonce, cnonceStr,
+    authenticate, digestUri, nonceCountStr string) string {
+    h := func(text string) []byte {
+        h := md5.New()
+        h.Write([]byte(text))
+        return h.Sum(nil)
+    }
+    hex := func(bytes []byte) string {
+        return fmt.Sprintf("%x", bytes)
+    }
+    kd := func(secret, data string) []byte {
+        return h(secret + ":" + data)
+    }
+
+    a1 := string(h(username+":"+realm+":"+passwd)) + ":" +
+        nonce + ":" + cnonceStr
+    a2 := authenticate + ":" + digestUri
+    response := hex(kd(hex(h(a1)), nonce+":"+
+        nonceCountStr+":"+cnonceStr+":auth:"+
+        hex(h(a2))))
+    return response
+}
+
+func cnonce() string {
+	randSize := big.NewInt(0)
+	randSize.Lsh(big.NewInt(1), 64)
+	cn, err := rand.Int(rand.Reader, randSize)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%016x", cn)
 }
 
 func (c *Client) init(user, passwd string) error {
 	// For debugging: the following causes the plaintext of the connection to be duplicated to stdout.
-	//c.p = xml.NewDecoder(tee{c.tls, os.Stdout})
-	c.p = xml.NewDecoder(c.tls)
+	//c.p = xml.NewDecoder(tee{c.conn, os.Stdout})
+	c.p = xml.NewDecoder(c.conn)
 
 	a := strings.SplitN(user, "@", 2)
 	if len(a) != 2 {
@@ -130,7 +190,7 @@ func (c *Client) init(user, passwd string) error {
 	domain := a[1]
 
 	// Declare intent to be a jabber client.
-	fmt.Fprintf(c.tls, "<?xml version='1.0'?>\n"+
+	fmt.Fprintf(c.conn, "<?xml version='1.0'?>\n"+
 		"<stream:stream to='%s' xmlns='%s'\n"+
 		" xmlns:stream='%s' version='1.0'>\n",
 		xmlEscape(domain), nsClient, nsStream)
@@ -151,23 +211,67 @@ func (c *Client) init(user, passwd string) error {
 	if err = c.p.DecodeElement(&f, nil); err != nil {
 		return errors.New("unmarshal <features>: " + err.Error())
 	}
-	havePlain := false
+	mechanism := ""
 	for _, m := range f.Mechanisms.Mechanism {
 		if m == "PLAIN" {
-			havePlain = true
+			mechanism = m
+			// Plain authentication: send base64-encoded \x00 user \x00 password.
+			raw := "\x00" + user + "\x00" + passwd
+			enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
+			base64.StdEncoding.Encode(enc, []byte(raw))
+			fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='PLAIN'>%s</auth>\n",
+				nsSASL, enc)
+			break
+		}
+		if m == "DIGEST-MD5" {
+			mechanism = m
+			// Digest-MD5 authentication
+			fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='DIGEST-MD5'/>\n",
+				nsSASL)
+			var ch saslChallenge
+			if err = c.p.DecodeElement(&ch, nil); err != nil {
+				return errors.New("unmarshal <challenge>: " + err.Error())
+			}
+			b, err := base64.StdEncoding.DecodeString(string(ch))
+			if err != nil {
+				return err
+			}
+			tokens := map[string]string{}
+			for _, token := range strings.Split(string(b), ",") {
+				kv := strings.SplitN(strings.TrimSpace(token), "=", 2)
+				if len(kv) == 2 {
+					if kv[1][0] == '"' && kv[1][len(kv[1])-1] == '"' {
+						kv[1] = kv[1][1:len(kv[1])-1]
+					}
+					tokens[kv[0]] = kv[1]
+				}
+			}
+			realm, _ := tokens["realm"]
+			nonce, _ := tokens["nonce"]
+			qop, _ := tokens["qop"]
+			charset, _ := tokens["charset"]
+			cnonceStr := cnonce()
+			digestUri := "xmpp/" + domain
+			nonceCount := fmt.Sprintf("%08x", 1)
+			digest := saslDigestResponse(user, realm, passwd, nonce, cnonceStr, "AUTHENTICATE", digestUri, nonceCount)
+			message := "username="+user+", realm="+realm+", nonce="+nonce+", cnonce="+cnonceStr+", nc="+nonceCount+", qop="+qop+", digest-uri="+digestUri+", response="+digest+", charset="+charset;
+			fmt.Fprintf(c.conn, "<response xmlns='%s'>%s</response>\n", nsSASL, base64.StdEncoding.EncodeToString([]byte(message)))
+
+			var rspauth saslRspAuth
+			if err = c.p.DecodeElement(&rspauth, nil); err != nil {
+				return errors.New("unmarshal <challenge>: " + err.Error())
+			}
+			b, err = base64.StdEncoding.DecodeString(string(rspauth))
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(c.conn, "<response xmlns='%s'/>\n", nsSASL)
 			break
 		}
 	}
-	if !havePlain {
+	if mechanism == "" {
 		return errors.New(fmt.Sprintf("PLAIN authentication is not an option: %v", f.Mechanisms.Mechanism))
 	}
-
-	// Plain authentication: send base64-encoded \x00 user \x00 password.
-	raw := "\x00" + user + "\x00" + passwd
-	enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
-	base64.StdEncoding.Encode(enc, []byte(raw))
-	fmt.Fprintf(c.tls, "<auth xmlns='%s' mechanism='PLAIN'>%s</auth>\n",
-		nsSASL, enc)
 
 	// Next message should be either success or failure.
 	name, val, err := next(c.p)
@@ -183,7 +287,7 @@ func (c *Client) init(user, passwd string) error {
 
 	// Now that we're authenticated, we're supposed to start the stream over again.
 	// Declare intent to be a jabber client.
-	fmt.Fprintf(c.tls, "<stream:stream to='%s' xmlns='%s'\n"+
+	fmt.Fprintf(c.conn, "<stream:stream to='%s' xmlns='%s'\n"+
 		" xmlns:stream='%s' version='1.0'>\n",
 		xmlEscape(domain), nsClient, nsStream)
 
@@ -201,7 +305,7 @@ func (c *Client) init(user, passwd string) error {
 	}
 
 	// Send IQ message asking to bind to the local user name.
-	fmt.Fprintf(c.tls, "<iq type='set' id='x'><bind xmlns='%s'/></iq>\n", nsBind)
+	fmt.Fprintf(c.conn, "<iq type='set' id='x'><bind xmlns='%s'/></iq>\n", nsBind)
 	var iq clientIQ
 	if err = c.p.DecodeElement(&iq, nil); err != nil {
 		return errors.New("unmarshal <iq>: " + err.Error())
@@ -212,7 +316,7 @@ func (c *Client) init(user, passwd string) error {
 	c.jid = iq.Bind.Jid // our local id
 
 	// We're connected and can now receive and send messages.
-	fmt.Fprintf(c.tls, "<presence xml:lang='en'><show>xa</show><status>I for one welcome our new codebot overlords.</status></presence>")
+	fmt.Fprintf(c.conn, "<presence xml:lang='en'><show>xa</show><status>I for one welcome our new codebot overlords.</status></presence>")
 	return nil
 }
 
@@ -248,7 +352,7 @@ func (c *Client) Recv() (event interface{}, err error) {
 
 // Send sends message text.
 func (c *Client) Send(chat Chat) {
-	fmt.Fprintf(c.tls, "<message to='%s' type='%s' xml:lang='en'>"+
+	fmt.Fprintf(c.conn, "<message to='%s' type='%s' xml:lang='en'>"+
 		"<body>%s</body></message>",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text))
 }
@@ -296,6 +400,8 @@ type saslAuth struct {
 }
 
 type saslChallenge string
+
+type saslRspAuth string
 
 type saslResponse string
 
