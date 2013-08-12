@@ -43,10 +43,10 @@ const (
 var DefaultConfig tls.Config
 
 type Client struct {
-	conn net.Conn // connection to server
-	jid string    // Jabber ID for our connection
+	conn   net.Conn // connection to server
+	jid    string   // Jabber ID for our connection
 	domain string
-	p   *xml.Decoder
+	p      *xml.Decoder
 }
 
 func connect(host, user, passwd string) (net.Conn, error) {
@@ -95,49 +95,81 @@ func connect(host, user, passwd string) (net.Conn, error) {
 	return c, nil
 }
 
+// Options are used to specify additional options for new clients, such as a Resource.
+type Options struct {
+	// Host specifies what host to connect to, as either "hostname" or "hostname:port"
+	// If host is not specified, the  DNS SRV should be used to find the host from the domainpart of the JID.
+	// Default the port to 5222.
+	Host string
+
+	// User specifies what user to authenticate to the remote server.
+	User string
+
+	// Password supplies the password to use for authentication with the remote server.
+	Password string
+
+	// Resource specifies an XMPP client resource, like "bot", instead of accepting one
+	// from the server.  Use "" to let the server generate one for your client.
+	Resource string
+
+	// NoTLS disables TLS and specifies that a plain old unencrypted TCP connection should
+	// be used.
+	NoTLS bool
+}
+
+// NewClient establishes a new Client connection based on a set of Options.
+func (o Options) NewClient() (*Client, error) {
+	host := o.Host
+	c, err := connect(host, o.User, o.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	client := new(Client)
+	if o.NoTLS {
+		client.conn = c
+	} else {
+		tlsconn := tls.Client(c, &DefaultConfig)
+		if err = tlsconn.Handshake(); err != nil {
+			return nil, err
+		}
+		if strings.LastIndex(o.Host, ":") > 0 {
+			host = host[:strings.LastIndex(o.Host, ":")]
+		}
+		if err = tlsconn.VerifyHostname(host); err != nil {
+			return nil, err
+		}
+		client.conn = tlsconn
+	}
+
+	if err := client.init(&o); err != nil {
+		client.Close()
+		return nil, err
+	}
+
+	return client, nil
+}
+
 // NewClient creates a new connection to a host given as "hostname" or "hostname:port".
 // If host is not specified, the  DNS SRV should be used to find the host from the domainpart of the JID.
 // Default the port to 5222.
 func NewClient(host, user, passwd string) (*Client, error) {
-	c, err := connect(host, user, passwd)
-	if err != nil {
-		return nil, err
+	opts := Options{
+		Host:     host,
+		User:     user,
+		Password: passwd,
 	}
-
-	tlsconn := tls.Client(c, &DefaultConfig)
-	if err = tlsconn.Handshake(); err != nil {
-		return nil, err
-	}
-
-	if strings.LastIndex(host, ":") > 0 {
-		host = host[:strings.LastIndex(host, ":")]
-	}
-	if err = tlsconn.VerifyHostname(host); err != nil {
-		return nil, err
-	}
-
-	client := new(Client)
-	client.conn = tlsconn
-	if err := client.init(user, passwd); err != nil {
-		client.Close()
-		return nil, err
-	}
-	return client, nil
+	return opts.NewClient()
 }
 
 func NewClientNoTLS(host, user, passwd string) (*Client, error) {
-	c, err := connect(host, user, passwd)
-	if err != nil {
-		return nil, err
+	opts := Options{
+		Host:     host,
+		User:     user,
+		Password: passwd,
+		NoTLS:    true,
 	}
-
-	client := new(Client)
-	client.conn = c
-	if err := client.init(user, passwd); err != nil {
-		client.Close()
-		return nil, err
-	}
-	return client, nil
+	return opts.NewClient()
 }
 
 func (c *Client) Close() error {
@@ -145,26 +177,26 @@ func (c *Client) Close() error {
 }
 
 func saslDigestResponse(username, realm, passwd, nonce, cnonceStr,
-    authenticate, digestUri, nonceCountStr string) string {
-    h := func(text string) []byte {
-        h := md5.New()
-        h.Write([]byte(text))
-        return h.Sum(nil)
-    }
-    hex := func(bytes []byte) string {
-        return fmt.Sprintf("%x", bytes)
-    }
-    kd := func(secret, data string) []byte {
-        return h(secret + ":" + data)
-    }
+	authenticate, digestUri, nonceCountStr string) string {
+	h := func(text string) []byte {
+		h := md5.New()
+		h.Write([]byte(text))
+		return h.Sum(nil)
+	}
+	hex := func(bytes []byte) string {
+		return fmt.Sprintf("%x", bytes)
+	}
+	kd := func(secret, data string) []byte {
+		return h(secret + ":" + data)
+	}
 
-    a1 := string(h(username+":"+realm+":"+passwd)) + ":" +
-        nonce + ":" + cnonceStr
-    a2 := authenticate + ":" + digestUri
-    response := hex(kd(hex(h(a1)), nonce+":"+
-        nonceCountStr+":"+cnonceStr+":auth:"+
-        hex(h(a2))))
-    return response
+	a1 := string(h(username+":"+realm+":"+passwd)) + ":" +
+		nonce + ":" + cnonceStr
+	a2 := authenticate + ":" + digestUri
+	response := hex(kd(hex(h(a1)), nonce+":"+
+		nonceCountStr+":"+cnonceStr+":auth:"+
+		hex(h(a2))))
+	return response
 }
 
 func cnonce() string {
@@ -177,16 +209,16 @@ func cnonce() string {
 	return fmt.Sprintf("%016x", cn)
 }
 
-func (c *Client) init(user, passwd string) error {
+func (c *Client) init(o *Options) error {
 	// For debugging: the following causes the plaintext of the connection to be duplicated to stdout.
 	//c.p = xml.NewDecoder(tee{c.conn, os.Stdout})
 	c.p = xml.NewDecoder(c.conn)
 
-	a := strings.SplitN(user, "@", 2)
+	a := strings.SplitN(o.User, "@", 2)
 	if len(a) != 2 {
-		return errors.New("xmpp: invalid username (want user@domain): " + user)
+		return errors.New("xmpp: invalid username (want user@domain): " + o.User)
 	}
-	user = a[0]
+	user := a[0]
 	domain := a[1]
 
 	// Declare intent to be a jabber client.
@@ -216,7 +248,7 @@ func (c *Client) init(user, passwd string) error {
 		if m == "PLAIN" {
 			mechanism = m
 			// Plain authentication: send base64-encoded \x00 user \x00 password.
-			raw := "\x00" + user + "\x00" + passwd
+			raw := "\x00" + user + "\x00" + o.Password
 			enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
 			base64.StdEncoding.Encode(enc, []byte(raw))
 			fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='PLAIN'>%s</auth>\n",
@@ -241,7 +273,7 @@ func (c *Client) init(user, passwd string) error {
 				kv := strings.SplitN(strings.TrimSpace(token), "=", 2)
 				if len(kv) == 2 {
 					if kv[1][0] == '"' && kv[1][len(kv[1])-1] == '"' {
-						kv[1] = kv[1][1:len(kv[1])-1]
+						kv[1] = kv[1][1 : len(kv[1])-1]
 					}
 					tokens[kv[0]] = kv[1]
 				}
@@ -253,8 +285,8 @@ func (c *Client) init(user, passwd string) error {
 			cnonceStr := cnonce()
 			digestUri := "xmpp/" + domain
 			nonceCount := fmt.Sprintf("%08x", 1)
-			digest := saslDigestResponse(user, realm, passwd, nonce, cnonceStr, "AUTHENTICATE", digestUri, nonceCount)
-			message := "username="+user+", realm="+realm+", nonce="+nonce+", cnonce="+cnonceStr+", nc="+nonceCount+", qop="+qop+", digest-uri="+digestUri+", response="+digest+", charset="+charset;
+			digest := saslDigestResponse(user, realm, o.Password, nonce, cnonceStr, "AUTHENTICATE", digestUri, nonceCount)
+			message := "username=" + user + ", realm=" + realm + ", nonce=" + nonce + ", cnonce=" + cnonceStr + ", nc=" + nonceCount + ", qop=" + qop + ", digest-uri=" + digestUri + ", response=" + digest + ", charset=" + charset
 			fmt.Fprintf(c.conn, "<response xmlns='%s'>%s</response>\n", nsSASL, base64.StdEncoding.EncodeToString([]byte(message)))
 
 			var rspauth saslRspAuth
@@ -305,7 +337,11 @@ func (c *Client) init(user, passwd string) error {
 	}
 
 	// Send IQ message asking to bind to the local user name.
-	fmt.Fprintf(c.conn, "<iq type='set' id='x'><bind xmlns='%s'/></iq>\n", nsBind)
+	if o.Resource == "" {
+		fmt.Fprintf(c.conn, "<iq type='set' id='x'><bind xmlns='%s'></bind></iq>\n", nsBind)
+	} else {
+		fmt.Fprintf(c.conn, "<iq type='set' id='x'><bind xmlns='%s'><resource>%s</resource></bind></iq>\n", nsBind, o.Resource)
+	}
 	var iq clientIQ
 	if err = c.p.DecodeElement(&iq, nil); err != nil {
 		return errors.New("unmarshal <iq>: " + err.Error())
