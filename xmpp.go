@@ -115,6 +115,9 @@ type Options struct {
 	// NoTLS disables TLS and specifies that a plain old unencrypted TCP connection should
 	// be used.
 	NoTLS bool
+
+	// Debug output
+	Debug bool
 }
 
 // NewClient establishes a new Client connection based on a set of Options.
@@ -153,21 +156,23 @@ func (o Options) NewClient() (*Client, error) {
 // NewClient creates a new connection to a host given as "hostname" or "hostname:port".
 // If host is not specified, the  DNS SRV should be used to find the host from the domainpart of the JID.
 // Default the port to 5222.
-func NewClient(host, user, passwd string) (*Client, error) {
+func NewClient(host, user, passwd string, debug bool) (*Client, error) {
 	opts := Options{
 		Host:     host,
 		User:     user,
 		Password: passwd,
+		Debug:    debug,
 	}
 	return opts.NewClient()
 }
 
-func NewClientNoTLS(host, user, passwd string) (*Client, error) {
+func NewClientNoTLS(host, user, passwd string, debug bool) (*Client, error) {
 	opts := Options{
 		Host:     host,
 		User:     user,
 		Password: passwd,
 		NoTLS:    true,
+		Debug:    debug,
 	}
 	return opts.NewClient()
 }
@@ -210,9 +215,11 @@ func cnonce() string {
 }
 
 func (c *Client) init(o *Options) error {
-	// For debugging: the following causes the plaintext of the connection to be duplicated to stdout.
-	//c.p = xml.NewDecoder(tee{c.conn, os.Stdout})
 	c.p = xml.NewDecoder(c.conn)
+	// For debugging: the following causes the plaintext of the connection to be duplicated to stdout.
+	if o.Debug {
+		c.p = xml.NewDecoder(tee{c.conn, os.Stdout})
+	}
 
 	a := strings.SplitN(o.User, "@", 2)
 	if len(a) != 2 {
@@ -617,6 +624,7 @@ func (t tee) Read(p []byte) (n int, err error) {
 	n, err = t.r.Read(p)
 	if n > 0 {
 		t.w.Write(p[0:n])
+		t.w.Write([]byte("\n"))
 	}
 	return
 }
