@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/mattn/go-xmpp"
 	"github.com/mattn/go-gtk/gtk"
+	"github.com/mattn/go-xmpp"
 	"log"
 	"os"
 	"strings"
@@ -67,7 +67,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	talk, err := xmpp.NewClient("talk.google.com:443", username_, password_)
+	talk, err := xmpp.NewClient("talk.google.com:443", username_, password_, false)
 	if err != nil {
 		log.Fatal(err)
 	}

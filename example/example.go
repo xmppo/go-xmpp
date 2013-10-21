@@ -2,18 +2,19 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"flag"
+	"fmt"
 	"github.com/mattn/go-xmpp"
 	"log"
 	"os"
 	"strings"
 )
 
-var server   = flag.String("server", "talk.google.com:443", "server")
+var server = flag.String("server", "talk.google.com:443", "server")
 var username = flag.String("username", "", "username")
 var password = flag.String("password", "", "password")
 var notls = flag.Bool("notls", false, "No TLS")
+var debug = flag.Bool("debug", false, "debug output")
 
 func main() {
 	flag.Usage = func() {
@@ -29,9 +30,9 @@ func main() {
 	var talk *xmpp.Client
 	var err error
 	if *notls {
-		talk, err = xmpp.NewClientNoTLS(*server, *username, *password)
+		talk, err = xmpp.NewClientNoTLS(*server, *username, *password, *debug)
 	} else {
-		talk, err = xmpp.NewClient(*server, *username, *password)
+		talk, err = xmpp.NewClient(*server, *username, *password, *debug)
 	}
 	if err != nil {
 		log.Fatal(err)
