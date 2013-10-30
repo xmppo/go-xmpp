@@ -490,10 +490,8 @@ type clientMessage struct {
 	Body    string `xml:"body"`
 	Thread  string `xml:"thread"`
 
+	// Any hasn't matched element
 	Other []string `xml:",any"`
-
-	// // Any hasn't matched element
-	// Other string `xml:",any"`
 }
 
 type clientText struct {
