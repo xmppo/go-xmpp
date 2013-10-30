@@ -367,6 +367,7 @@ type Chat struct {
 	Remote string
 	Type   string
 	Text   string
+	Other  []string
 }
 
 type Presence struct {
@@ -385,7 +386,7 @@ func (c *Client) Recv() (event interface{}, err error) {
 		}
 		switch v := val.(type) {
 		case *clientMessage:
-			return Chat{v.From, v.Type, v.Body}, nil
+			return Chat{v.From, v.Type, v.Body, v.Other}, nil
 		case *clientPresence:
 			return Presence{v.From, v.To, v.Type, v.Show}, nil
 		}
@@ -488,6 +489,9 @@ type clientMessage struct {
 	Subject string `xml:"subject"`
 	Body    string `xml:"body"`
 	Thread  string `xml:"thread"`
+
+	// Any hasn't matched element
+	Other []string `xml:",any"`
 }
 
 type clientText struct {
