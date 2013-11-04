@@ -314,6 +314,9 @@ func (c *Client) init(o *Options) error {
 
 	// Next message should be either success or failure.
 	name, val, err := next(c.p)
+	if err != nil {
+		return err
+	}
 	switch v := val.(type) {
 	case *saslSuccess:
 	case *saslFailure:
@@ -535,8 +538,8 @@ type clientError struct {
 func nextStart(p *xml.Decoder) (xml.StartElement, error) {
 	for {
 		t, err := p.Token()
-		if err != nil {
-			log.Fatal("token", err)
+		if err != nil && err != io.EOF {
+			return nil, err
 		}
 		switch t := t.(type) {
 		case xml.StartElement:
