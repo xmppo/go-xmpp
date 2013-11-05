@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"math/big"
 	"net"
 	"net/http"
@@ -539,7 +538,7 @@ func nextStart(p *xml.Decoder) (xml.StartElement, error) {
 	for {
 		t, err := p.Token()
 		if err != nil && err != io.EOF {
-			return nil, err
+			return xml.StartElement{}, err
 		}
 		switch t := t.(type) {
 		case xml.StartElement:
