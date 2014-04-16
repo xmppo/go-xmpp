@@ -292,7 +292,8 @@ func (c *Client) init(o *Options) error {
 			digestUri := "xmpp/" + domain
 			nonceCount := fmt.Sprintf("%08x", 1)
 			digest := saslDigestResponse(user, realm, o.Password, nonce, cnonceStr, "AUTHENTICATE", digestUri, nonceCount)
-			message := "username=" + user + ", realm=" + realm + ", nonce=" + nonce + ", cnonce=" + cnonceStr + ", nc=" + nonceCount + ", qop=" + qop + ", digest-uri=" + digestUri + ", response=" + digest + ", charset=" + charset
+			message := "username=\"" + user + "\", realm=\"" + realm + "\", nonce=\"" + nonce + "\", cnonce=\"" + cnonceStr + "\", nc=" + nonceCount + ", qop=" + qop + ", digest-uri=\"" + digestUri + "\", response=" + digest + ", charset=" + charset
+
 			fmt.Fprintf(c.conn, "<response xmlns='%s'>%s</response>\n", nsSASL, base64.StdEncoding.EncodeToString([]byte(message)))
 
 			var rspauth saslRspAuth
