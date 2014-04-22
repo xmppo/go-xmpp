@@ -19,6 +19,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -32,14 +33,25 @@ import (
 )
 
 const (
-	nsStream = "http://etherx.jabber.org/streams"
-	nsTLS    = "urn:ietf:params:xml:ns:xmpp-tls"
-	nsSASL   = "urn:ietf:params:xml:ns:xmpp-sasl"
-	nsBind   = "urn:ietf:params:xml:ns:xmpp-bind"
-	nsClient = "jabber:client"
+	nsStream  = "http://etherx.jabber.org/streams"
+	nsTLS     = "urn:ietf:params:xml:ns:xmpp-tls"
+	nsSASL    = "urn:ietf:params:xml:ns:xmpp-sasl"
+	nsBind    = "urn:ietf:params:xml:ns:xmpp-bind"
+	nsClient  = "jabber:client"
+	NsSession = "urn:ietf:params:xml:ns:xmpp-session"
 )
 
 var DefaultConfig tls.Config
+
+type Cookie uint64
+
+func getCookie() Cookie {
+	var buf [8]byte
+	if _, err := rand.Reader.Read(buf[:]); err != nil {
+		panic("Failed to read random bytes: " + err.Error())
+	}
+	return Cookie(binary.LittleEndian.Uint64(buf[:]))
+}
 
 type Client struct {
 	conn   net.Conn // connection to server
@@ -117,6 +129,9 @@ type Options struct {
 
 	// Debug output
 	Debug bool
+
+	//Use server sessions
+	Session bool
 }
 
 // NewClient establishes a new Client connection based on a set of Options.
@@ -161,6 +176,7 @@ func NewClient(host, user, passwd string, debug bool) (*Client, error) {
 		User:     user,
 		Password: passwd,
 		Debug:    debug,
+		Session:  false,
 	}
 	return opts.NewClient()
 }
@@ -172,6 +188,7 @@ func NewClientNoTLS(host, user, passwd string, debug bool) (*Client, error) {
 		Password: passwd,
 		NoTLS:    true,
 		Debug:    debug,
+		Session:  false,
 	}
 	return opts.NewClient()
 }
@@ -343,14 +360,17 @@ func (c *Client) init(o *Options) error {
 	}
 	if err = c.p.DecodeElement(&f, nil); err != nil {
 		// TODO: often stream stop.
-		//return os.NewError("unmarshal <features>: " + err.String())
+		//return errors.New("unmarshal <features>: " + err.Error())
 	}
+
+	//Generate uniq cookie
+	cookie := getCookie()
 
 	// Send IQ message asking to bind to the local user name.
 	if o.Resource == "" {
-		fmt.Fprintf(c.conn, "<iq type='set' id='x'><bind xmlns='%s'></bind></iq>\n", nsBind)
+		fmt.Fprintf(c.conn, "<iq type='set' id='%x'><bind xmlns='%s'></bind></iq>\n", cookie, nsBind)
 	} else {
-		fmt.Fprintf(c.conn, "<iq type='set' id='x'><bind xmlns='%s'><resource>%s</resource></bind></iq>\n", nsBind, o.Resource)
+		fmt.Fprintf(c.conn, "<iq type='set' id='%x'><bind xmlns='%s'><resource>%s</resource></bind></iq>\n", cookie, nsBind, o.Resource)
 	}
 	var iq clientIQ
 	if err = c.p.DecodeElement(&iq, nil); err != nil {
@@ -360,6 +380,11 @@ func (c *Client) init(o *Options) error {
 		return errors.New("<iq> result missing <bind>")
 	}
 	c.jid = iq.Bind.Jid // our local id
+
+	if o.Session {
+		//if server support session, open it
+		fmt.Fprintf(c.conn, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>", xmlEscape(domain), cookie, NsSession)
+	}
 
 	// We're connected and can now receive and send messages.
 	fmt.Fprintf(c.conn, "<presence xml:lang='en'><show>xa</show><status>I for one welcome our new codebot overlords.</status></presence>")

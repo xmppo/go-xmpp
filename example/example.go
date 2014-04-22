@@ -15,6 +15,7 @@ var username = flag.String("username", "", "username")
 var password = flag.String("password", "", "password")
 var notls = flag.Bool("notls", false, "No TLS")
 var debug = flag.Bool("debug", false, "debug output")
+var session = flag.Bool("session", false, "use server session")
 
 func main() {
 	flag.Usage = func() {
@@ -29,11 +30,15 @@ func main() {
 
 	var talk *xmpp.Client
 	var err error
-	if *notls {
-		talk, err = xmpp.NewClientNoTLS(*server, *username, *password, *debug)
-	} else {
-		talk, err = xmpp.NewClient(*server, *username, *password, *debug)
-	}
+	options := xmpp.Options{Host: *server,
+		User:     *username,
+		Password: *password,
+		NoTLS:    *notls,
+		Debug:    *debug,
+		Session:  *session}
+
+	talk, err = options.NewClient()
+
 	if err != nil {
 		log.Fatal(err)
 	}
