@@ -135,7 +135,7 @@ type Options struct {
 }
 
 // NewClient establishes a new Client connection based on a set of Options.
-func (o Options) NewClient() (*Client, error) {
+func (o Options) NewClient(tlsCfg ...tls.Config) (*Client, error) {
 	host := o.Host
 	c, err := connect(host, o.User, o.Password)
 	if err != nil {
@@ -146,7 +146,12 @@ func (o Options) NewClient() (*Client, error) {
 	if o.NoTLS {
 		client.conn = c
 	} else {
-		tlsconn := tls.Client(c, &DefaultConfig)
+		var tlsconn *tls.Conn
+		if len(tlsCfg) > 0 {
+			tlsconn = tls.Client(c, &tlsCfg[0])
+		} else {
+			tlsconn = tls.Client(c, &DefaultConfig)
+		}
 		if err = tlsconn.Handshake(); err != nil {
 			return nil, err
 		}
