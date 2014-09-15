@@ -268,6 +268,19 @@ func (c *Client) init(o *Options) error {
 	}
 	mechanism := ""
 	for _, m := range f.Mechanisms.Mechanism {
+		if m == "ANONYMOUS" {
+			mechanism = m
+			fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL)
+			break
+		}
+
+		a := strings.SplitN(o.User, "@", 2)
+		if len(a) != 2 {
+			return errors.New("xmpp: invalid username (want user@domain): " + o.User)
+		}
+		user := a[0]
+		domain := a[1]
+
 		if m == "PLAIN" {
 			mechanism = m
 			// Plain authentication: send base64-encoded \x00 user \x00 password.
