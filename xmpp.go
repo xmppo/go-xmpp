@@ -249,7 +249,6 @@ func (c *Client) init(o *Options) error {
 	if len(a) != 2 {
 		return errors.New("xmpp: invalid username (want user@domain): " + o.User)
 	}
-	user := a[0]
 	domain := a[1]
 
 	// Declare intent to be a jabber client.
