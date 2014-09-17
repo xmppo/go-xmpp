@@ -123,6 +123,9 @@ type Options struct {
 	// from the server.  Use "" to let the server generate one for your client.
 	Resource string
 
+	// TLS Config
+	TLSConfig *tls.Config
+
 	// NoTLS disables TLS and specifies that a plain old unencrypted TCP connection should
 	// be used.
 	NoTLS bool
@@ -146,7 +149,12 @@ func (o Options) NewClient() (*Client, error) {
 	if o.NoTLS {
 		client.conn = c
 	} else {
-		tlsconn := tls.Client(c, &DefaultConfig)
+		var tlsconn *tls.Conn
+		if o.TLSConfig != nil {
+			tlsconn = tls.Client(c, o.TLSConfig)
+		} else {
+			tlsconn = tls.Client(c, &DefaultConfig)
+		}
 		if err = tlsconn.Handshake(); err != nil {
 			return nil, err
 		}
