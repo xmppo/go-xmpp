@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"github.com/mattn/go-xmpp"
@@ -17,6 +18,10 @@ var notls = flag.Bool("notls", false, "No TLS")
 var debug = flag.Bool("debug", false, "debug output")
 var session = flag.Bool("session", false, "use server session")
 
+func serverName(host string) string {
+	return strings.Split(host, ":")[0]
+}
+
 func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "usage: example [options]\n")
@@ -26,6 +31,13 @@ func main() {
 	flag.Parse()
 	if *username == "" || *password == "" {
 		flag.Usage()
+	}
+
+	if !*notls {
+		xmpp.DefaultConfig = tls.Config {
+			ServerName: serverName(*server),
+			InsecureSkipVerify: false,
+		}
 	}
 
 	var talk *xmpp.Client
