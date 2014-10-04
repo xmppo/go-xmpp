@@ -14,6 +14,7 @@ import (
 var server = flag.String("server", "talk.google.com:443", "server")
 var username = flag.String("username", "", "username")
 var password = flag.String("password", "", "password")
+var status = flag.String("status", "", "status")
 var notls = flag.Bool("notls", false, "No TLS")
 var debug = flag.Bool("debug", false, "debug output")
 var session = flag.Bool("session", false, "use server session")
@@ -47,7 +48,9 @@ func main() {
 		Password: *password,
 		NoTLS:    *notls,
 		Debug:    *debug,
-		Session:  *session}
+		Session:  *session,
+		Status:   *status,
+	}
 
 	talk, err = options.NewClient()
 
