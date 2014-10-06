@@ -14,6 +14,8 @@ import (
 var server = flag.String("server", "talk.google.com:443", "server")
 var username = flag.String("username", "", "username")
 var password = flag.String("password", "", "password")
+var status = flag.String("status", "xa", "status")
+var statusMessage = flag.String("status-msg", "I for one welcome our new codebot overlords.", "status message")
 var notls = flag.Bool("notls", false, "No TLS")
 var debug = flag.Bool("debug", false, "debug output")
 var session = flag.Bool("session", false, "use server session")
@@ -34,8 +36,8 @@ func main() {
 	}
 
 	if !*notls {
-		xmpp.DefaultConfig = tls.Config {
-			ServerName: serverName(*server),
+		xmpp.DefaultConfig = tls.Config{
+			ServerName:         serverName(*server),
 			InsecureSkipVerify: false,
 		}
 	}
@@ -43,11 +45,14 @@ func main() {
 	var talk *xmpp.Client
 	var err error
 	options := xmpp.Options{Host: *server,
-		User:     *username,
-		Password: *password,
-		NoTLS:    *notls,
-		Debug:    *debug,
-		Session:  *session}
+		User:          *username,
+		Password:      *password,
+		NoTLS:         *notls,
+		Debug:         *debug,
+		Session:       *session,
+		Status:        *status,
+		StatusMessage: *statusMessage,
+	}
 
 	talk, err = options.NewClient()
 

@@ -133,8 +133,14 @@ type Options struct {
 	// Debug output
 	Debug bool
 
-	//Use server sessions
+	// Use server sessions
 	Session bool
+
+	// Presence Status
+	Status string
+
+	// Status message
+	StatusMessage string
 }
 
 // NewClient establishes a new Client connection based on a set of Options.
@@ -407,7 +413,8 @@ func (c *Client) init(o *Options) error {
 	}
 
 	// We're connected and can now receive and send messages.
-	fmt.Fprintf(c.conn, "<presence xml:lang='en'><show>xa</show><status>I for one welcome our new codebot overlords.</status></presence>")
+	fmt.Fprintf(c.conn, "<presence xml:lang='en'><show>%s</show><status>%s</status></presence>", o.Status, o.StatusMessage)
+
 	return nil
 }
 
