@@ -130,6 +130,13 @@ type Options struct {
 	// be used.
 	NoTLS bool
 
+	// StartTLS prevents TLS session be opened at negotiation start so TLS
+	// will start only after server says about 'starttls'.
+	StartTLS bool
+
+	// NoVerifyTLSHost disable certificate check on hostname match.
+	NoVerifyTLSHost bool
+
 	// Debug output
 	Debug bool
 
@@ -152,25 +159,16 @@ func (o Options) NewClient() (*Client, error) {
 	}
 
 	client := new(Client)
-	if o.NoTLS {
-		client.conn = c
-	} else {
-		var tlsconn *tls.Conn
-		if o.TLSConfig != nil {
-			tlsconn = tls.Client(c, o.TLSConfig)
-		} else {
-			tlsconn = tls.Client(c, &DefaultConfig)
+	client.conn = c
+	if !o.NoTLS {
+		if !o.StartTLS {
+			tlsconn, err := o.initTLSConn(c)
+			if err != nil {
+				return nil, err
+			}
+
+			client.conn = tlsconn
 		}
-		if err = tlsconn.Handshake(); err != nil {
-			return nil, err
-		}
-		if strings.LastIndex(o.Host, ":") > 0 {
-			host = host[:strings.LastIndex(o.Host, ":")]
-		}
-		if err = tlsconn.VerifyHostname(host); err != nil {
-			return nil, err
-		}
-		client.conn = tlsconn
 	}
 
 	if err := client.init(&o); err != nil {
@@ -234,6 +232,28 @@ func saslDigestResponse(username, realm, passwd, nonce, cnonceStr,
 	return response
 }
 
+func (o Options) initTLSConn(c net.Conn) (*tls.Conn, error) {
+	var tlsconn *tls.Conn
+	host := o.Host
+	if o.TLSConfig != nil {
+		tlsconn = tls.Client(c, o.TLSConfig)
+	} else {
+		tlsconn = tls.Client(c, &DefaultConfig)
+	}
+	if err := tlsconn.Handshake(); err != nil {
+		return nil, err
+	}
+	if strings.LastIndex(o.Host, ":") > 0 {
+		host = host[:strings.LastIndex(o.Host, ":")]
+	}
+	if !o.NoVerifyTLSHost {
+		if err := tlsconn.VerifyHostname(host); err != nil {
+			return nil, err
+		}
+	}
+	return tlsconn, nil
+}
+
 func cnonce() string {
 	randSize := big.NewInt(0)
 	randSize.Lsh(big.NewInt(1), 64)
@@ -279,6 +299,24 @@ func (c *Client) init(o *Options) error {
 	if err = c.p.DecodeElement(&f, nil); err != nil {
 		return errors.New("unmarshal <features>: " + err.Error())
 	}
+
+	if o.StartTLS {
+		fmt.Fprintf(c.conn, "<starttls xmlns='%s'/>", nsTLS)
+		name, val, _ := next(c.p)
+		switch val.(type) {
+		case *tlsProceed:
+			tlsconn, err := o.initTLSConn(c.conn)
+			if err != nil {
+				return err
+			}
+			c.conn = tlsconn
+			o.StartTLS = false
+			return c.init(o)
+		default:
+			return errors.New("expected <proceed>, got <" + name.Local + "> in " + name.Space)
+		}
+	}
+
 	mechanism := ""
 	for _, m := range f.Mechanisms.Mechanism {
 		if m == "ANONYMOUS" {
