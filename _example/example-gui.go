@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/mattn/go-xmpp"
+	"crypto/tls"
 	"github.com/mattn/go-gtk/gtk"
+	"github.com/mattn/go-xmpp"
 	"log"
 	"os"
 	"strings"
@@ -56,7 +57,7 @@ func main() {
 
 	dialog.AddButton(gtk.STOCK_OK, gtk.RESPONSE_OK)
 	dialog.AddButton(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
-	dialog.SetDefaultResponse(int(gtk.RESPONSE_OK))
+	dialog.SetDefaultResponse(gtk.RESPONSE_OK)
 	dialog.SetTransientFor(window)
 	dialog.ShowAll()
 	res := dialog.Run()
@@ -67,7 +68,12 @@ func main() {
 		os.Exit(0)
 	}
 
-	talk, err := xmpp.NewClient("talk.google.com:443", username_, password_)
+	xmpp.DefaultConfig = tls.Config{
+		ServerName:         "talk.google.com",
+		InsecureSkipVerify: false,
+	}
+
+	talk, err := xmpp.NewClient("talk.google.com:443", username_, password_, false)
 	if err != nil {
 		log.Fatal(err)
 	}

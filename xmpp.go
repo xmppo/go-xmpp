@@ -19,11 +19,11 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"math/big"
 	"net"
 	"net/http"
@@ -33,14 +33,25 @@ import (
 )
 
 const (
-	nsStream = "http://etherx.jabber.org/streams"
-	nsTLS    = "urn:ietf:params:xml:ns:xmpp-tls"
-	nsSASL   = "urn:ietf:params:xml:ns:xmpp-sasl"
-	nsBind   = "urn:ietf:params:xml:ns:xmpp-bind"
-	nsClient = "jabber:client"
+	nsStream  = "http://etherx.jabber.org/streams"
+	nsTLS     = "urn:ietf:params:xml:ns:xmpp-tls"
+	nsSASL    = "urn:ietf:params:xml:ns:xmpp-sasl"
+	nsBind    = "urn:ietf:params:xml:ns:xmpp-bind"
+	nsClient  = "jabber:client"
+	NsSession = "urn:ietf:params:xml:ns:xmpp-session"
 )
 
 var DefaultConfig tls.Config
+
+type Cookie uint64
+
+func getCookie() Cookie {
+	var buf [8]byte
+	if _, err := rand.Reader.Read(buf[:]); err != nil {
+		panic("Failed to read random bytes: " + err.Error())
+	}
+	return Cookie(binary.LittleEndian.Uint64(buf[:]))
+}
 
 type Client struct {
 	conn   net.Conn // connection to server
@@ -112,9 +123,24 @@ type Options struct {
 	// from the server.  Use "" to let the server generate one for your client.
 	Resource string
 
+	// TLS Config
+	TLSConfig *tls.Config
+
 	// NoTLS disables TLS and specifies that a plain old unencrypted TCP connection should
 	// be used.
 	NoTLS bool
+
+	// Debug output
+	Debug bool
+
+	// Use server sessions
+	Session bool
+
+	// Presence Status
+	Status string
+
+	// Status message
+	StatusMessage string
 }
 
 // NewClient establishes a new Client connection based on a set of Options.
@@ -129,7 +155,12 @@ func (o Options) NewClient() (*Client, error) {
 	if o.NoTLS {
 		client.conn = c
 	} else {
-		tlsconn := tls.Client(c, &DefaultConfig)
+		var tlsconn *tls.Conn
+		if o.TLSConfig != nil {
+			tlsconn = tls.Client(c, o.TLSConfig)
+		} else {
+			tlsconn = tls.Client(c, &DefaultConfig)
+		}
 		if err = tlsconn.Handshake(); err != nil {
 			return nil, err
 		}
@@ -153,21 +184,25 @@ func (o Options) NewClient() (*Client, error) {
 // NewClient creates a new connection to a host given as "hostname" or "hostname:port".
 // If host is not specified, the  DNS SRV should be used to find the host from the domainpart of the JID.
 // Default the port to 5222.
-func NewClient(host, user, passwd string) (*Client, error) {
+func NewClient(host, user, passwd string, debug bool) (*Client, error) {
 	opts := Options{
 		Host:     host,
 		User:     user,
 		Password: passwd,
+		Debug:    debug,
+		Session:  false,
 	}
 	return opts.NewClient()
 }
 
-func NewClientNoTLS(host, user, passwd string) (*Client, error) {
+func NewClientNoTLS(host, user, passwd string, debug bool) (*Client, error) {
 	opts := Options{
 		Host:     host,
 		User:     user,
 		Password: passwd,
 		NoTLS:    true,
+		Debug:    debug,
+		Session:  false,
 	}
 	return opts.NewClient()
 }
@@ -210,15 +245,16 @@ func cnonce() string {
 }
 
 func (c *Client) init(o *Options) error {
-	// For debugging: the following causes the plaintext of the connection to be duplicated to stdout.
-	//c.p = xml.NewDecoder(tee{c.conn, os.Stdout})
 	c.p = xml.NewDecoder(c.conn)
+	// For debugging: the following causes the plaintext of the connection to be duplicated to stdout.
+	if o.Debug {
+		c.p = xml.NewDecoder(tee{c.conn, os.Stdout})
+	}
 
 	a := strings.SplitN(o.User, "@", 2)
 	if len(a) != 2 {
 		return errors.New("xmpp: invalid username (want user@domain): " + o.User)
 	}
-	user := a[0]
 	domain := a[1]
 
 	// Declare intent to be a jabber client.
@@ -245,6 +281,19 @@ func (c *Client) init(o *Options) error {
 	}
 	mechanism := ""
 	for _, m := range f.Mechanisms.Mechanism {
+		if m == "ANONYMOUS" {
+			mechanism = m
+			fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL)
+			break
+		}
+
+		a := strings.SplitN(o.User, "@", 2)
+		if len(a) != 2 {
+			return errors.New("xmpp: invalid username (want user@domain): " + o.User)
+		}
+		user := a[0]
+		domain := a[1]
+
 		if m == "PLAIN" {
 			mechanism = m
 			// Plain authentication: send base64-encoded \x00 user \x00 password.
@@ -286,7 +335,8 @@ func (c *Client) init(o *Options) error {
 			digestUri := "xmpp/" + domain
 			nonceCount := fmt.Sprintf("%08x", 1)
 			digest := saslDigestResponse(user, realm, o.Password, nonce, cnonceStr, "AUTHENTICATE", digestUri, nonceCount)
-			message := "username=" + user + ", realm=" + realm + ", nonce=" + nonce + ", cnonce=" + cnonceStr + ", nc=" + nonceCount + ", qop=" + qop + ", digest-uri=" + digestUri + ", response=" + digest + ", charset=" + charset
+			message := "username=\"" + user + "\", realm=\"" + realm + "\", nonce=\"" + nonce + "\", cnonce=\"" + cnonceStr + "\", nc=" + nonceCount + ", qop=" + qop + ", digest-uri=\"" + digestUri + "\", response=" + digest + ", charset=" + charset
+
 			fmt.Fprintf(c.conn, "<response xmlns='%s'>%s</response>\n", nsSASL, base64.StdEncoding.EncodeToString([]byte(message)))
 
 			var rspauth saslRspAuth
@@ -307,6 +357,9 @@ func (c *Client) init(o *Options) error {
 
 	// Next message should be either success or failure.
 	name, val, err := next(c.p)
+	if err != nil {
+		return err
+	}
 	switch v := val.(type) {
 	case *saslSuccess:
 	case *saslFailure:
@@ -333,14 +386,17 @@ func (c *Client) init(o *Options) error {
 	}
 	if err = c.p.DecodeElement(&f, nil); err != nil {
 		// TODO: often stream stop.
-		//return os.NewError("unmarshal <features>: " + err.String())
+		//return errors.New("unmarshal <features>: " + err.Error())
 	}
+
+	//Generate uniq cookie
+	cookie := getCookie()
 
 	// Send IQ message asking to bind to the local user name.
 	if o.Resource == "" {
-		fmt.Fprintf(c.conn, "<iq type='set' id='x'><bind xmlns='%s'></bind></iq>\n", nsBind)
+		fmt.Fprintf(c.conn, "<iq type='set' id='%x'><bind xmlns='%s'></bind></iq>\n", cookie, nsBind)
 	} else {
-		fmt.Fprintf(c.conn, "<iq type='set' id='x'><bind xmlns='%s'><resource>%s</resource></bind></iq>\n", nsBind, o.Resource)
+		fmt.Fprintf(c.conn, "<iq type='set' id='%x'><bind xmlns='%s'><resource>%s</resource></bind></iq>\n", cookie, nsBind, o.Resource)
 	}
 	var iq clientIQ
 	if err = c.p.DecodeElement(&iq, nil); err != nil {
@@ -351,8 +407,14 @@ func (c *Client) init(o *Options) error {
 	}
 	c.jid = iq.Bind.Jid // our local id
 
+	if o.Session {
+		//if server support session, open it
+		fmt.Fprintf(c.conn, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>", xmlEscape(domain), cookie, NsSession)
+	}
+
 	// We're connected and can now receive and send messages.
-	fmt.Fprintf(c.conn, "<presence xml:lang='en'><show>xa</show><status>I for one welcome our new codebot overlords.</status></presence>")
+	fmt.Fprintf(c.conn, "<presence xml:lang='en'><show>%s</show><status>%s</status></presence>", o.Status, o.StatusMessage)
+
 	return nil
 }
 
@@ -360,6 +422,7 @@ type Chat struct {
 	Remote string
 	Type   string
 	Text   string
+	Other  []string
 }
 
 type Presence struct {
@@ -378,7 +441,7 @@ func (c *Client) Recv() (event interface{}, err error) {
 		}
 		switch v := val.(type) {
 		case *clientMessage:
-			return Chat{v.From, v.Type, v.Body}, nil
+			return Chat{v.From, v.Type, v.Body, v.Other}, nil
 		case *clientPresence:
 			return Presence{v.From, v.To, v.Type, v.Show}, nil
 		}
@@ -391,6 +454,11 @@ func (c *Client) Send(chat Chat) {
 	fmt.Fprintf(c.conn, "<message to='%s' type='%s' xml:lang='en'>"+
 		"<body>%s</body></message>",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text))
+}
+
+// Send origin
+func (c *Client) SendOrg(org string) {
+	fmt.Fprint(c.conn, org)
 }
 
 // RFC 3920  C.1  Streams name space
@@ -476,6 +544,9 @@ type clientMessage struct {
 	Subject string `xml:"subject"`
 	Body    string `xml:"body"`
 	Thread  string `xml:"thread"`
+
+	// Any hasn't matched element
+	Other []string `xml:",any"`
 }
 
 type clientText struct {
@@ -519,8 +590,8 @@ type clientError struct {
 func nextStart(p *xml.Decoder) (xml.StartElement, error) {
 	for {
 		t, err := p.Token()
-		if err != nil {
-			log.Fatal("token", err)
+		if err != nil && err != io.EOF {
+			return xml.StartElement{}, err
 		}
 		switch t := t.(type) {
 		case xml.StartElement:
@@ -617,6 +688,7 @@ func (t tee) Read(p []byte) (n int, err error) {
 	n, err = t.r.Read(p)
 	if n > 0 {
 		t.w.Write(p[0:n])
+		t.w.Write([]byte("\n"))
 	}
 	return
 }
