@@ -126,9 +126,18 @@ type Options struct {
 	// TLS Config
 	TLSConfig *tls.Config
 
-	// NoTLS disables TLS and specifies that a plain old unencrypted TCP connection should
-	// be used.
+	// InsecureAllowUnencryptedAuth permits authentication over a TCP connection that has not been promoted to
+	// TLS by STARTTLS; this could leak authentication information over the network, or permit man in the middle
+	// attacks.
+	InsecureAllowUnencryptedAuth bool
+
+	// NoTLS directs go-xmpp to not use TLS initially to contact the server; instead, a plain old unencrypted
+	// TCP connection should be used. (Can be combined with StartTLS to support STARTTLS-based servers.)
 	NoTLS bool
+
+	// StartTLS directs go-xmpp to STARTTLS if the server supports it; go-xmpp will automatically STARTTLS
+	// if the server requires it regardless of this option.
+	StartTLS bool
 
 	// Debug output
 	Debug bool
@@ -257,28 +266,24 @@ func (c *Client) init(o *Options) error {
 	}
 	domain := a[1]
 
-	// Declare intent to be a jabber client.
-	fmt.Fprintf(c.conn, "<?xml version='1.0'?>\n"+
-		"<stream:stream to='%s' xmlns='%s'\n"+
-		" xmlns:stream='%s' version='1.0'>\n",
-		xmlEscape(domain), nsClient, nsStream)
-
-	// Server should respond with a stream opening.
-	se, err := nextStart(c.p)
+	// Declare intent to be a jabber client and gather stream features.
+	f, err := c.startStream(o, domain)
 	if err != nil {
 		return err
 	}
-	if se.Name.Space != nsStream || se.Name.Local != "stream" {
-		return errors.New("xmpp: expected <stream> but got <" + se.Name.Local + "> in " + se.Name.Space)
+
+	// If the server requires we STARTTLS, attempt to do so.
+	if f, err = c.startTlsIfRequired(f, o, domain); err != nil {
+		return err
 	}
 
-	// Now we're in the stream and can use Unmarshal.
-	// Next message should be <features> to tell us authentication options.
-	// See section 4.6 in RFC 3920.
-	var f streamFeatures
-	if err = c.p.DecodeElement(&f, nil); err != nil {
-		return errors.New("unmarshal <features>: " + err.Error())
+	// Even digest forms of authentication are unsafe if we do not know that the host
+	// we are talking to is the actual server, and not a man in the middle playing
+	// proxy.
+	if !c.IsEncrypted() && !o.InsecureAllowUnencryptedAuth {
+		return errors.New("refusing to authenticate over unencrypted TCP connection")
 	}
+
 	mechanism := ""
 	for _, m := range f.Mechanisms.Mechanism {
 		if m == "ANONYMOUS" {
@@ -372,21 +377,8 @@ func (c *Client) init(o *Options) error {
 
 	// Now that we're authenticated, we're supposed to start the stream over again.
 	// Declare intent to be a jabber client.
-	fmt.Fprintf(c.conn, "<stream:stream to='%s' xmlns='%s'\n"+
-		" xmlns:stream='%s' version='1.0'>\n",
-		xmlEscape(domain), nsClient, nsStream)
-
-	// Here comes another <stream> and <features>.
-	se, err = nextStart(c.p)
-	if err != nil {
+	if f, err = c.startStream(o, domain); err != nil {
 		return err
-	}
-	if se.Name.Space != nsStream || se.Name.Local != "stream" {
-		return errors.New("expected <stream>, got <" + se.Name.Local + "> in " + se.Name.Space)
-	}
-	if err = c.p.DecodeElement(&f, nil); err != nil {
-		// TODO: often stream stop.
-		//return errors.New("unmarshal <features>: " + err.Error())
 	}
 
 	//Generate uniq cookie
@@ -416,6 +408,93 @@ func (c *Client) init(o *Options) error {
 	fmt.Fprintf(c.conn, "<presence xml:lang='en'><show>%s</show><status>%s</status></presence>", o.Status, o.StatusMessage)
 
 	return nil
+}
+
+// startTlsIfRequired examines the server's stream features and, if STARTTLS is required or supported, performs the TLS handshake.
+// f will be updated if the handshake completes, as the new stream's features are typically different from the original.
+func (c *Client) startTlsIfRequired(f *streamFeatures, o *Options, domain string) (*streamFeatures, error) {
+	// whether we start tls is a matter of opinion: the server's and the user's.
+	switch {
+	case f.StartTLS == nil:
+		// the server does not support STARTTLS
+		return f, nil
+	case f.StartTLS.Required != nil:
+		// the server requires STARTTLS.
+	case !o.StartTLS:
+		// the user wants STARTTLS and the server supports it.
+	}
+	var err error
+
+	fmt.Fprintf(c.conn, "<starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>\n")
+	var k tlsProceed
+	if err = c.p.DecodeElement(&k, nil); err != nil {
+		return f, errors.New("unmarshal <proceed>: " + err.Error())
+	}
+
+	tc := o.TLSConfig
+	if tc == nil {
+		tc = new(tls.Config)
+		*tc = DefaultConfig
+		//TODO(scott): we should consider using the server's address or reverse lookup
+		tc.ServerName = domain
+	}
+	t := tls.Client(c.conn, tc)
+
+	if err = t.Handshake(); err != nil {
+		return f, errors.New("starttls handshake: " + err.Error())
+	}
+	c.conn = t
+
+	// restart our declaration of XMPP stream intentions.
+	tf, err := c.startStream(o, domain)
+	if err != nil {
+		return f, err
+	}
+	return tf, nil
+}
+
+// startStream will start a new XML decoder for the connection, signal the start of a stream to the server and verify that the server has
+// also started the stream; if o.Debug is true, startStream will tee decoded XML data to stdout.  The features advertised by the server
+// will be returned.
+func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error) {
+	c.p = xml.NewDecoder(c.conn)
+	if o.Debug {
+		c.p = xml.NewDecoder(tee{c.conn, os.Stdout})
+	}
+
+	_, err := fmt.Fprintf(c.conn, "<?xml version='1.0'?>\n"+
+		"<stream:stream to='%s' xmlns='%s'\n"+
+		" xmlns:stream='%s' version='1.0'>\n",
+		xmlEscape(domain), nsClient, nsStream)
+	if err != nil {
+		return nil, err
+	}
+
+	// We expect the server to start a <stream>.
+	se, err := nextStart(c.p)
+	if err != nil {
+		return nil, err
+	}
+	if se.Name.Space != nsStream || se.Name.Local != "stream" {
+		return nil, fmt.Errorf("expected <stream> but got <%v> in %v", se.Name.Local, se.Name.Space)
+	}
+
+	// Now we're in the stream and can use Unmarshal.
+	// Next message should be <features> to tell us authentication options.
+	// See section 4.6 in RFC 3920.
+	f := new(streamFeatures)
+	if err = c.p.DecodeElement(f, nil); err != nil {
+		return f, errors.New("unmarshal <features>: " + err.Error())
+	}
+	return f, nil
+}
+
+// IsEncrypted will return true if the client is connected using a TLS transport, either because it used
+// TLS to connect from the outset, or because it successfully used STARTTLS to promote a TCP connection
+// to TLS.
+func (c *Client) IsEncrypted() bool {
+	_, ok := c.conn.(*tls.Conn)
+	return ok
 }
 
 type Chat struct {
@@ -464,7 +543,7 @@ func (c *Client) SendOrg(org string) {
 // RFC 3920  C.1  Streams name space
 type streamFeatures struct {
 	XMLName    xml.Name `xml:"http://etherx.jabber.org/streams features"`
-	StartTLS   tlsStartTLS
+	StartTLS   *tlsStartTLS
 	Mechanisms saslMechanisms
 	Bind       bindBind
 	Session    bool
@@ -479,8 +558,8 @@ type streamError struct {
 // RFC 3920  C.3  TLS name space
 
 type tlsStartTLS struct {
-	XMLName  xml.Name `xml:":ietf:params:xml:ns:xmpp-tls starttls"`
-	Required bool
+	XMLName  xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-tls starttls"`
+	Required *string  `xml:"required"`
 }
 
 type tlsProceed struct {
