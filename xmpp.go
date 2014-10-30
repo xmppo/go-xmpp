@@ -176,8 +176,14 @@ func (o Options) NewClient() (*Client, error) {
 		if strings.LastIndex(o.Host, ":") > 0 {
 			host = host[:strings.LastIndex(o.Host, ":")]
 		}
-		if err = tlsconn.VerifyHostname(host); err != nil {
-			return nil, err
+		insecureSkipVerify := DefaultConfig.InsecureSkipVerify
+		if o.TLSConfig != nil {
+			insecureSkipVerify = o.TLSConfig.InsecureSkipVerify
+		}
+		if !insecureSkipVerify {
+			if err = tlsconn.VerifyHostname(host); err != nil {
+				return nil, err
+			}
 		}
 		client.conn = tlsconn
 	}
