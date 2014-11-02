@@ -267,12 +267,25 @@ func (c *Client) init(o *Options) error {
 		xmlEscape(domain), nsClient, nsStream)
 
 	// Server should respond with a stream opening.
-	se, err := nextStart(c.p)
-    glog.Info(se)
+	_, err := nextStart(c.p)
 	if err != nil {
 		return err
 	}
     fmt.Fprintf(c.conn, "<iq type=\"set\" id=\"auth\" to=\"cluster.domain.com\" ><query xmlns=\"jabber:iq:auth\"><username>%s</username><password>%s</password><resource>Work</resource></query></iq>", user, password)
+    _, _, err = next(c.p)
+	if err != nil {
+		return err
+	}
+    glog.Info("Login OK")
+
+    fmt.Fprintf(c.conn, "<presence xml:lang='en'><show>%s</show><status>%s</status></presence>", o.Status, o.StatusMessage)
+    _, _, err = next(c.p)
+    if err != nil {
+        return err
+    }
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
