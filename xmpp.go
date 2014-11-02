@@ -18,7 +18,7 @@ import (
 	"crypto/md5"
 	"crypto/rand"
 	"crypto/tls"
-	"encoding/base64"
+	//"encoding/base64"
 	"encoding/binary"
 	"encoding/xml"
 	"errors"
@@ -30,6 +30,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+    "github.com/golang/glog"
 )
 
 const (
@@ -255,166 +256,23 @@ func (c *Client) init(o *Options) error {
 	if len(a) != 2 {
 		return errors.New("xmpp: invalid username (want user@domain): " + o.User)
 	}
+    user := a[0]
+    password := o.Password
 	domain := a[1]
 
 	// Declare intent to be a jabber client.
 	fmt.Fprintf(c.conn, "<?xml version='1.0'?>\n"+
 		"<stream:stream to='%s' xmlns='%s'\n"+
-		" xmlns:stream='%s' version='1.0'>\n",
+		" xmlns:stream='%s'>\n",
 		xmlEscape(domain), nsClient, nsStream)
 
 	// Server should respond with a stream opening.
 	se, err := nextStart(c.p)
+    glog.Info(se)
 	if err != nil {
 		return err
 	}
-	if se.Name.Space != nsStream || se.Name.Local != "stream" {
-		return errors.New("xmpp: expected <stream> but got <" + se.Name.Local + "> in " + se.Name.Space)
-	}
-
-	// Now we're in the stream and can use Unmarshal.
-	// Next message should be <features> to tell us authentication options.
-	// See section 4.6 in RFC 3920.
-	var f streamFeatures
-	if err = c.p.DecodeElement(&f, nil); err != nil {
-		return errors.New("unmarshal <features>: " + err.Error())
-	}
-	mechanism := ""
-	for _, m := range f.Mechanisms.Mechanism {
-		if m == "ANONYMOUS" {
-			mechanism = m
-			fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL)
-			break
-		}
-
-		a := strings.SplitN(o.User, "@", 2)
-		if len(a) != 2 {
-			return errors.New("xmpp: invalid username (want user@domain): " + o.User)
-		}
-		user := a[0]
-		domain := a[1]
-
-		if m == "PLAIN" {
-			mechanism = m
-			// Plain authentication: send base64-encoded \x00 user \x00 password.
-			raw := "\x00" + user + "\x00" + o.Password
-			enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
-			base64.StdEncoding.Encode(enc, []byte(raw))
-			fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='PLAIN'>%s</auth>\n",
-				nsSASL, enc)
-			break
-		}
-		if m == "DIGEST-MD5" {
-			mechanism = m
-			// Digest-MD5 authentication
-			fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='DIGEST-MD5'/>\n",
-				nsSASL)
-			var ch saslChallenge
-			if err = c.p.DecodeElement(&ch, nil); err != nil {
-				return errors.New("unmarshal <challenge>: " + err.Error())
-			}
-			b, err := base64.StdEncoding.DecodeString(string(ch))
-			if err != nil {
-				return err
-			}
-			tokens := map[string]string{}
-			for _, token := range strings.Split(string(b), ",") {
-				kv := strings.SplitN(strings.TrimSpace(token), "=", 2)
-				if len(kv) == 2 {
-					if kv[1][0] == '"' && kv[1][len(kv[1])-1] == '"' {
-						kv[1] = kv[1][1 : len(kv[1])-1]
-					}
-					tokens[kv[0]] = kv[1]
-				}
-			}
-			realm, _ := tokens["realm"]
-			nonce, _ := tokens["nonce"]
-			qop, _ := tokens["qop"]
-			charset, _ := tokens["charset"]
-			cnonceStr := cnonce()
-			digestUri := "xmpp/" + domain
-			nonceCount := fmt.Sprintf("%08x", 1)
-			digest := saslDigestResponse(user, realm, o.Password, nonce, cnonceStr, "AUTHENTICATE", digestUri, nonceCount)
-			message := "username=\"" + user + "\", realm=\"" + realm + "\", nonce=\"" + nonce + "\", cnonce=\"" + cnonceStr + "\", nc=" + nonceCount + ", qop=" + qop + ", digest-uri=\"" + digestUri + "\", response=" + digest + ", charset=" + charset
-
-			fmt.Fprintf(c.conn, "<response xmlns='%s'>%s</response>\n", nsSASL, base64.StdEncoding.EncodeToString([]byte(message)))
-
-			var rspauth saslRspAuth
-			if err = c.p.DecodeElement(&rspauth, nil); err != nil {
-				return errors.New("unmarshal <challenge>: " + err.Error())
-			}
-			b, err = base64.StdEncoding.DecodeString(string(rspauth))
-			if err != nil {
-				return err
-			}
-			fmt.Fprintf(c.conn, "<response xmlns='%s'/>\n", nsSASL)
-			break
-		}
-	}
-	if mechanism == "" {
-		return errors.New(fmt.Sprintf("PLAIN authentication is not an option: %v", f.Mechanisms.Mechanism))
-	}
-
-	// Next message should be either success or failure.
-	name, val, err := next(c.p)
-	if err != nil {
-		return err
-	}
-	switch v := val.(type) {
-	case *saslSuccess:
-	case *saslFailure:
-		// v.Any is type of sub-element in failure,
-		// which gives a description of what failed.
-		return errors.New("auth failure: " + v.Any.Local)
-	default:
-		return errors.New("expected <success> or <failure>, got <" + name.Local + "> in " + name.Space)
-	}
-
-	// Now that we're authenticated, we're supposed to start the stream over again.
-	// Declare intent to be a jabber client.
-	fmt.Fprintf(c.conn, "<stream:stream to='%s' xmlns='%s'\n"+
-		" xmlns:stream='%s' version='1.0'>\n",
-		xmlEscape(domain), nsClient, nsStream)
-
-	// Here comes another <stream> and <features>.
-	se, err = nextStart(c.p)
-	if err != nil {
-		return err
-	}
-	if se.Name.Space != nsStream || se.Name.Local != "stream" {
-		return errors.New("expected <stream>, got <" + se.Name.Local + "> in " + se.Name.Space)
-	}
-	if err = c.p.DecodeElement(&f, nil); err != nil {
-		// TODO: often stream stop.
-		//return errors.New("unmarshal <features>: " + err.Error())
-	}
-
-	//Generate uniq cookie
-	cookie := getCookie()
-
-	// Send IQ message asking to bind to the local user name.
-	if o.Resource == "" {
-		fmt.Fprintf(c.conn, "<iq type='set' id='%x'><bind xmlns='%s'></bind></iq>\n", cookie, nsBind)
-	} else {
-		fmt.Fprintf(c.conn, "<iq type='set' id='%x'><bind xmlns='%s'><resource>%s</resource></bind></iq>\n", cookie, nsBind, o.Resource)
-	}
-	var iq clientIQ
-	if err = c.p.DecodeElement(&iq, nil); err != nil {
-		return errors.New("unmarshal <iq>: " + err.Error())
-	}
-	if &iq.Bind == nil {
-		return errors.New("<iq> result missing <bind>")
-	}
-	c.jid = iq.Bind.Jid // our local id
-
-	if o.Session {
-		//if server support session, open it
-		fmt.Fprintf(c.conn, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>", xmlEscape(domain), cookie, NsSession)
-	}
-
-	// We're connected and can now receive and send messages.
-	fmt.Fprintf(c.conn, "<presence xml:lang='en'><show>%s</show><status>%s</status></presence>", o.Status, o.StatusMessage)
-
+    fmt.Fprintf(c.conn, "<iq type=\"set\" id=\"auth\" to=\"cluster.domain.com\" ><query xmlns=\"jabber:iq:auth\"><username>%s</username><password>%s</password><resource>Work</resource></query></iq>", user, password)
 	return nil
 }
 
