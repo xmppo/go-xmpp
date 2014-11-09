@@ -168,6 +168,7 @@ func (o Options) NewClient() (*Client, error) {
 		if o.TLSConfig != nil {
 			tlsconn = tls.Client(c, o.TLSConfig)
 		} else {
+			DefaultConfig.ServerName = strings.Split(o.User, "@")[1]
 			tlsconn = tls.Client(c, &DefaultConfig)
 		}
 		if err = tlsconn.Handshake(); err != nil {
