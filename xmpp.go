@@ -536,15 +536,15 @@ func (c *Client) Recv() (event interface{}, err error) {
 }
 
 // Send sends message text.
-func (c *Client) Send(chat Chat) {
-	fmt.Fprintf(c.conn, "<message to='%s' type='%s' xml:lang='en'>"+
+func (c *Client) Send(chat Chat) (n int, err error) {
+	return fmt.Fprintf(c.conn, "<message to='%s' type='%s' xml:lang='en'>"+
 		"<body>%s</body></message>",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text))
 }
 
 // Send origin
-func (c *Client) SendOrg(org string) {
-	fmt.Fprint(c.conn, org)
+func (c *Client) SendOrg(org string) (n int, err error) {
+	return fmt.Fprint(c.conn, org)
 }
 
 // RFC 3920  C.1  Streams name space
