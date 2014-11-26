@@ -17,11 +17,14 @@ const (
 )
 
 // xep-0045 7.2
-func (c *Client) JoinMUC(jid string) {
-	fmt.Fprintf(c.conn, "<presence to='%s'>\n"+
+func (c *Client) JoinMUC(jid, nick string) {
+	if nick == "" {
+		nick = c.jid
+	}
+	fmt.Fprintf(c.conn, "<presence to='%s/%s'>\n"+
 		"<x xmlns='%s' />\n"+
 		"</presence>",
-		xmlEscape(jid), nsMUC)
+		xmlEscape(jid), xmlEscape(nick), nsMUC)
 }
 
 // xep-0045 7.14
