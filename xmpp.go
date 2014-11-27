@@ -161,32 +161,12 @@ func (o Options) NewClient() (*Client, error) {
 	}
 
 	client := new(Client)
-	if o.NoTLS {
+	// Do not start TLS connection if user wants to check if server allow
+	// STARTTLS feature.
+	if o.NoTLS || o.StartTLS {
 		client.conn = c
 	} else {
-		var tlsconn *tls.Conn
-		if o.TLSConfig != nil {
-			tlsconn = tls.Client(c, o.TLSConfig)
-		} else {
-			DefaultConfig.ServerName = strings.Split(o.User, "@")[1]
-			tlsconn = tls.Client(c, &DefaultConfig)
-		}
-		if err = tlsconn.Handshake(); err != nil {
-			return nil, err
-		}
-		if strings.LastIndex(o.Host, ":") > 0 {
-			host = host[:strings.LastIndex(o.Host, ":")]
-		}
-		insecureSkipVerify := DefaultConfig.InsecureSkipVerify
-		if o.TLSConfig != nil {
-			insecureSkipVerify = o.TLSConfig.InsecureSkipVerify
-		}
-		if !insecureSkipVerify {
-			if err = tlsconn.VerifyHostname(host); err != nil {
-				return nil, err
-			}
-		}
-		client.conn = tlsconn
+		o.initTLSConnection(c)
 	}
 
 	if err := client.init(&o); err != nil {
@@ -195,6 +175,34 @@ func (o Options) NewClient() (*Client, error) {
 	}
 
 	return client, nil
+}
+
+func (o Options) initTLSConnection(c net.Conn) (*tls.Conn, error) {
+	var tlsconn *tls.Conn
+	host := o.Host
+	if o.TLSConfig != nil {
+		tlsconn = tls.Client(c, o.TLSConfig)
+	} else {
+		DefaultConfig.ServerName = strings.Split(o.User, "@")[1]
+		tlsconn = tls.Client(c, &DefaultConfig)
+	}
+	if err := tlsconn.Handshake(); err != nil {
+		return nil, err
+	}
+	if strings.LastIndex(o.Host, ":") > 0 {
+		host = host[:strings.LastIndex(o.Host, ":")]
+	}
+	insecureSkipVerify := DefaultConfig.InsecureSkipVerify
+	if o.TLSConfig != nil {
+		insecureSkipVerify = o.TLSConfig.InsecureSkipVerify
+	}
+	if !insecureSkipVerify {
+		if err := tlsconn.VerifyHostname(host); err != nil {
+			return nil, err
+		}
+	}
+	return tlsconn, nil
+
 }
 
 // NewClient creates a new connection to a host given as "hostname" or "hostname:port".
@@ -438,19 +446,10 @@ func (c *Client) startTlsIfRequired(f *streamFeatures, o *Options, domain string
 		return f, errors.New("unmarshal <proceed>: " + err.Error())
 	}
 
-	tc := o.TLSConfig
-	if tc == nil {
-		tc = new(tls.Config)
-		*tc = DefaultConfig
-		//TODO(scott): we should consider using the server's address or reverse lookup
-		tc.ServerName = domain
+	c.conn, err = o.initTLSConnection(c.conn)
+	if err != nil {
+		return f, err
 	}
-	t := tls.Client(c.conn, tc)
-
-	if err = t.Handshake(); err != nil {
-		return f, errors.New("starttls handshake: " + err.Error())
-	}
-	c.conn = t
 
 	// restart our declaration of XMPP stream intentions.
 	tf, err := c.startStream(o, domain)
