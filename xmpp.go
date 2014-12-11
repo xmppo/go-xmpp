@@ -224,7 +224,11 @@ func NewClientNoTLS(host, user, passwd string, debug bool) (*Client, error) {
 }
 
 func (c *Client) Close() error {
-	return c.conn.Close()
+	if c.conn != (*tls.Conn)(nil) {
+		return c.conn.Close()
+	} else {
+		return nil
+	}
 }
 
 func saslDigestResponse(username, realm, passwd, nonce, cnonceStr,
