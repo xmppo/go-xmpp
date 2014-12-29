@@ -502,14 +502,13 @@ func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error)
 }
 
 // IsEncrypted will return true if the client is connected using a TLS transport, either because it used
-// TLS to connect from the outset, or because it successfully used STARTTLS to promote a TCP connection
-// to TLS.
+// TLS to connect from the outset, or because it successfully used STARTTLS to promote a TCP connection to TLS.
 func (c *Client) IsEncrypted() bool {
 	_, ok := c.conn.(*tls.Conn)
 	return ok
 }
 
-// Chat is an incoming or outgoing XMPP chat message
+// Chat is an incoming or outgoing XMPP chat message.
 type Chat struct {
 	Remote string
 	Type   string
@@ -517,7 +516,7 @@ type Chat struct {
 	Other  []string
 }
 
-// Presence is an XMPP presence message
+// Presence is an XMPP presence notification.
 type Presence struct {
 	From string
 	To   string
@@ -525,8 +524,9 @@ type Presence struct {
 	Show string
 }
 
-// Recv wait next token of chat.
-func (c *Client) Recv() (event interface{}, err error) {
+// Recv waits to receive the next XMPP stanza.
+// Return type is either a presence notification or a chat message.
+func (c *Client) Recv() (stanza interface{}, err error) {
 	for {
 		_, val, err := next(c.p)
 		if err != nil {
@@ -542,10 +542,9 @@ func (c *Client) Recv() (event interface{}, err error) {
 	panic("unreachable")
 }
 
-// Send sends message text.
+// Send sends the message wrapped inside an XMPP message stanza body.
 func (c *Client) Send(chat Chat) (n int, err error) {
-	return fmt.Fprintf(c.conn, "<message to='%s' type='%s' xml:lang='en'>"+
-		"<body>%s</body></message>",
+	return fmt.Fprintf(c.conn, "<message to='%s' type='%s' xml:lang='en'>"+"<body>%s</body></message>",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text))
 }
 
