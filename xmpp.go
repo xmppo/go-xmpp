@@ -501,7 +501,7 @@ func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error)
 	return f, nil
 }
 
-// IsEncrypted will return true if the client is connected using a TLS transport, either because it used
+// IsEncrypted will return true if the client is connected using a TLS transport, either because it used.
 // TLS to connect from the outset, or because it successfully used STARTTLS to promote a TCP connection to TLS.
 func (c *Client) IsEncrypted() bool {
 	_, ok := c.conn.(*tls.Conn)
@@ -569,7 +569,6 @@ type streamError struct {
 }
 
 // RFC 3920  C.3  TLS name space
-
 type tlsStartTLS struct {
 	XMLName  xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-tls starttls"`
 	Required *string  `xml:"required"`
@@ -584,7 +583,6 @@ type tlsFailure struct {
 }
 
 // RFC 3920  C.4  SASL name space
-
 type saslMechanisms struct {
 	XMLName   xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-sasl mechanisms"`
 	Mechanism []string `xml:"mechanism"`
@@ -615,7 +613,6 @@ type saslFailure struct {
 }
 
 // RFC 3920  C.5  Resource binding name space
-
 type bindBind struct {
 	XMLName  xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-bind bind"`
 	Resource string
@@ -623,7 +620,6 @@ type bindBind struct {
 }
 
 // RFC 3921  B.1  jabber:client
-
 type clientMessage struct {
 	XMLName xml.Name `xml:"jabber:client message"`
 	From    string   `xml:"from,attr"`
@@ -631,8 +627,7 @@ type clientMessage struct {
 	To      string   `xml:"to,attr"`
 	Type    string   `xml:"type,attr"` // chat, error, groupchat, headline, or normal
 
-	// These should technically be []clientText,
-	// but string is much more convenient.
+	// These should technically be []clientText, but string is much more convenient.
 	Subject string `xml:"subject"`
 	Body    string `xml:"body"`
 	Thread  string `xml:"thread"`
