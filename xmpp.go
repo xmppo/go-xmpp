@@ -553,6 +553,14 @@ func (c *Client) SendOrg(org string) (n int, err error) {
 	return fmt.Fprint(c.conn, org)
 }
 
+// SendHtml sends the message as HTML as defined by XEP-0071
+func (c *Client) SendHtml(chat Chat) (n int, err error) {
+	return fmt.Fprintf(c.conn, "<message to='%s' type='%s' xml:lang='en'>"+
+		"<body>%s</body>"+
+		"<html xmlns='http://jabber.org/protocol/xhtml-im'><body xmlns='http://www.w3.org/1999/xhtml'>%s</body></html></message>",
+		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text), chat.Text)
+}
+
 // RFC 3920  C.1  Streams name space
 type streamFeatures struct {
 	XMLName    xml.Name `xml:"http://etherx.jabber.org/streams features"`
