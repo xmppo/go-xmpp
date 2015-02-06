@@ -30,6 +30,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
 
 const (
@@ -514,6 +515,7 @@ type Chat struct {
 	Type   string
 	Text   string
 	Other  []string
+	Stamp  time.Time
 }
 
 // Presence is an XMPP presence notification.
@@ -534,7 +536,18 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 		}
 		switch v := val.(type) {
 		case *clientMessage:
-			return Chat{v.From, v.Type, v.Body, v.Other}, nil
+			stamp, _ := time.Parse(
+				"2006-01-02T15:04:05Z",
+				v.Delay.Stamp,
+			)
+			chat := Chat{
+				v.From,
+				v.Type,
+				v.Body,
+				v.Other,
+				stamp,
+			}
+			return chat, nil
 		case *clientPresence:
 			return Presence{v.From, v.To, v.Type, v.Show}, nil
 		}
@@ -642,6 +655,12 @@ type clientMessage struct {
 
 	// Any hasn't matched element
 	Other []string `xml:",any"`
+
+	Delay Delay `xml:"delay"`
+}
+
+type Delay struct {
+	Stamp string `xml:"stamp,attr"`
 }
 
 type clientText struct {
