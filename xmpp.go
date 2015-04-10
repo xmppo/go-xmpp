@@ -685,7 +685,7 @@ type clientError struct {
 func nextStart(p *xml.Decoder) (xml.StartElement, error) {
 	for {
 		t, err := p.Token()
-		if err != nil && err != io.EOF {
+		if err != nil && err != io.EOF || t == nil {
 			return xml.StartElement{}, err
 		}
 		switch t := t.(type) {
