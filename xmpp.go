@@ -44,10 +44,6 @@ const (
 // Default TLS configuration options
 var DefaultConfig tls.Config
 
-func init() {
-	DefaultConfig.InsecureSkipVerify = true
-}
-
 // Cookie is a unique XMPP session identifier
 type Cookie uint64
 
