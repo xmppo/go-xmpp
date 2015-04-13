@@ -32,8 +32,10 @@ func main() {
 	}
 	flag.Parse()
 	if *username == "" || *password == "" {
-		if *debug {
+		if *debug && *username == "" && *password == "" {
 			fmt.Fprintf(os.Stderr, "no username or password were given; attempting ANONYMOUS auth\n")
+		} else if *username != "" || *password != "" {
+			flag.Usage()
 		}
 	}
 
