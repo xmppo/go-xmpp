@@ -32,7 +32,9 @@ func main() {
 	}
 	flag.Parse()
 	if *username == "" || *password == "" {
-		flag.Usage()
+		if *debug {
+			fmt.Fprintf(os.Stderr, "no username or password were given; attempting ANONYMOUS auth\n")
+		}
 	}
 
 	if !*notls {
