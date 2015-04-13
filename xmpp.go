@@ -297,15 +297,15 @@ func (c *Client) init(o *Options) error {
 	}
 
 	if o.User == "" && o.Password == "" {
-		found_anonymous := false
+		foundAnonymous := false
 		for _, m := range f.Mechanisms.Mechanism {
 			if m == "ANONYMOUS" {
 				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL)
-				found_anonymous = true
+				foundAnonymous = true
 				break
 			}
 		}
-		if !found_anonymous {
+		if !foundAnonymous {
 			return fmt.Errorf("ANONYMOUS authentication is not an option and username and password were not specified")
 		}
 	} else {
