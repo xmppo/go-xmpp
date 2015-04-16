@@ -561,6 +561,12 @@ func (c *Client) SendHtml(chat Chat) (n int, err error) {
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text), chat.Text)
 }
 
+// Roster asks for the chat roster.
+func (c *Client) Roster() error {
+	fmt.Fprintf(c.conn, "<iq from='%s' type='get' id='roster1'><query xmlns='jabber:iq:roster'/></iq>\n", xmlEscape(c.jid))
+	return nil
+}
+
 // RFC 3920  C.1  Streams name space
 type streamFeatures struct {
 	XMLName    xml.Name `xml:"http://etherx.jabber.org/streams features"`
