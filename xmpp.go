@@ -513,7 +513,16 @@ type Chat struct {
 	Remote string
 	Type   string
 	Text   string
+	Roster Roster
 	Other  []string
+}
+
+type Roster []Contact
+
+type Contact struct {
+	Remote string
+	Name   string
+	Group  []string
 }
 
 // Presence is an XMPP presence notification.
@@ -534,7 +543,13 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 		}
 		switch v := val.(type) {
 		case *clientMessage:
-			return Chat{v.From, v.Type, v.Body, v.Other}, nil
+			return Chat{Remote: v.From, Type: v.Type, Text: v.Body, Other: v.Other}, nil
+		case *clientQuery:
+			var r Roster
+			for _, item := range v.Item {
+				r = append(r, Contact{item.Jid, item.Name, item.Group})
+			}
+			return Chat{Type: "roster", Roster: r}, nil
 		case *clientPresence:
 			return Presence{v.From, v.To, v.Type, v.Show}, nil
 		}
@@ -685,6 +700,18 @@ type clientError struct {
 	Type    string   `xml:",attr"`
 	Any     xml.Name
 	Text    string
+}
+
+type clientQuery struct {
+	Item []rosterItem
+}
+
+type rosterItem struct {
+	XMLName      xml.Name `xml:"jabber:iq:roster item"`
+	Jid          string   `xml:",attr"`
+	Name         string   `xml:",attr"`
+	Subscription string   `xml:",attr"`
+	Group        []string
 }
 
 // Scan XML token stream to find next StartElement.
