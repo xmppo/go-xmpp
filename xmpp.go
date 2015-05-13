@@ -272,11 +272,14 @@ func (c *Client) init(o *Options) error {
 		c.p = xml.NewDecoder(c.conn)
 	}
 
+	var domain string
 	a := strings.SplitN(o.User, "@", 2)
-	if len(a) != 2 {
-		return errors.New("xmpp: invalid username (want user@domain): " + o.User)
-	}
-	domain := a[1]
+        if len(o.User) > 0 {
+		if len(a) != 2 {
+			return errors.New("xmpp: invalid username (want user@domain): " + o.User)
+		}
+	    	domain = a[1]
+	} // Otherwise, we'll be attempting ANONYMOUS
 
 	// Declare intent to be a jabber client and gather stream features.
 	f, err := c.startStream(o, domain)
@@ -289,88 +292,101 @@ func (c *Client) init(o *Options) error {
 		return err
 	}
 
-	// Even digest forms of authentication are unsafe if we do not know that the host
-	// we are talking to is the actual server, and not a man in the middle playing
-	// proxy.
-	if !c.IsEncrypted() && !o.InsecureAllowUnencryptedAuth {
-		return errors.New("refusing to authenticate over unencrypted TCP connection")
-	}
-
-	mechanism := ""
-	for _, m := range f.Mechanisms.Mechanism {
-		if m == "ANONYMOUS" {
-			mechanism = m
-			fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL)
-			break
-		}
-
-		a := strings.SplitN(o.User, "@", 2)
-		if len(a) != 2 {
-			return errors.New("xmpp: invalid username (want user@domain): " + o.User)
-		}
-		user := a[0]
-		domain := a[1]
-
-		if m == "PLAIN" {
-			mechanism = m
-			// Plain authentication: send base64-encoded \x00 user \x00 password.
-			raw := "\x00" + user + "\x00" + o.Password
-			enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
-			base64.StdEncoding.Encode(enc, []byte(raw))
-			fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='PLAIN'>%s</auth>\n", nsSASL, enc)
-			break
-		}
-		if m == "DIGEST-MD5" {
-			mechanism = m
-			// Digest-MD5 authentication
-			fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='DIGEST-MD5'/>\n", nsSASL)
-			var ch saslChallenge
-			if err = c.p.DecodeElement(&ch, nil); err != nil {
-				return errors.New("unmarshal <challenge>: " + err.Error())
+	if o.User == "" && o.Password == "" {
+		foundAnonymous := false
+		for _, m := range f.Mechanisms.Mechanism {
+			if m == "ANONYMOUS" {
+				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL)
+				foundAnonymous = true
+				break
 			}
-			b, err := base64.StdEncoding.DecodeString(string(ch))
-			if err != nil {
-				return err
+		}
+		if !foundAnonymous {
+			return fmt.Errorf("ANONYMOUS authentication is not an option and username and password were not specified")
+		}
+	} else {
+		// Even digest forms of authentication are unsafe if we do not know that the host
+		// we are talking to is the actual server, and not a man in the middle playing
+		// proxy.
+		if !c.IsEncrypted() && !o.InsecureAllowUnencryptedAuth {
+			return errors.New("refusing to authenticate over unencrypted TCP connection")
+		}
+
+		mechanism := ""
+		for _, m := range f.Mechanisms.Mechanism {
+			if m == "ANONYMOUS" {
+				mechanism = m
+				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL)
+				break
 			}
-			tokens := map[string]string{}
-			for _, token := range strings.Split(string(b), ",") {
-				kv := strings.SplitN(strings.TrimSpace(token), "=", 2)
-				if len(kv) == 2 {
-					if kv[1][0] == '"' && kv[1][len(kv[1])-1] == '"' {
-						kv[1] = kv[1][1 : len(kv[1])-1]
-					}
-					tokens[kv[0]] = kv[1]
+
+			a := strings.SplitN(o.User, "@", 2)
+			if len(a) != 2 {
+				return errors.New("xmpp: invalid username (want user@domain): " + o.User)
+			}
+			user := a[0]
+			domain := a[1]
+
+			if m == "PLAIN" {
+				mechanism = m
+				// Plain authentication: send base64-encoded \x00 user \x00 password.
+				raw := "\x00" + user + "\x00" + o.Password
+				enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
+				base64.StdEncoding.Encode(enc, []byte(raw))
+				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='PLAIN'>%s</auth>\n", nsSASL, enc)
+				break
+			}
+			if m == "DIGEST-MD5" {
+				mechanism = m
+				// Digest-MD5 authentication
+				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='DIGEST-MD5'/>\n", nsSASL)
+				var ch saslChallenge
+				if err = c.p.DecodeElement(&ch, nil); err != nil {
+					return errors.New("unmarshal <challenge>: " + err.Error())
 				}
-			}
-			realm, _ := tokens["realm"]
-			nonce, _ := tokens["nonce"]
-			qop, _ := tokens["qop"]
-			charset, _ := tokens["charset"]
-			cnonceStr := cnonce()
-			digestURI := "xmpp/" + domain
-			nonceCount := fmt.Sprintf("%08x", 1)
-			digest := saslDigestResponse(user, realm, o.Password, nonce, cnonceStr, "AUTHENTICATE", digestURI, nonceCount)
-			message := "username=\"" + user + "\", realm=\"" + realm + "\", nonce=\"" + nonce + "\", cnonce=\"" + cnonceStr +
-				"\", nc=" + nonceCount + ", qop=" + qop + ", digest-uri=\"" + digestURI + "\", response=" + digest + ", charset=" + charset
+				b, err := base64.StdEncoding.DecodeString(string(ch))
+				if err != nil {
+					return err
+				}
+				tokens := map[string]string{}
+				for _, token := range strings.Split(string(b), ",") {
+					kv := strings.SplitN(strings.TrimSpace(token), "=", 2)
+					if len(kv) == 2 {
+						if kv[1][0] == '"' && kv[1][len(kv[1])-1] == '"' {
+							kv[1] = kv[1][1 : len(kv[1])-1]
+						}
+						tokens[kv[0]] = kv[1]
+					}
+				}
+				realm, _ := tokens["realm"]
+				nonce, _ := tokens["nonce"]
+				qop, _ := tokens["qop"]
+				charset, _ := tokens["charset"]
+				cnonceStr := cnonce()
+				digestURI := "xmpp/" + domain
+				nonceCount := fmt.Sprintf("%08x", 1)
+				digest := saslDigestResponse(user, realm, o.Password, nonce, cnonceStr, "AUTHENTICATE", digestURI, nonceCount)
+				message := "username=\"" + user + "\", realm=\"" + realm + "\", nonce=\"" + nonce + "\", cnonce=\"" + cnonceStr +
+					"\", nc=" + nonceCount + ", qop=" + qop + ", digest-uri=\"" + digestURI + "\", response=" + digest + ", charset=" + charset
 
-			fmt.Fprintf(c.conn, "<response xmlns='%s'>%s</response>\n", nsSASL, base64.StdEncoding.EncodeToString([]byte(message)))
+				fmt.Fprintf(c.conn, "<response xmlns='%s'>%s</response>\n", nsSASL, base64.StdEncoding.EncodeToString([]byte(message)))
 
-			var rspauth saslRspAuth
-			if err = c.p.DecodeElement(&rspauth, nil); err != nil {
-				return errors.New("unmarshal <challenge>: " + err.Error())
+				var rspauth saslRspAuth
+				if err = c.p.DecodeElement(&rspauth, nil); err != nil {
+					return errors.New("unmarshal <challenge>: " + err.Error())
+				}
+				b, err = base64.StdEncoding.DecodeString(string(rspauth))
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(c.conn, "<response xmlns='%s'/>\n", nsSASL)
+				break
 			}
-			b, err = base64.StdEncoding.DecodeString(string(rspauth))
-			if err != nil {
-				return err
-			}
-			fmt.Fprintf(c.conn, "<response xmlns='%s'/>\n", nsSASL)
-			break
+		}
+		if mechanism == "" {
+			return fmt.Errorf("PLAIN authentication is not an option: %v", f.Mechanisms.Mechanism)
 		}
 	}
-	if mechanism == "" {
-		return fmt.Errorf("PLAIN authentication is not an option: %v", f.Mechanisms.Mechanism)
-	}
-
 	// Next message should be either success or failure.
 	name, val, err := next(c.p)
 	if err != nil {
