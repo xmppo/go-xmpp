@@ -30,6 +30,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
 
 const (
@@ -274,11 +275,11 @@ func (c *Client) init(o *Options) error {
 
 	var domain string
 	a := strings.SplitN(o.User, "@", 2)
-        if len(o.User) > 0 {
+	if len(o.User) > 0 {
 		if len(a) != 2 {
 			return errors.New("xmpp: invalid username (want user@domain): " + o.User)
 		}
-	    	domain = a[1]
+		domain = a[1]
 	} // Otherwise, we'll be attempting ANONYMOUS
 
 	// Declare intent to be a jabber client and gather stream features.
@@ -531,6 +532,7 @@ type Chat struct {
 	Text   string
 	Roster Roster
 	Other  []string
+	Stamp  time.Time
 }
 
 type Roster []Contact
@@ -559,7 +561,18 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 		}
 		switch v := val.(type) {
 		case *clientMessage:
-			return Chat{Remote: v.From, Type: v.Type, Text: v.Body, Other: v.Other}, nil
+			stamp, _ := time.Parse(
+				"2006-01-02T15:04:05Z",
+				v.Delay.Stamp,
+			)
+			chat := Chat{
+				Remote: v.From,
+				Type:   v.Type,
+				Text:   v.Body,
+				Other:  v.Other,
+				Stamp:  stamp,
+			}
+			return chat, nil
 		case *clientQuery:
 			var r Roster
 			for _, item := range v.Item {
@@ -679,6 +692,12 @@ type clientMessage struct {
 
 	// Any hasn't matched element
 	Other []string `xml:",any"`
+
+	Delay Delay `xml:"delay"`
+}
+
+type Delay struct {
+	Stamp string `xml:"stamp,attr"`
 }
 
 type clientText struct {
