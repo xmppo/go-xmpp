@@ -583,7 +583,6 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 			return Presence{v.From, v.To, v.Type, v.Show}, nil
 		}
 	}
-	panic("unreachable")
 }
 
 // Send sends the message wrapped inside an XMPP message stanza body.
@@ -761,7 +760,6 @@ func nextStart(p *xml.Decoder) (xml.StartElement, error) {
 			return t, nil
 		}
 	}
-	panic("unreachable")
 }
 
 // Scan XML token stream for next element and save into val.
