@@ -127,6 +127,16 @@ type Options struct {
 	// from the server.  Use "" to let the server generate one for your client.
 	Resource string
 
+	// OAuthScope provides go-xmpp the required scope for OAuth2 authentication.
+	OAuthScope string
+
+	// OAuthToken provides go-xmpp with the required OAuth2 token used to authenticate
+	OAuthToken string
+
+	// OAuthXmlNs provides go-xmpp with the required namespaced used for OAuth2 authentication.  This is
+	// provided to the server as the xmlns:auth attribute of the OAuth2 authentication request.
+	OAuthXmlNs string
+
 	// TLS Config
 	TLSConfig *tls.Config
 
@@ -163,6 +173,9 @@ func (o Options) NewClient() (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	if strings.LastIndex(o.Host, ":") > 0 {
+		host = host[:strings.LastIndex(o.Host, ":")]
+	}
 
 	client := new(Client)
 	if o.NoTLS {
@@ -172,14 +185,11 @@ func (o Options) NewClient() (*Client, error) {
 		if o.TLSConfig != nil {
 			tlsconn = tls.Client(c, o.TLSConfig)
 		} else {
-			DefaultConfig.ServerName = strings.Split(o.User, "@")[1]
+			DefaultConfig.ServerName = host
 			tlsconn = tls.Client(c, &DefaultConfig)
 		}
 		if err = tlsconn.Handshake(); err != nil {
 			return nil, err
-		}
-		if strings.LastIndex(o.Host, ":") > 0 {
-			host = host[:strings.LastIndex(o.Host, ":")]
 		}
 		insecureSkipVerify := DefaultConfig.InsecureSkipVerify
 		if o.TLSConfig != nil {
@@ -274,11 +284,13 @@ func (c *Client) init(o *Options) error {
 	}
 
 	var domain string
+	var user string
 	a := strings.SplitN(o.User, "@", 2)
 	if len(o.User) > 0 {
 		if len(a) != 2 {
 			return errors.New("xmpp: invalid username (want user@domain): " + o.User)
 		}
+		user = a[0]
 		domain = a[1]
 	} // Otherwise, we'll be attempting ANONYMOUS
 
@@ -315,19 +327,16 @@ func (c *Client) init(o *Options) error {
 
 		mechanism := ""
 		for _, m := range f.Mechanisms.Mechanism {
-			if m == "ANONYMOUS" {
+			if m == "X-OAUTH2" && o.OAuthToken != "" && o.OAuthScope != "" {
 				mechanism = m
-				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL)
+				// Oauth authentication: send base64-encoded \x00 user \x00 token.
+				raw := "\x00" + user + "\x00" + o.OAuthToken
+				enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
+				base64.StdEncoding.Encode(enc, []byte(raw))
+				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='X-OAUTH2' auth:service='oauth2' "+
+					"xmlns:auth='%s'>%s</auth>\n", nsSASL, o.OAuthXmlNs, enc)
 				break
 			}
-
-			a := strings.SplitN(o.User, "@", 2)
-			if len(a) != 2 {
-				return errors.New("xmpp: invalid username (want user@domain): " + o.User)
-			}
-			user := a[0]
-			domain := a[1]
-
 			if m == "PLAIN" {
 				mechanism = m
 				// Plain authentication: send base64-encoded \x00 user \x00 password.
