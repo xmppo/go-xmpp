@@ -554,10 +554,11 @@ type Contact struct {
 
 // Presence is an XMPP presence notification.
 type Presence struct {
-	From string
-	To   string
-	Type string
-	Show string
+	From   string
+	To     string
+	Type   string
+	Show   string
+	Status string
 }
 
 // Recv waits to receive the next XMPP stanza.
@@ -589,7 +590,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 			}
 			return Chat{Type: "roster", Roster: r}, nil
 		case *clientPresence:
-			return Presence{v.From, v.To, v.Type, v.Show}, nil
+			return Presence{v.From, v.To, v.Type, v.Show, v.Status}, nil
 		}
 	}
 }
@@ -721,8 +722,8 @@ type clientPresence struct {
 	Type    string   `xml:"type,attr"` // error, probe, subscribe, subscribed, unavailable, unsubscribe, unsubscribed
 	Lang    string   `xml:"lang,attr"`
 
-	Show     string `xml:"show"`        // away, chat, dnd, xa
-	Status   string `xml:"status,attr"` // sb []clientText
+	Show     string `xml:"show"`   // away, chat, dnd, xa
+	Status   string `xml:"status"` // sb []clientText
 	Priority string `xml:"priority,attr"`
 	Error    *clientError
 }
