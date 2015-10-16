@@ -554,12 +554,11 @@ type Contact struct {
 
 // Presence is an XMPP presence notification.
 type Presence struct {
-	From 		string
-	To   		string
-	Type 		string
-	Show 		string
-	Status	    string
-	
+	From   string
+	To     string
+	Type   string
+	Show   string
+	Status string
 }
 
 // Recv waits to receive the next XMPP stanza.
@@ -723,7 +722,7 @@ type clientPresence struct {
 	Type    string   `xml:"type,attr"` // error, probe, subscribe, subscribed, unavailable, unsubscribe, unsubscribed
 	Lang    string   `xml:"lang,attr"`
 
-	Show     string `xml:"show"`        // away, chat, dnd, xa
+	Show     string `xml:"show"`   // away, chat, dnd, xa
 	Status   string `xml:"status"` // sb []clientText
 	Priority string `xml:"priority,attr"`
 	Error    *clientError
