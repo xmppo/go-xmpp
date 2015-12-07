@@ -676,7 +676,7 @@ type saslSuccess struct {
 
 type saslFailure struct {
 	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-sasl failure"`
-	Any     xml.Name
+	Any     xml.Name `xml:",any"`
 }
 
 // RFC 3920  C.5  Resource binding name space
