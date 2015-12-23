@@ -276,12 +276,6 @@ func cnonce() string {
 }
 
 func (c *Client) init(o *Options) error {
-	if o.Debug {
-		// For debugging: the following causes the plaintext of the connection to be duplicated to stderr.
-		c.p = xml.NewDecoder(tee{c.conn, os.Stderr})
-	} else {
-		c.p = xml.NewDecoder(c.conn)
-	}
 
 	var domain string
 	var user string
