@@ -594,13 +594,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 		case *clientPresence:
 			return Presence{v.From, v.To, v.Type, v.Show, v.Status}, nil
 		case *clientIQ:
-			result := IQ{
-				ID:   v.ID,
-				From: v.From,
-				To:   v.To,
-				Type: v.Type,
-			}
-			return result, nil
+			return IQ{v.ID, v.From, v.To, v.Type}, nil
 		}
 	}
 }
