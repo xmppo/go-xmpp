@@ -173,6 +173,7 @@ func (o Options) NewClient() (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if strings.LastIndex(o.Host, ":") > 0 {
 		host = host[:strings.LastIndex(o.Host, ":")]
 	}
@@ -555,6 +556,13 @@ type Presence struct {
 	Status string
 }
 
+type IQ struct {
+	ID   string
+	From string
+	To   string
+	Type string
+}
+
 // Recv waits to receive the next XMPP stanza.
 // Return type is either a presence notification or a chat message.
 func (c *Client) Recv() (stanza interface{}, err error) {
@@ -585,6 +593,8 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 			return Chat{Type: "roster", Roster: r}, nil
 		case *clientPresence:
 			return Presence{v.From, v.To, v.Type, v.Show, v.Status}, nil
+		case *clientIQ:
+			return IQ{v.ID, v.From, v.To, v.Type}, nil
 		}
 	}
 }
@@ -724,10 +734,10 @@ type clientPresence struct {
 
 type clientIQ struct { // info/query
 	XMLName xml.Name `xml:"jabber:client iq"`
-	From    string   `xml:",attr"`
-	ID      string   `xml:",attr"`
-	To      string   `xml:",attr"`
-	Type    string   `xml:",attr"` // error, get, result, set
+	From    string   `xml:"from,attr"`
+	ID      string   `xml:"id,attr"`
+	To      string   `xml:"to,attr"`
+	Type    string   `xml:"type,attr"` // error, get, result, set
 	Error   clientError
 	Bind    bindBind
 }
