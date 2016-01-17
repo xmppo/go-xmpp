@@ -70,12 +70,12 @@ func connect(host, user, passwd string) (net.Conn, error) {
 	if strings.TrimSpace(host) == "" {
 		a := strings.SplitN(user, "@", 2)
 		if len(a) == 2 {
-			host = a[1]
+			addr = a[1]
 		}
 	}
 	a := strings.SplitN(host, ":", 2)
 	if len(a) == 1 {
-		host += ":5222"
+		addr += ":5222"
 	}
 	proxy := os.Getenv("HTTP_PROXY")
 	if proxy == "" {
