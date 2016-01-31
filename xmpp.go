@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math/big"
 	"net"
 	"net/http"
@@ -180,7 +181,11 @@ func (o Options) NewClient() (*Client, error) {
 
 	client := new(Client)
 	if o.NoTLS {
-		client.conn = c
+		if o.Debug {
+			client.conn = DebugConn{c}
+		} else {
+			client.conn = c
+		}
 	} else {
 		var tlsconn *tls.Conn
 		if o.TLSConfig != nil {
@@ -201,7 +206,12 @@ func (o Options) NewClient() (*Client, error) {
 				return nil, err
 			}
 		}
-		client.conn = tlsconn
+
+		if o.Debug {
+			client.conn = DebugConn{tlsconn}
+		} else {
+			client.conn = tlsconn
+		}
 	}
 
 	if err := client.init(&o); err != nil {
@@ -426,14 +436,22 @@ func (c *Client) init(o *Options) error {
 	if err = c.p.DecodeElement(&iq, nil); err != nil {
 		return errors.New("unmarshal <iq>: " + err.Error())
 	}
-	if &iq.Bind == nil {
+	if iq.Bind == nil {
 		return errors.New("<iq> result missing <bind>")
 	}
 	c.jid = iq.Bind.Jid // our local id
 
 	if o.Session {
 		//if server support session, open it
+		cookie = getCookie()
 		fmt.Fprintf(c.conn, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>", xmlEscape(domain), cookie, nsSession)
+
+		if err = c.p.DecodeElement(&iq, nil); err != nil {
+			return errors.New("unmarshal <iq>: " + err.Error())
+		}
+		if iq.Bind == nil {
+			return errors.New("<iq> result missing <session>")
+		}
 	}
 
 	// We're connected and can now receive and send messages.
@@ -447,13 +465,15 @@ func (c *Client) init(o *Options) error {
 func (c *Client) startTLSIfRequired(f *streamFeatures, o *Options, domain string) (*streamFeatures, error) {
 	// whether we start tls is a matter of opinion: the server's and the user's.
 	switch {
+
 	case f.StartTLS == nil:
 		// the server does not support STARTTLS
 		return f, nil
-	case f.StartTLS.Required != nil:
-		// the server requires STARTTLS.
-	case !o.StartTLS:
-		// the user wants STARTTLS and the server supports it.
+	case f.StartTLS.Required != nil: // the server requires STARTTLS.
+	case o.StartTLS:
+		break // the user wants STARTTLS and the server supports it.
+	default:
+		return f, nil
 	}
 	var err error
 
@@ -470,13 +490,21 @@ func (c *Client) startTLSIfRequired(f *streamFeatures, o *Options, domain string
 		//TODO(scott): we should consider using the server's address or reverse lookup
 		tc.ServerName = domain
 	}
+
+	if dc, ok := c.conn.(DebugConn); ok {
+		c.conn = dc.conn // get connection from wrapper if was
+	}
+
 	t := tls.Client(c.conn, tc)
 
 	if err = t.Handshake(); err != nil {
 		return f, errors.New("starttls handshake: " + err.Error())
 	}
-	c.conn = t
-
+	if o.Debug {
+		c.conn = DebugConn{t}
+	} else {
+		c.conn = t
+	}
 	// restart our declaration of XMPP stream intentions.
 	tf, err := c.startStream(o, domain)
 	if err != nil {
@@ -489,11 +517,7 @@ func (c *Client) startTLSIfRequired(f *streamFeatures, o *Options, domain string
 // also started the stream; if o.Debug is true, startStream will tee decoded XML data to stderr.  The features advertised by the server
 // will be returned.
 func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error) {
-	if o.Debug {
-		c.p = xml.NewDecoder(tee{c.conn, os.Stderr})
-	} else {
-		c.p = xml.NewDecoder(c.conn)
-	}
+	c.p = xml.NewDecoder(c.conn)
 
 	_, err := fmt.Fprintf(c.conn, "<?xml version='1.0'?>\n"+
 		"<stream:stream to='%s' xmlns='%s'\n"+
@@ -525,7 +549,12 @@ func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error)
 // IsEncrypted will return true if the client is connected using a TLS transport, either because it used.
 // TLS to connect from the outset, or because it successfully used STARTTLS to promote a TCP connection to TLS.
 func (c *Client) IsEncrypted() bool {
-	_, ok := c.conn.(*tls.Conn)
+	conn := c.conn
+	if dc, ok := c.conn.(DebugConn); ok {
+		conn = dc.conn
+	}
+
+	_, ok := conn.(*tls.Conn)
 	return ok
 }
 
@@ -629,7 +658,7 @@ type streamFeatures struct {
 	XMLName    xml.Name `xml:"http://etherx.jabber.org/streams features"`
 	StartTLS   *tlsStartTLS
 	Mechanisms saslMechanisms
-	Bind       bindBind
+	Bind       *bindBind
 	Session    bool
 }
 
@@ -738,8 +767,8 @@ type clientIQ struct { // info/query
 	ID      string   `xml:"id,attr"`
 	To      string   `xml:"to,attr"`
 	Type    string   `xml:"type,attr"` // error, get, result, set
-	Error   clientError
-	Bind    bindBind
+	Error   *clientError
+	Bind    *bindBind
 }
 
 type clientError struct {
@@ -854,16 +883,43 @@ func xmlEscape(s string) string {
 	return b.String()
 }
 
-type tee struct {
-	r io.Reader
-	w io.Writer
+// Debug connection
+type DebugConn struct {
+	conn net.Conn
 }
 
-func (t tee) Read(p []byte) (n int, err error) {
-	n, err = t.r.Read(p)
+func (c DebugConn) Read(b []byte) (n int, err error) {
+	n, err = c.conn.Read(b)
 	if n > 0 {
-		t.w.Write(p[0:n])
-		t.w.Write([]byte("\n"))
+		log.Printf("RECV: %s\n", string(b[0:n]))
 	}
 	return
+}
+
+func (c DebugConn) Write(b []byte) (n int, err error) {
+	n, err = c.conn.Write(b)
+	if n > 0 {
+		log.Printf("SEND: %s\n", string(b[0:n]))
+	}
+	return
+}
+
+func (c DebugConn) Close() error {
+	return c.conn.Close()
+}
+
+func (c DebugConn) LocalAddr() net.Addr {
+	return c.conn.LocalAddr()
+}
+func (c DebugConn) RemoteAddr() net.Addr {
+	return c.conn.RemoteAddr()
+}
+func (c DebugConn) SetDeadline(t time.Time) error {
+	return c.conn.SetDeadline(t)
+}
+func (c DebugConn) SetReadDeadline(t time.Time) error {
+	return c.conn.SetReadDeadline(t)
+}
+func (c DebugConn) SetWriteDeadline(t time.Time) error {
+	return c.conn.SetWriteDeadline(t)
 }
