@@ -417,7 +417,7 @@ func (c *Client) init(o *Options) error {
 		return err
 	}
 
-	// Generate a uniqe cookie
+	// Generate a unique cookie
 	cookie := getCookie()
 
 	// Send IQ message asking to bind to the local user name.
@@ -434,6 +434,7 @@ func (c *Client) init(o *Options) error {
 		return errors.New("<iq> result missing <bind>")
 	}
 	c.jid = iq.Bind.Jid // our local id
+	c.domain = domain
 
 	if o.Session {
 		//if server support session, open it
