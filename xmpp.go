@@ -108,7 +108,6 @@ func connect(host, user, passwd string) (net.Conn, error) {
 			return nil, errors.New(f[1])
 		}
 	}
-
 	return c, nil
 }
 
@@ -158,9 +157,6 @@ type Options struct {
 	// Debug output
 	Debug bool
 
-	// Debug XMPP session opening
-	DebugOpen bool
-
 	// Use server sessions
 	Session bool
 
@@ -173,22 +169,6 @@ type Options struct {
 
 // NewClient establishes a new Client connection based on a set of Options.
 func (o Options) NewClient() (*Client, error) {
-	c, err := o.NewClientConnection()
-	if err != nil {
-		return nil, err
-	}
-	f, err := c.Init1(&o)
-	if err != nil {
-		return nil, err
-	}
-	err = c.Init2(f, &o)
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
-}
-
-func (o Options) NewClientConnection() (*Client, error) {
 	host := o.Host
 	c, err := connect(host, o.User, o.Password)
 	if err != nil {
@@ -202,7 +182,7 @@ func (o Options) NewClientConnection() (*Client, error) {
 	client := new(Client)
 	if o.NoTLS {
 		if o.Debug {
-			client.conn = &DebugConn{c, o.DebugOpen}
+			client.conn = DebugConn{c}
 		} else {
 			client.conn = c
 		}
@@ -226,12 +206,19 @@ func (o Options) NewClientConnection() (*Client, error) {
 				return nil, err
 			}
 		}
+
 		if o.Debug {
-			client.conn = &DebugConn{tlsconn, o.DebugOpen}
+			client.conn = DebugConn{tlsconn}
 		} else {
 			client.conn = tlsconn
 		}
 	}
+
+	if err := client.init(&o); err != nil {
+		client.Close()
+		return nil, err
+	}
+
 	return client, nil
 }
 
@@ -264,7 +251,7 @@ func NewClientNoTLS(host, user, passwd string, debug bool) (*Client, error) {
 
 // Close closes the XMPP connection
 func (c *Client) Close() error {
-	if c.conn != nil {
+	if c.conn != (*tls.Conn)(nil) {
 		return c.conn.Close()
 	}
 	return nil
@@ -299,53 +286,8 @@ func cnonce() string {
 	return fmt.Sprintf("%016x", cn)
 }
 
-// In most cases should be used NewClient()
-// But if we want check time of TLS handshake and time of
-// XMPP session opening, can be used:
-// NewClientConnection(), Init1() and Init2()
+func (c *Client) init(o *Options) error {
 
-func (c *Client) Init1(o *Options) (*StreamFeatures, error) {
-	f, err := c.init1(o)
-	if err != nil {
-		c.Close()
-	}
-	return f, err
-}
-
-func (c *Client) Init2(f *StreamFeatures, o *Options) error {
-	err := c.init2(f, o)
-	if err != nil {
-		c.Close()
-	}
-	return err
-}
-
-func (c *Client) init1(o *Options) (*StreamFeatures, error) {
-	var domain string
-	//var user string
-	a := strings.SplitN(o.User, "@", 2)
-	if len(o.User) > 0 {
-		if len(a) != 2 {
-			return nil, errors.New("xmpp: invalid username (want user@domain): " + o.User)
-		}
-		//user = a[0]
-		domain = a[1]
-	} // Otherwise, we'll be attempting ANONYMOUS
-
-	// Declare intent to be a jabber client and gather stream features.
-	f, err := c.startStream(o, domain)
-	if err != nil {
-		return nil, err
-	}
-
-	// If the server requires we STARTTLS, attempt to do so.
-	if f, err = c.startTLSIfRequired(f, o, domain); err != nil {
-		return nil, err
-	}
-	return f, nil
-}
-
-func (c *Client) init2(f *StreamFeatures, o *Options) error {
 	var domain string
 	var user string
 	a := strings.SplitN(o.User, "@", 2)
@@ -356,6 +298,17 @@ func (c *Client) init2(f *StreamFeatures, o *Options) error {
 		user = a[0]
 		domain = a[1]
 	} // Otherwise, we'll be attempting ANONYMOUS
+
+	// Declare intent to be a jabber client and gather stream features.
+	f, err := c.startStream(o, domain)
+	if err != nil {
+		return err
+	}
+
+	// If the server requires we STARTTLS, attempt to do so.
+	if f, err = c.startTLSIfRequired(f, o, domain); err != nil {
+		return err
+	}
 
 	if o.User == "" && o.Password == "" {
 		foundAnonymous := false
@@ -403,7 +356,7 @@ func (c *Client) init2(f *StreamFeatures, o *Options) error {
 				// Digest-MD5 authentication
 				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='DIGEST-MD5'/>\n", nsSASL)
 				var ch saslChallenge
-				if err := c.p.DecodeElement(&ch, nil); err != nil {
+				if err = c.p.DecodeElement(&ch, nil); err != nil {
 					return errors.New("unmarshal <challenge>: " + err.Error())
 				}
 				b, err := base64.StdEncoding.DecodeString(string(ch))
@@ -479,7 +432,7 @@ func (c *Client) init2(f *StreamFeatures, o *Options) error {
 	} else {
 		fmt.Fprintf(c.conn, "<iq type='set' id='%x'><bind xmlns='%s'><resource>%s</resource></bind></iq>\n", cookie, nsBind, o.Resource)
 	}
-	var iq ClientIQ
+	var iq clientIQ
 	if err = c.p.DecodeElement(&iq, nil); err != nil {
 		return errors.New("unmarshal <iq>: " + err.Error())
 	}
@@ -502,20 +455,14 @@ func (c *Client) init2(f *StreamFeatures, o *Options) error {
 	}
 
 	// We're connected and can now receive and send messages.
-	//if o.Status != "" {
 	fmt.Fprintf(c.conn, "<presence xml:lang='en'><show>%s</show><status>%s</status></presence>", o.Status, o.StatusMessage)
-	//}
-
-	if o.Debug {
-		c.EnableLog(true)
-	}
 
 	return nil
 }
 
 // startTlsIfRequired examines the server's stream features and, if STARTTLS is required or supported, performs the TLS handshake.
 // f will be updated if the handshake completes, as the new stream's features are typically different from the original.
-func (c *Client) startTLSIfRequired(f *StreamFeatures, o *Options, domain string) (*StreamFeatures, error) {
+func (c *Client) startTLSIfRequired(f *streamFeatures, o *Options, domain string) (*streamFeatures, error) {
 	// whether we start tls is a matter of opinion: the server's and the user's.
 	switch {
 
@@ -544,7 +491,7 @@ func (c *Client) startTLSIfRequired(f *StreamFeatures, o *Options, domain string
 		tc.ServerName = domain
 	}
 
-	if dc, ok := c.conn.(*DebugConn); ok {
+	if dc, ok := c.conn.(DebugConn); ok {
 		c.conn = dc.conn // get connection from wrapper if was
 	}
 
@@ -554,7 +501,7 @@ func (c *Client) startTLSIfRequired(f *StreamFeatures, o *Options, domain string
 		return f, errors.New("starttls handshake: " + err.Error())
 	}
 	if o.Debug {
-		c.conn = &DebugConn{t, o.DebugOpen}
+		c.conn = DebugConn{t}
 	} else {
 		c.conn = t
 	}
@@ -569,7 +516,7 @@ func (c *Client) startTLSIfRequired(f *StreamFeatures, o *Options, domain string
 // startStream will start a new XML decoder for the connection, signal the start of a stream to the server and verify that the server has
 // also started the stream; if o.Debug is true, startStream will tee decoded XML data to stderr.  The features advertised by the server
 // will be returned.
-func (c *Client) startStream(o *Options, domain string) (*StreamFeatures, error) {
+func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error) {
 	c.p = xml.NewDecoder(c.conn)
 
 	_, err := fmt.Fprintf(c.conn, "<?xml version='1.0'?>\n"+
@@ -592,7 +539,7 @@ func (c *Client) startStream(o *Options, domain string) (*StreamFeatures, error)
 	// Now we're in the stream and can use Unmarshal.
 	// Next message should be <features> to tell us authentication options.
 	// See section 4.6 in RFC 3920.
-	f := new(StreamFeatures)
+	f := new(streamFeatures)
 	if err = c.p.DecodeElement(f, nil); err != nil {
 		return f, errors.New("unmarshal <features>: " + err.Error())
 	}
@@ -603,18 +550,12 @@ func (c *Client) startStream(o *Options, domain string) (*StreamFeatures, error)
 // TLS to connect from the outset, or because it successfully used STARTTLS to promote a TCP connection to TLS.
 func (c *Client) IsEncrypted() bool {
 	conn := c.conn
-	if dc, ok := c.conn.(*DebugConn); ok {
+	if dc, ok := c.conn.(DebugConn); ok {
 		conn = dc.conn
 	}
 
 	_, ok := conn.(*tls.Conn)
 	return ok
-}
-
-func (c *Client) EnableLog(debug bool) {
-	if dc, ok := c.conn.(*DebugConn); ok {
-		dc.debug = debug
-	}
 }
 
 // Chat is an incoming or outgoing XMPP chat message.
@@ -656,13 +597,15 @@ type IQ struct {
 func (c *Client) Recv() (stanza interface{}, err error) {
 	for {
 		_, val, err := next(c.p)
-
 		if err != nil {
 			return Chat{}, err
 		}
 		switch v := val.(type) {
-		case *ClientMessage:
-			stamp, _ := time.Parse("2006-01-02T15:04:05Z", v.Delay.Stamp)
+		case *clientMessage:
+			stamp, _ := time.Parse(
+				"2006-01-02T15:04:05Z",
+				v.Delay.Stamp,
+			)
 			chat := Chat{
 				Remote: v.From,
 				Type:   v.Type,
@@ -671,23 +614,18 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				Stamp:  stamp,
 			}
 			return chat, nil
-
-		case *ClientQuery:
+		case *clientQuery:
 			var r Roster
 			for _, item := range v.Item {
 				r = append(r, Contact{item.Jid, item.Name, item.Group})
 			}
 			return Chat{Type: "roster", Roster: r}, nil
-		case *ClientPresence:
+		case *clientPresence:
 			return Presence{v.From, v.To, v.Type, v.Show, v.Status}, nil
-		case *ClientIQ:
+		case *clientIQ:
 			return IQ{v.ID, v.From, v.To, v.Type}, nil
 		}
 	}
-}
-
-func (c *Client) Next() (xml.Name, interface{}, error) {
-	return next(c.p)
 }
 
 // Send sends the message wrapped inside an XMPP message stanza body.
@@ -716,11 +654,11 @@ func (c *Client) Roster() error {
 }
 
 // RFC 3920  C.1  Streams name space
-type StreamFeatures struct {
+type streamFeatures struct {
 	XMLName    xml.Name `xml:"http://etherx.jabber.org/streams features"`
 	StartTLS   *tlsStartTLS
 	Mechanisms saslMechanisms
-	Bind       *BindBind
+	Bind       *bindBind
 	Session    bool
 }
 
@@ -775,29 +713,14 @@ type saslFailure struct {
 }
 
 // RFC 3920  C.5  Resource binding name space
-type BindBind struct {
+type bindBind struct {
 	XMLName  xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-bind bind"`
 	Resource string
 	Jid      string `xml:"jid"`
 }
 
-// <server-ack xmlns="urn:audiocodes:ack"/>
-type ServerAck struct {
-	XMLName xml.Name `xml:"urn:audiocodes:ack server-ack"`
-}
-
-// <request xmlns="urn:xmpp:receipts"/>
-type RequestReceipts struct {
-	XMLName xml.Name `xml:"urn:xmpp:receipts request"`
-}
-
-//<received xmlns='urn:xmpp:receipts'
-type ReceivedReceipts struct {
-	XMLName xml.Name `xml:"urn:xmpp:receipts received"`
-}
-
 // RFC 3921  B.1  jabber:client
-type ClientMessage struct {
+type clientMessage struct {
 	XMLName xml.Name `xml:"jabber:client message"`
 	From    string   `xml:"from,attr"`
 	ID      string   `xml:"id,attr"`
@@ -809,10 +732,6 @@ type ClientMessage struct {
 	Body    string `xml:"body"`
 	Thread  string `xml:"thread"`
 
-	ServerAck        *ServerAck // optional
-	RequestReceipts  *RequestReceipts
-	ReceivedReceipts *ReceivedReceipts
-
 	// Any hasn't matched element
 	Other []string `xml:",any"`
 
@@ -823,12 +742,12 @@ type Delay struct {
 	Stamp string `xml:"stamp,attr"`
 }
 
-type ClientText struct {
+type clientText struct {
 	Lang string `xml:",attr"`
 	Body string `xml:"chardata"`
 }
 
-type ClientPresence struct {
+type clientPresence struct {
 	XMLName xml.Name `xml:"jabber:client presence"`
 	From    string   `xml:"from,attr"`
 	ID      string   `xml:"id,attr"`
@@ -839,20 +758,20 @@ type ClientPresence struct {
 	Show     string `xml:"show"`   // away, chat, dnd, xa
 	Status   string `xml:"status"` // sb []clientText
 	Priority string `xml:"priority,attr"`
-	Error    *ClientError
+	Error    *clientError
 }
 
-type ClientIQ struct { // info/query
+type clientIQ struct { // info/query
 	XMLName xml.Name `xml:"jabber:client iq"`
 	From    string   `xml:"from,attr"`
 	ID      string   `xml:"id,attr"`
 	To      string   `xml:"to,attr"`
 	Type    string   `xml:"type,attr"` // error, get, result, set
-	Error   *ClientError
-	Bind    *BindBind
+	Error   *clientError
+	Bind    *bindBind
 }
 
-type ClientError struct {
+type clientError struct {
 	XMLName xml.Name `xml:"jabber:client error"`
 	Code    string   `xml:",attr"`
 	Type    string   `xml:",attr"`
@@ -860,11 +779,11 @@ type ClientError struct {
 	Text    string
 }
 
-type ClientQuery struct {
-	Item []RosterItem
+type clientQuery struct {
+	Item []rosterItem
 }
 
-type RosterItem struct {
+type rosterItem struct {
 	XMLName      xml.Name `xml:"jabber:iq:roster item"`
 	Jid          string   `xml:",attr"`
 	Name         string   `xml:",attr"`
@@ -900,7 +819,7 @@ func next(p *xml.Decoder) (xml.Name, interface{}, error) {
 	var nv interface{}
 	switch se.Name.Space + " " + se.Name.Local {
 	case nsStream + " features":
-		nv = &StreamFeatures{}
+		nv = &streamFeatures{}
 	case nsStream + " error":
 		nv = &streamError{}
 	case nsTLS + " starttls":
@@ -922,15 +841,15 @@ func next(p *xml.Decoder) (xml.Name, interface{}, error) {
 	case nsSASL + " failure":
 		nv = &saslFailure{}
 	case nsBind + " bind":
-		nv = &BindBind{}
+		nv = &bindBind{}
 	case nsClient + " message":
-		nv = &ClientMessage{}
+		nv = &clientMessage{}
 	case nsClient + " presence":
-		nv = &ClientPresence{}
+		nv = &clientPresence{}
 	case nsClient + " iq":
-		nv = &ClientIQ{}
+		nv = &clientIQ{}
 	case nsClient + " error":
-		nv = &ClientError{}
+		nv = &clientError{}
 	default:
 		return xml.Name{}, nil, errors.New("unexpected XMPP message " +
 			se.Name.Space + " <" + se.Name.Local + "/>")
@@ -966,41 +885,41 @@ func xmlEscape(s string) string {
 
 // Debug connection
 type DebugConn struct {
-	conn  net.Conn
-	debug bool
+	conn net.Conn
 }
 
-func (c *DebugConn) Read(b []byte) (n int, err error) {
+func (c DebugConn) Read(b []byte) (n int, err error) {
 	n, err = c.conn.Read(b)
-	if n > 0 && c.debug {
+	if n > 0 {
 		log.Printf("RECV: %s\n", string(b[0:n]))
 	}
 	return
 }
 
-func (c *DebugConn) Write(b []byte) (n int, err error) {
+func (c DebugConn) Write(b []byte) (n int, err error) {
 	n, err = c.conn.Write(b)
-	if n > 0 && c.debug {
+	if n > 0 {
 		log.Printf("SEND: %s\n", string(b[0:n]))
 	}
 	return
 }
 
-func (c *DebugConn) Close() error {
+func (c DebugConn) Close() error {
 	return c.conn.Close()
 }
-func (c *DebugConn) LocalAddr() net.Addr {
+
+func (c DebugConn) LocalAddr() net.Addr {
 	return c.conn.LocalAddr()
 }
-func (c *DebugConn) RemoteAddr() net.Addr {
+func (c DebugConn) RemoteAddr() net.Addr {
 	return c.conn.RemoteAddr()
 }
-func (c *DebugConn) SetDeadline(t time.Time) error {
+func (c DebugConn) SetDeadline(t time.Time) error {
 	return c.conn.SetDeadline(t)
 }
-func (c *DebugConn) SetReadDeadline(t time.Time) error {
+func (c DebugConn) SetReadDeadline(t time.Time) error {
 	return c.conn.SetReadDeadline(t)
 }
-func (c *DebugConn) SetWriteDeadline(t time.Time) error {
+func (c DebugConn) SetWriteDeadline(t time.Time) error {
 	return c.conn.SetWriteDeadline(t)
 }
