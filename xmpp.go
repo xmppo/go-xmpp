@@ -64,6 +64,10 @@ type Client struct {
 	p      *xml.Decoder
 }
 
+func (c *Client) JID() string {
+	return c.jid
+}
+
 func connect(host, user, passwd string) (net.Conn, error) {
 	addr := host
 
