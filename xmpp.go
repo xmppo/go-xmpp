@@ -829,6 +829,8 @@ func next(p *xml.Decoder) (xml.Name, interface{}, error) {
 		nv = &clientIQ{}
 	case nsClient + " error":
 		nv = &clientError{}
+	case nsComponentAccept + " message":
+		nv = &componentMessage{}
 	default:
 		return xml.Name{}, nil, errors.New("unexpected XMPP message " +
 			se.Name.Space + " <" + se.Name.Local + "/>")
@@ -838,6 +840,7 @@ func next(p *xml.Decoder) (xml.Name, interface{}, error) {
 	if err = p.DecodeElement(nv, &se); err != nil {
 		return xml.Name{}, nil, err
 	}
+
 	return se.Name, nv, err
 }
 
