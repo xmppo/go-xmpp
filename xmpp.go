@@ -589,6 +589,19 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				Stamp:  stamp,
 			}
 			return chat, nil
+		case *componentMessage:
+			stamp, _ := time.Parse(
+				"2006-01-02T15:04:05Z",
+				v.Delay.Stamp,
+			)
+			chat := Chat{
+				Remote: v.From,
+				Type:   v.Type,
+				Text:   v.Body,
+				Other:  v.Other,
+				Stamp:  stamp,
+			}
+			return chat, nil
 		case *clientQuery:
 			var r Roster
 			for _, item := range v.Item {
@@ -598,6 +611,8 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 		case *clientPresence:
 			return Presence{v.From, v.To, v.Type, v.Show, v.Status}, nil
 		case *clientIQ:
+			return IQ{v.ID, v.From, v.To, v.Type}, nil
+		case *componentIQ:
 			return IQ{v.ID, v.From, v.To, v.Type}, nil
 		}
 	}
@@ -829,6 +844,10 @@ func next(p *xml.Decoder) (xml.Name, interface{}, error) {
 		nv = &clientIQ{}
 	case nsClient + " error":
 		nv = &clientError{}
+	case nsComponentAccept + " message":
+		nv = &componentMessage{}
+	case nsComponentAccept + " iq":
+		nv = &componentIQ{}
 	default:
 		return xml.Name{}, nil, errors.New("unexpected XMPP message " +
 			se.Name.Space + " <" + se.Name.Local + "/>")
@@ -838,6 +857,7 @@ func next(p *xml.Decoder) (xml.Name, interface{}, error) {
 	if err = p.DecodeElement(nv, &se); err != nil {
 		return xml.Name{}, nil, err
 	}
+
 	return se.Name, nv, err
 }
 
