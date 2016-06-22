@@ -562,10 +562,11 @@ type Presence struct {
 }
 
 type IQ struct {
-	ID   string
-	From string
-	To   string
-	Type string
+	ID    string
+	From  string
+	To    string
+	Type  string
+	Query []byte
 }
 
 // Recv waits to receive the next XMPP stanza.
@@ -599,7 +600,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 		case *clientPresence:
 			return Presence{v.From, v.To, v.Type, v.Show, v.Status}, nil
 		case *clientIQ:
-			return IQ{v.ID, v.From, v.To, v.Type}, nil
+			return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type, Query: v.Query}, nil
 		}
 	}
 }
@@ -747,6 +748,7 @@ type clientIQ struct { // info/query
 	ID      string   `xml:"id,attr"`
 	To      string   `xml:"to,attr"`
 	Type    string   `xml:"type,attr"` // error, get, result, set
+	Query   []byte   `xml:",innerxml"`
 	Error   clientError
 	Bind    bindBind
 }
@@ -839,6 +841,7 @@ func next(p *xml.Decoder) (xml.Name, interface{}, error) {
 	if err = p.DecodeElement(nv, &se); err != nil {
 		return xml.Name{}, nil, err
 	}
+
 	return se.Name, nv, err
 }
 
