@@ -40,6 +40,7 @@ const (
 	nsBind    = "urn:ietf:params:xml:ns:xmpp-bind"
 	nsClient  = "jabber:client"
 	nsSession = "urn:ietf:params:xml:ns:xmpp-session"
+	nsPing    = "urn:xmpp:ping"
 )
 
 // Default TLS configuration options
@@ -600,6 +601,17 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 		case *clientPresence:
 			return Presence{v.From, v.To, v.Type, v.Show, v.Status}, nil
 		case *clientIQ:
+			//fmt.Printf("$+v", val)
+			_, vali, err := UnmarshalIqQuery(v.Query)
+			if err == nil {
+				switch vali.(type) {
+				case *serverPingRequest:
+					err := c.SendResultPing(v.ID, v.From)
+					if err != nil {
+						return Chat{}, err
+					}
+				}
+			}
 			return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type, Query: v.Query}, nil
 		}
 	}
@@ -773,6 +785,10 @@ type rosterItem struct {
 	Group        []string
 }
 
+type serverPingRequest struct {
+	XMLName xml.Name `xml:"urn:xmpp:ping ping"`
+}
+
 // Scan XML token stream to find next StartElement.
 func nextStart(p *xml.Decoder) (xml.StartElement, error) {
 	for {
@@ -878,4 +894,24 @@ func (t tee) Read(p []byte) (n int, err error) {
 		t.w.Write([]byte("\n"))
 	}
 	return
+}
+
+func UnmarshalIqQuery(Query []byte) (xml.Name, interface{}, error) {
+	dec := xml.NewDecoder(bytes.NewBuffer(Query))
+
+	se, err := nextStart(dec)
+	if err != nil {
+		return xml.Name{}, nil, err
+	}
+
+	var nv interface{}
+	switch se.Name.Space + " " + se.Name.Local {
+	case nsPing + " ping":
+		nv = &serverPingRequest{}
+	}
+
+	if err = dec.DecodeElement(nv, &se); err != nil {
+		return xml.Name{}, nil, err
+	}
+	return se.Name, nv, err
 }
