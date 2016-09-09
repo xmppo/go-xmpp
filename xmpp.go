@@ -600,6 +600,12 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 		case *clientPresence:
 			return Presence{v.From, v.To, v.Type, v.Show, v.Status}, nil
 		case *clientIQ:
+			if bytes.Equal(v.Query, []byte(`<ping xmlns='urn:xmpp:ping'/>`)) {
+				err := c.SendResultPing(v.ID, v.From)
+				if err != nil {
+					return Chat{}, err
+				}
+			}
 			return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type, Query: v.Query}, nil
 		}
 	}
