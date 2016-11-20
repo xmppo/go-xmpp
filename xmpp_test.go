@@ -57,7 +57,7 @@ func (*testConn) SetWriteDeadline(time.Time) error {
 var text = strings.TrimSpace(`
 <message xmlns="jabber:client" id="3" type="error" to="123456789@gcm.googleapis.com/ABC">
 	<gcm xmlns="google:mobile:data">
-		{"random": "text"}
+		{"random": "&lt;text&gt;"}
 	</gcm>
 	<error code="400" type="modify">
 		<bad-request xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"/>
@@ -80,8 +80,23 @@ func TestStanzaError(t *testing.T) {
 	chat := Chat{
 		Type: "error",
 		Other: []string{
-			"\n\t\t{\"random\": \"text\"}\n\t",
+			"\n\t\t{\"random\": \"<text>\"}\n\t",
 			"\n\t\t\n\t\t\n\t",
+		},
+		OtherElem: []XMLElement{
+			XMLElement{
+				XMLName:  xml.Name{Space: "google:mobile:data", Local: "gcm"},
+				InnerXML: "\n\t\t{\"random\": \"&lt;text&gt;\"}\n\t",
+			},
+			XMLElement{
+				XMLName: xml.Name{Space: "jabber:client", Local: "error"},
+				InnerXML: `
+		<bad-request xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"/>
+		<text xmlns="urn:ietf:params:xml:ns:xmpp-stanzas">
+			InvalidJson: JSON_PARSING_ERROR : Missing Required Field: message_id\n
+		</text>
+	`,
+			},
 		},
 	}
 	if !reflect.DeepEqual(v, chat) {
