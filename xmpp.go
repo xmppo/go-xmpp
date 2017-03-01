@@ -606,7 +606,8 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 		case *clientPresence:
 			return Presence{v.From, v.To, v.Type, v.Show, v.Status}, nil
 		case *clientIQ:
-			if bytes.Equal(v.Query, []byte(`<ping xmlns='urn:xmpp:ping'/>`)) {
+			// TODO check more strictly
+			if bytes.Equal(v.Query, []byte(`<ping xmlns='urn:xmpp:ping'/>`)) || bytes.Equal(v.Query, []byte(`<ping xmlns="urn:xmpp:ping"/>`)) {
 				err := c.SendResultPing(v.ID, v.From)
 				if err != nil {
 					return Chat{}, err
