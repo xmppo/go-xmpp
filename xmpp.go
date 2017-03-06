@@ -633,6 +633,11 @@ func (c *Client) SendPresence(presence Presence) (n int, err error) {
 	return fmt.Fprintf(c.conn, "<presence from='%s' to='%s'/>", xmlEscape(presence.From), xmlEscape(presence.To))
 }
 
+// SendKeepAlive sends a "whitespace keepalive" as described in chapter 4.6.1 of RFC6120.
+func (c *Client) SendKeepAlive() (n int, err error) {
+	return fmt.Fprintf(c.conn," ")
+}
+
 // SendHtml sends the message as HTML as defined by XEP-0071
 func (c *Client) SendHtml(chat Chat) (n int, err error) {
 	return fmt.Fprintf(c.conn, "<message to='%s' type='%s' xml:lang='en'>"+
