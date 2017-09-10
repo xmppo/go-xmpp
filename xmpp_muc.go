@@ -48,7 +48,7 @@ func (c *Client) JoinMUC(jid, nick string, history_type, history int, history_da
 	switch history_type {
 	case NoHistory:
 		return fmt.Fprintf(c.conn, "<presence to='%s/%s'>\n" +
-			"<x xmlns='%s' />\n" +
+			"<x xmlns='%s' /></x>\n" +
 			"</presence>",
 				xmlEscape(jid), xmlEscape(nick), nsMUC)
 	case CharHistory:
@@ -90,7 +90,7 @@ func (c *Client) JoinProtectedMUC(jid, nick string, password string, history_typ
 	case NoHistory:
 		return fmt.Fprintf(c.conn, "<presence to='%s/%s'>\n" +
 			"<x xmlns='%s'>\n" +
-			"<password>%s</password>\n"+
+			"<password>%s</password></x>\n"+
 			"</presence>",
 				xmlEscape(jid), xmlEscape(nick), nsMUC, xmlEscape(password))
 	case CharHistory:
