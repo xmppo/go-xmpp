@@ -3,6 +3,7 @@ package xmpp
 import (
 	"bytes"
 	"encoding/xml"
+	"io"
 	"net"
 	"reflect"
 	"strings"
@@ -101,5 +102,15 @@ func TestStanzaError(t *testing.T) {
 	}
 	if !reflect.DeepEqual(v, chat) {
 		t.Errorf("Recv() = %#v; want %#v", v, chat)
+	}
+}
+
+func TestEOFError(t *testing.T) {
+	var c Client
+	c.conn = tConnect("")
+	c.p = xml.NewDecoder(c.conn)
+	_, err := c.Recv()
+	if err != io.EOF {
+		t.Errorf("Recv() did not return io.EOF on end of input stream")
 	}
 }
