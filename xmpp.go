@@ -901,24 +901,10 @@ func next(p *xml.Decoder) (xml.Name, interface{}, error) {
 	return se.Name, nv, err
 }
 
-var xmlSpecial = map[byte]string{
-	'<':  "&lt;",
-	'>':  "&gt;",
-	'"':  "&quot;",
-	'\'': "&apos;",
-	'&':  "&amp;",
-}
-
 func xmlEscape(s string) string {
 	var b bytes.Buffer
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if s, ok := xmlSpecial[c]; ok {
-			b.WriteString(s)
-		} else {
-			b.WriteByte(c)
-		}
-	}
+	xml.Escape(&b, []byte(s))
+
 	return b.String()
 }
 
