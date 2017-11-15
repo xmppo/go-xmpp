@@ -68,6 +68,11 @@ func (c *Client) JID() string {
 	return c.jid
 }
 
+func containsIgnoreCase(s, substr string) bool {
+	s, substr = strings.ToUpper(s), strings.ToUpper(substr)
+	return strings.Contains(s, substr)
+}
+
 func connect(host, user, passwd string) (net.Conn, error) {
 	addr := host
 
@@ -81,9 +86,23 @@ func connect(host, user, passwd string) (net.Conn, error) {
 	if len(a) == 1 {
 		addr += ":5222"
 	}
+
 	proxy := os.Getenv("HTTP_PROXY")
 	if proxy == "" {
 		proxy = os.Getenv("http_proxy")
+	}
+	// test for no proxy
+	if proxy != "" {
+		noproxy := os.Getenv("no_proxy")
+		if noproxy != "" {
+			nplist := strings.Split(noproxy, ",")
+			for _, s := range nplist {
+				if containsIgnoreCase(addr, s) {
+					proxy = ""
+					break
+				}
+			}
+		}
 	}
 	if proxy != "" {
 		url, err := url.Parse(proxy)
@@ -91,6 +110,7 @@ func connect(host, user, passwd string) (net.Conn, error) {
 			addr = url.Host
 		}
 	}
+
 	c, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
