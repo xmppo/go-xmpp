@@ -91,7 +91,7 @@ func connect(host, user, passwd string) (net.Conn, error) {
 	if proxy == "" {
 		proxy = os.Getenv("http_proxy")
 	}
-	// test for no proxy
+	// test for no proxy, takes a comma separated list with substrings to match
 	if proxy != "" {
 		noproxy := os.Getenv("NO_PROXY")
 		if noproxy == "" {
