@@ -93,9 +93,9 @@ func connect(host, user, passwd string) (net.Conn, error) {
 	}
 	// test for no proxy
 	if proxy != "" {
-		noproxy := os.Getenv("no_proxy")
+		noproxy := os.Getenv("NO_PROXY")
 		if noproxy == "" {
-			noproxy = os.Getenv("NO_PROXY")
+			noproxy = os.Getenv("no_proxy")
 		}
 		if noproxy != "" {
 			nplist := strings.Split(noproxy, ",")
