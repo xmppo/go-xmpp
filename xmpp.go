@@ -545,6 +545,8 @@ type Chat struct {
 	Remote    string
 	Type      string
 	Text      string
+	Subject   string
+	Thread    string
 	Roster    Roster
 	Other     []string
 	OtherElem []XMLElement
@@ -594,6 +596,8 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				Remote:    v.From,
 				Type:      v.Type,
 				Text:      v.Body,
+				Subject:   v.Subject,
+				Thread:    v.Thread,
 				Other:     v.OtherStrings(),
 				OtherElem: v.Other,
 				Stamp:     stamp,
@@ -609,7 +613,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 			return Presence{v.From, v.To, v.Type, v.Show, v.Status}, nil
 		case *clientIQ:
 			// TODO check more strictly
-			if bytes.Equal(v.Query, []byte(`<ping xmlns='urn:xmpp:ping'/>`)) || bytes.Equal(v.Query, []byte(`<ping xmlns="urn:xmpp:ping"/>`)) {
+			if bytes.Equal(bytes.TrimSpace(v.Query), []byte(`<ping xmlns='urn:xmpp:ping'/>`)) || bytes.Equal(bytes.TrimSpace(v.Query), []byte(`<ping xmlns="urn:xmpp:ping"/>`)) {
 				err := c.SendResultPing(v.ID, v.From)
 				if err != nil {
 					return Chat{}, err
@@ -622,7 +626,15 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 
 // Send sends the message wrapped inside an XMPP message stanza body.
 func (c *Client) Send(chat Chat) (n int, err error) {
-	return fmt.Fprintf(c.conn, "<message to='%s' type='%s' xml:lang='en'>"+"<body>%s</body></message>",
+	var subtext = ``
+	var thdtext = ``
+	if chat.Subject != `` {
+		subtext = `<subject>` + xmlEscape(chat.Subject) + `</subject>`
+	}
+	if chat.Thread != `` {
+		thdtext = `<thread>` + xmlEscape(chat.Thread) + `</thread>`
+	}
+	return fmt.Fprintf(c.conn, "<message to='%s' type='%s' xml:lang='en'>" + subtext + "<body>%s</body>" + thdtext + "</message>",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text))
 }
 
