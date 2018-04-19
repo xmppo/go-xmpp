@@ -45,6 +45,9 @@ const (
 // Default TLS configuration options
 var DefaultConfig tls.Config
 
+// DebugWriter is the writer used to write debugging output to.
+var DebugWriter io.Writer = os.Stderr
+
 // Cookie is a unique XMPP session identifier
 type Cookie uint64
 
@@ -524,7 +527,7 @@ func (c *Client) startTLSIfRequired(f *streamFeatures, o *Options, domain string
 // will be returned.
 func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error) {
 	if o.Debug {
-		c.p = xml.NewDecoder(tee{c.conn, os.Stderr})
+		c.p = xml.NewDecoder(tee{c.conn, DebugWriter})
 	} else {
 		c.p = xml.NewDecoder(c.conn)
 	}
@@ -657,7 +660,7 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 	if chat.Thread != `` {
 		thdtext = `<thread>` + xmlEscape(chat.Thread) + `</thread>`
 	}
-	return fmt.Fprintf(c.conn, "<message to='%s' type='%s' xml:lang='en'>" + subtext + "<body>%s</body>" + thdtext + "</message>",
+	return fmt.Fprintf(c.conn, "<message to='%s' type='%s' xml:lang='en'>"+subtext+"<body>%s</body>"+thdtext+"</message>",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text))
 }
 
