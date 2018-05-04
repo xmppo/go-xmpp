@@ -31,8 +31,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"github.com/satori/go.uuid"
 )
 
 const (
@@ -666,7 +664,7 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 	stanza := "<message to='%s' type='%s' id='%s' xml:lang='en'>" + subtext + thdtext + "<body>%s</body>" + "</message>"
 
 	return fmt.Fprintf(c.conn, stanza,
-		xmlEscape(chat.Remote), xmlEscape(chat.Type), uuid.NewV1().String(), xmlEscape(chat.Text))
+		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce(), xmlEscape(chat.Text))
 }
 
 // SendOrg sends the original text without being wrapped in an XMPP message stanza.
