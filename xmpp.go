@@ -660,8 +660,11 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 	if chat.Thread != `` {
 		thdtext = `<thread>` + xmlEscape(chat.Thread) + `</thread>`
 	}
-	return fmt.Fprintf(c.conn, "<message to='%s' type='%s' xml:lang='en'>"+subtext+"<body>%s</body>"+thdtext+"</message>",
-		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text))
+
+	stanza := "<message to='%s' type='%s' id='%s' xml:lang='en'>" + subtext +  "<body>%s</body>" + thdtext + "</message>"
+
+	return fmt.Fprintf(c.conn, stanza,
+		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce(), xmlEscape(chat.Text))
 }
 
 // SendOrg sends the original text without being wrapped in an XMPP message stanza.
@@ -756,7 +759,7 @@ type saslFailure struct {
 type bindBind struct {
 	XMLName  xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-bind bind"`
 	Resource string
-	Jid      string `xml:"jid"`
+	Jid      string   `xml:"jid"`
 }
 
 // RFC 3921  B.1  jabber:client
@@ -836,7 +839,8 @@ type clientPresence struct {
 	Error    *clientError
 }
 
-type clientIQ struct { // info/query
+type clientIQ struct {
+	// info/query
 	XMLName xml.Name `xml:"jabber:client iq"`
 	From    string   `xml:"from,attr"`
 	ID      string   `xml:"id,attr"`
