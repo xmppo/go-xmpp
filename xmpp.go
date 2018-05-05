@@ -661,7 +661,7 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 		thdtext = `<thread>` + xmlEscape(chat.Thread) + `</thread>`
 	}
 
-	stanza := "<message to='%s' type='%s' id='%s' xml:lang='en'>" + subtext +  "<body>%s</body>" + thdtext + "</message>"
+	stanza := "<message to='%s' type='%s' id='%s' xml:lang='en'>" + subtext + "<body>%s</body>" + thdtext + "</message>"
 
 	return fmt.Fprintf(c.conn, stanza,
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce(), xmlEscape(chat.Text))
@@ -759,7 +759,7 @@ type saslFailure struct {
 type bindBind struct {
 	XMLName  xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-bind bind"`
 	Resource string
-	Jid      string   `xml:"jid"`
+	Jid      string `xml:"jid"`
 }
 
 // RFC 3921  B.1  jabber:client
