@@ -661,7 +661,7 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 		thdtext = `<thread>` + xmlEscape(chat.Thread) + `</thread>`
 	}
 
-	stanza := "<message to='%s' type='%s' id='%s' xml:lang='en'>" + subtext + thdtext + "<body>%s</body>" + "</message>"
+	stanza := "<message to='%s' type='%s' id='%s' xml:lang='en'>" + subtext +  "<body>%s</body>" + thdtext + "</message>"
 
 	return fmt.Fprintf(c.conn, stanza,
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce(), xmlEscape(chat.Text))
