@@ -608,6 +608,8 @@ type Chat struct {
 	Thread    string
 	Ooburl    string
 	Oobdesc   string
+	ID        string
+	ReplaceID string
 	Roster    Roster
 	Other     []string
 	OtherElem []XMLElement
@@ -681,6 +683,8 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				Text:      v.Body,
 				Subject:   v.Subject,
 				Thread:    v.Thread,
+				ID:        v.ID,
+				ReplaceID: v.ReplaceID.ID,
 				Other:     v.OtherStrings(),
 				OtherElem: v.Other,
 				Stamp:     stamp,
@@ -828,7 +832,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 
 // Send sends the message wrapped inside an XMPP message stanza body.
 func (c *Client) Send(chat Chat) (n int, err error) {
-	var subtext, thdtext, oobtext string
+	var subtext, thdtext, oobtext, msgidtext, msgcorrecttext string
 	if chat.Subject != `` {
 		subtext = `<subject>` + xmlEscape(chat.Subject) + `</subject>`
 	}
@@ -843,10 +847,19 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 		oobtext += `</x>`
 	}
 
-	stanza := "<message to='%s' type='%s' id='%s' xml:lang='en'>" + subtext + "<body>%s</body>" + oobtext + thdtext + "</message>"
+	if chat.ID != `` {
+		msgidtext = `id='` + xmlEscape(chat.ID) + `'`
+	} else {
+		msgidtext = `id='` + cnonce() + `'`
+	}
 
-	return fmt.Fprintf(c.conn, stanza,
-		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce(), xmlEscape(chat.Text))
+	if chat.ReplaceID != `` {
+		msgcorrecttext = `<replace id='` + xmlEscape(chat.ReplaceID) + `' xmlns='urn:xmpp:message-correct:0'/>`
+	}
+
+	stanza := "<message to='%s' type='%s' " + msgidtext + " xml:lang='en'>" + subtext + "<body>%s</body>" + msgcorrecttext + oobtext + thdtext + "</message>"
+
+	return fmt.Fprintf(c.conn, stanza, xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text))
 }
 
 // SendOOB sends OOB data wrapped inside an XMPP message stanza, without actual body.
@@ -961,6 +974,11 @@ type bindBind struct {
 	Jid      string `xml:"jid"`
 }
 
+type clientMessageCorrect struct {
+	XMLName xml.Name `xml:"urn:xmpp:message-correct:0 replace"`
+	ID      string   `xml:"id,attr"`
+}
+
 // RFC 3921  B.1  jabber:client
 type clientMessage struct {
 	XMLName xml.Name `xml:"jabber:client message"`
@@ -970,9 +988,10 @@ type clientMessage struct {
 	Type    string   `xml:"type,attr"` // chat, error, groupchat, headline, or normal
 
 	// These should technically be []clientText, but string is much more convenient.
-	Subject string `xml:"subject"`
-	Body    string `xml:"body"`
-	Thread  string `xml:"thread"`
+	Subject   string `xml:"subject"`
+	Body      string `xml:"body"`
+	Thread    string `xml:"thread"`
+	ReplaceID clientMessageCorrect
 
 	// Pubsub
 	Event clientPubsubEvent `xml:"event"`
