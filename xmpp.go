@@ -79,33 +79,9 @@ func containsIgnoreCase(s, substr string) bool {
 func connect(host, user, passwd string) (net.Conn, error) {
 	addr := host
 
-	if strings.TrimSpace(host) == "" {
-		a := strings.SplitN(user, "@", 2)
-		if len(a) == 2 {
-			if cna, addrs, err := net.LookupSRV("xmpp-client", "tcp", a[1]); err == nil {
-				fmt.Printf("LookupSRV got: %s, %d SRVs\n", cna, len(addrs))
-				if len(addrs) > 0 {
-					// default to first record
-					addr = fmt.Sprintf("%s:%d", addrs[0].Target, addrs[0].Port)
-					defP := addrs[0].Priority
-					for _, adr := range addrs {
-						if adr.Priority < defP {
-							addr = fmt.Sprintf("%s:%d", adr.Target, adr.Port)
-							defP = adr.Priority
-						}
-					}
-				} else {
-					addr = a[1]
-				}
-			} else {
-				addr = a[1]
-			}
-		}
-	} else {
-		a := strings.SplitN(host, ":", 2)
-		if len(a) == 1 {
-			addr += ":5222"
-		}
+	a := strings.SplitN(addr, ":", 2)
+	if len(a) == 1 {
+		addr += ":5222"
 	}
 
 	proxy := os.Getenv("HTTP_PROXY")
@@ -217,13 +193,35 @@ type Options struct {
 // NewClient establishes a new Client connection based on a set of Options.
 func (o Options) NewClient() (*Client, error) {
 	host := o.Host
+	if strings.TrimSpace(host) == "" {
+		a := strings.SplitN(o.User, "@", 2)
+		if len(a) == 2 {
+			if _, addrs, err := net.LookupSRV("xmpp-client", "tcp", a[1]); err == nil {
+				if len(addrs) > 0 {
+					// default to first record
+					host = fmt.Sprintf("%s:%d", addrs[0].Target, addrs[0].Port)
+					defP := addrs[0].Priority
+					for _, adr := range addrs {
+						if adr.Priority < defP {
+							host = fmt.Sprintf("%s:%d", adr.Target, adr.Port)
+							defP = adr.Priority
+						}
+					}
+				} else {
+					host = a[1]
+				}
+			} else {
+				host = a[1]
+			}
+		}
+	}
 	c, err := connect(host, o.User, o.Password)
 	if err != nil {
 		return nil, err
 	}
 
-	if strings.LastIndex(o.Host, ":") > 0 {
-		host = host[:strings.LastIndex(o.Host, ":")]
+	if strings.LastIndex(host, ":") > 0 {
+		host = host[:strings.LastIndex(host, ":")]
 	}
 
 	client := new(Client)
