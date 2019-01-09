@@ -82,12 +82,30 @@ func connect(host, user, passwd string) (net.Conn, error) {
 	if strings.TrimSpace(host) == "" {
 		a := strings.SplitN(user, "@", 2)
 		if len(a) == 2 {
-			addr = a[1]
+			if cna, addrs, err := net.LookupSRV("xmpp-client", "tcp", a[1]); err == nil {
+				fmt.Printf("LookupSRV got: %s, %d SRVs\n", cna, len(addrs))
+				if len(addrs) > 0 {
+					// default to first record
+					addr = fmt.Sprintf("%s:%d", addrs[0].Target, addrs[0].Port)
+					defP := addrs[0].Priority
+					for _, adr := range addrs {
+						if adr.Priority < defP {
+							addr = fmt.Sprintf("%s:%d", adr.Target, adr.Port)
+							defP = adr.Priority
+						}
+					}
+				} else {
+					addr = a[1]
+				}
+			} else {
+				addr = a[1]
+			}
 		}
-	}
-	a := strings.SplitN(host, ":", 2)
-	if len(a) == 1 {
-		addr += ":5222"
+	} else {
+		a := strings.SplitN(host, ":", 2)
+		if len(a) == 1 {
+			addr += ":5222"
+		}
 	}
 
 	proxy := os.Getenv("HTTP_PROXY")

@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-var server = flag.String("server", "talk.google.com:443", "server")
+var server = flag.String("server", "", "server")
 var username = flag.String("username", "", "username")
 var password = flag.String("password", "", "password")
 var status = flag.String("status", "xa", "status")
