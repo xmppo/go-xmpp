@@ -677,6 +677,10 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				if err := c.SendIQLast(v.ID, v.From, v.To); err != nil {
 					return Chat{}, err
 				}
+			case "urn:xmpp:time":
+				if err := c.SendIQtime(v.ID, v.From, v.To); err != nil {
+					return Chat{}, err
+				}
 			case "jabber:iq:roster":
 				var item rosterItem
 				var r Roster
