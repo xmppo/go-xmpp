@@ -62,10 +62,11 @@ func getCookie() Cookie {
 
 // Client holds XMPP connection opitons
 type Client struct {
-	conn   net.Conn // connection to server
-	jid    string   // Jabber ID for our connection
-	domain string
-	p      *xml.Decoder
+	conn      net.Conn // connection to server
+	jid       string   // Jabber ID for our connection
+	domain    string
+	loginTime time.Time
+	p         *xml.Decoder
 }
 
 func (c *Client) JID() string {
@@ -257,6 +258,7 @@ func (o Options) NewClient() (*Client, error) {
 		client.Close()
 		return nil, err
 	}
+	client.loginTime = time.Now()
 
 	return client, nil
 }
@@ -666,7 +668,16 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 			}
 			// <query xmlns='jabber:iq:roster' ver='5'>
 			// TODO: shall we check XMLName.Local is "query"?
-			if v.Query.XMLName.Space == "jabber:iq:roster" {
+			switch v.Query.XMLName.Space {
+			case "jabber:iq:version":
+				if err := c.SendVersion(v.ID, v.From, v.To); err != nil {
+					return Chat{}, err
+				}
+			case "jabber:iq:last":
+				if err := c.SendIQLast(v.ID, v.From, v.To); err != nil {
+					return Chat{}, err
+				}
+			case "jabber:iq:roster":
 				var item rosterItem
 				var r Roster
 				if v.Type != "result" && v.Type != "set" {
