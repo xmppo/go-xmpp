@@ -102,6 +102,9 @@ func main() {
 				// ping ignore
 				if v.Type == "result" && v.ID == "c2s1" {
 					fmt.Printf("Got pong from %s to %s\n", v.From, v.To)
+				} else {
+					fmt.Printf("Got from %s to %s IQ, tag: (%v), query(%s)\n",
+						v.From, v.To, v.QueryName, v.Query)
 				}
 			default:
 				fmt.Printf("def: %v\n", v)
@@ -110,7 +113,8 @@ func main() {
 	}()
 	// get roster first
 	talk.Roster()
-	talk.SendOrg("<presence/>")
+	// test conf
+	talk.JoinMUCNoHistory("test@conference.jabb3r.org", "bot")
 	for {
 		in := bufio.NewReader(os.Stdin)
 		line, err := in.ReadString('\n')

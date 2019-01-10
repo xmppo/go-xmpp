@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math/big"
 	"net"
 	"net/http"
@@ -613,11 +614,12 @@ type Presence struct {
 }
 
 type IQ struct {
-	ID    string
-	From  string
-	To    string
-	Type  string
-	Query []byte
+	ID        string
+	From      string
+	To        string
+	Type      string
+	Query     string
+	QueryName xml.Name
 }
 
 // Recv waits to receive the next XMPP stanza.
@@ -656,7 +658,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 		case *clientIQ:
 			// TODO check more strictly
 			if v.Query.XMLName.Space == "urn:xmpp:ping" {
-				fmt.Println("clientIQ ping")
+				log.Print("clientIQ ping")
 				err := c.SendResultPing(v.ID, v.From)
 				if err != nil {
 					return Chat{}, err
@@ -664,10 +666,14 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 			}
 			// <query xmlns='jabber:iq:roster' ver='5'>
 			// TODO: shall we check XMLName.Local is "query"?
-			if (v.Type == "result" || v.Type == "set") &&
-				v.Query.XMLName.Space == "jabber:iq:roster" {
+			if v.Query.XMLName.Space == "jabber:iq:roster" {
 				var item rosterItem
 				var r Roster
+				if v.Type != "result" && v.Type != "set" {
+					// only result and set processed
+					return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type,
+						Query: v.Query.InnerXML, QueryName: v.Query.XMLName}, nil
+				}
 				vv := strings.Split(v.Query.InnerXML, "/>")
 				for _, ss := range vv {
 					if strings.TrimSpace(ss) == "" {
@@ -686,7 +692,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				return Chat{Type: "roster", Roster: r}, nil
 			}
 			return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type,
-				Query: []byte(v.Query.InnerXML)}, nil
+				Query: v.Query.InnerXML, QueryName: v.Query.XMLName}, nil
 		}
 	}
 }
