@@ -45,6 +45,10 @@ func main() {
 			ServerName:         serverName(*server),
 			InsecureSkipVerify: false,
 		}
+	} else {
+		xmpp.DefaultConfig = tls.Config{
+			InsecureSkipVerify: true,
+		}
 	}
 
 	var talk *xmpp.Client
@@ -114,7 +118,7 @@ func main() {
 	// get roster first
 	talk.Roster()
 	// test conf
-	talk.JoinMUCNoHistory("test@conference.jabb3r.org", "bot")
+	//talk.JoinMUCNoHistory("test@conference.jabb3r.org", "bot")
 	for {
 		in := bufio.NewReader(os.Stdin)
 		line, err := in.ReadString('\n')
