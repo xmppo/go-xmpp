@@ -3,11 +3,13 @@ package main
 import (
 	"bufio"
 	"crypto/tls"
+	"encoding/xml"
 	"flag"
 	"fmt"
 	"github.com/kjx98/go-xmpp"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -20,6 +22,21 @@ var statusMessage = flag.String("status-msg", "I for one welcome our new codebot
 var notls = flag.Bool("notls", true, "No TLS")
 var debug = flag.Bool("debug", false, "debug output")
 var session = flag.Bool("session", false, "use server session")
+
+type rosterItem struct {
+	XMLName      xml.Name `xml:"item"`
+	Jid          string   `xml:"jid,attr"`
+	Name         string   `xml:"name,attr"`
+	Subscription string   `xml:"subscription,attr"`
+	Group        []string `"xml:"group"`
+}
+
+type contactType struct {
+	Jid          string
+	Name         string
+	Subscription string
+	Online       bool
+}
 
 func serverName(host string) string {
 	return strings.Split(host, ":")[0]
@@ -69,6 +86,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	loginTime := time.Now()
 
 	go func() {
 		for {
@@ -98,12 +116,84 @@ func main() {
 					}
 				}
 			case xmpp.Presence:
-				fmt.Println("Presence:", v.From, v.Show, v.Type)
+				switch v.Type {
+				case "subscribe":
+					// Approve all subscription
+					fmt.Printf("Presence: %s Approve %s subscription\n",
+						v.To, v.From)
+					talk.ApproveSubscription(v.From)
+					talk.RequestSubscription(v.From)
+				case "unsubscribe":
+					fmt.Printf("Presence: %s Revoke %s subscription\n",
+						v.To, v.From)
+					talk.RevokeSubscription(v.From)
+				default:
+					fmt.Printf("Presence: %s %s Type(%s)\n", v.From, v.Show, v.Type)
+				}
 			case xmpp.Roster, xmpp.Contact:
 				// TODO: update local roster
 				fmt.Println("Roster/Contact:", v)
 			case xmpp.IQ:
 				// ping ignore
+				switch v.QueryName.Space {
+				case "jabber:iq:version":
+					if err := talk.RawVersion(v.To, v.From, v.ID,
+						"0.1", runtime.GOOS); err != nil {
+						fmt.Println("RawVersion:", err)
+					}
+					continue
+				case "jabber:iq:last":
+					tt := time.Now().Sub(loginTime)
+					last := int(tt.Seconds())
+					if err := talk.RawLast(v.To, v.From, v.ID, last); err != nil {
+						fmt.Println("RawLast:", err)
+					}
+					continue
+				case "urn:xmpp:time":
+					if err := talk.RawIQtime(v.To, v.From, v.ID); err != nil {
+						fmt.Println("RawIQtime:", err)
+					}
+					continue
+				case "jabber:iq:roster":
+					var item rosterItem
+					if v.Type != "result" && v.Type != "set" {
+						// only result and set processed
+						fmt.Println("jabber:iq:roster, type:", v.Type)
+						continue
+					}
+					vv := strings.Split(v.Query, "/>")
+					for _, ss := range vv {
+						if strings.TrimSpace(ss) == "" {
+							continue
+						}
+						ss += "/>"
+						if err := xml.Unmarshal([]byte(ss), &item); err != nil {
+							fmt.Println("unmarshal roster <query>: ", err)
+							continue
+						} else {
+							if item.Subscription == "remove" {
+								continue
+							}
+							/*
+								//may loop whiel presence is unavailable
+								if item.Subscription == "from" {
+									fmt.Printf("%s Approve %s subscription\n",
+										v.To, item.Jid)
+									talk.RequestSubscription(item.Jid)
+								}
+							*/
+							fmt.Printf("roster item %s subscription(%s), %v\n",
+								item.Jid, item.Subscription, item.Group)
+							if v.Type == "set" && item.Subscription == "both" {
+								// shall we check presence unavailable
+								pr := xmpp.Presence{From: v.To, To: item.Jid,
+									Show: "xa"}
+								talk.SendPresence(pr)
+							}
+						}
+					}
+					continue
+				}
 				if v.Type == "result" && v.ID == "c2s1" {
 					fmt.Printf("Got pong from %s to %s\n", v.From, v.To)
 				} else {
@@ -117,8 +207,10 @@ func main() {
 	}()
 	// get roster first
 	talk.Roster()
+	//talk.RevokeSubscription("wkpb@hot-chilli.net")
+	//talk.SendOrg("<presence from='wkpb@hot-chilli.net' to='kjx@hot-chilli.net' type='subscribe'/>")
 	// test conf
-	//talk.JoinMUCNoHistory("test@conference.jabb3r.org", "bot")
+	talk.JoinMUCNoHistory("test@conference.jabb3r.org", "bot")
 	for {
 		in := bufio.NewReader(os.Stdin)
 		line, err := in.ReadString('\n')

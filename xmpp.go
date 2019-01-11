@@ -24,7 +24,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"math/big"
 	"net"
 	"net/http"
@@ -62,11 +61,10 @@ func getCookie() Cookie {
 
 // Client holds XMPP connection opitons
 type Client struct {
-	conn      net.Conn // connection to server
-	jid       string   // Jabber ID for our connection
-	domain    string
-	loginTime time.Time
-	p         *xml.Decoder
+	conn   net.Conn // connection to server
+	jid    string   // Jabber ID for our connection
+	domain string
+	p      *xml.Decoder
 }
 
 func (c *Client) JID() string {
@@ -81,7 +79,13 @@ func containsIgnoreCase(s, substr string) bool {
 func connect(host, user, passwd string) (net.Conn, error) {
 	addr := host
 
-	a := strings.SplitN(addr, ":", 2)
+	if strings.TrimSpace(host) == "" {
+		a := strings.SplitN(user, "@", 2)
+		if len(a) == 2 {
+			addr = a[1]
+		}
+	}
+	a := strings.SplitN(host, ":", 2)
 	if len(a) == 1 {
 		addr += ":5222"
 	}
@@ -258,7 +262,6 @@ func (o Options) NewClient() (*Client, error) {
 		client.Close()
 		return nil, err
 	}
-	client.loginTime = time.Now()
 
 	return client, nil
 }
@@ -660,51 +663,10 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 		case *clientIQ:
 			// TODO check more strictly
 			if v.Query.XMLName.Space == "urn:xmpp:ping" {
-				log.Print("clientIQ ping")
 				err := c.SendResultPing(v.ID, v.From)
 				if err != nil {
 					return Chat{}, err
 				}
-			}
-			// <query xmlns='jabber:iq:roster' ver='5'>
-			// TODO: shall we check XMLName.Local is "query"?
-			switch v.Query.XMLName.Space {
-			case "jabber:iq:version":
-				if err := c.SendVersion(v.ID, v.From, v.To); err != nil {
-					return Chat{}, err
-				}
-			case "jabber:iq:last":
-				if err := c.SendIQLast(v.ID, v.From, v.To); err != nil {
-					return Chat{}, err
-				}
-			case "urn:xmpp:time":
-				if err := c.SendIQtime(v.ID, v.From, v.To); err != nil {
-					return Chat{}, err
-				}
-			case "jabber:iq:roster":
-				var item rosterItem
-				var r Roster
-				if v.Type != "result" && v.Type != "set" {
-					// only result and set processed
-					return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type,
-						Query: v.Query.InnerXML, QueryName: v.Query.XMLName}, nil
-				}
-				vv := strings.Split(v.Query.InnerXML, "/>")
-				for _, ss := range vv {
-					if strings.TrimSpace(ss) == "" {
-						continue
-					}
-					ss += "/>"
-					if err := xml.Unmarshal([]byte(ss), &item); err != nil {
-						return nil, errors.New("unmarshal roster <query>: " + err.Error())
-					} else {
-						if item.Subscription == "remove" {
-							continue
-						}
-						r = append(r, Contact{item.Jid, item.Name, item.Group})
-					}
-				}
-				return Chat{Type: "roster", Roster: r}, nil
 			}
 			return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type,
 				Query: v.Query.InnerXML, QueryName: v.Query.XMLName}, nil
@@ -909,9 +871,8 @@ type clientIQ struct {
 	To      string     `xml:"to,attr"`
 	Type    string     `xml:"type,attr"` // error, get, result, set
 	Query   XMLElement `xml:",any"`
-
-	Error clientError
-	Bind  bindBind
+	Error   clientError
+	Bind    bindBind
 }
 
 type clientError struct {
@@ -927,11 +888,11 @@ type clientQuery struct {
 }
 
 type rosterItem struct {
-	XMLName      xml.Name `xml:"item"`
-	Jid          string   `xml:"jid,attr"`
-	Name         string   `xml:"name,attr"`
-	Subscription string   `xml:"subscription,attr"`
-	Group        []string `"xml:"group"`
+	XMLName      xml.Name `xml:"jabber:iq:roster item"`
+	Jid          string   `xml:",attr"`
+	Name         string   `xml:",attr"`
+	Subscription string   `xml:",attr"`
+	Group        []string
 }
 
 // Scan XML token stream to find next StartElement.

@@ -20,7 +20,7 @@ MAKEFILE=GNUmakefile
 all: bin/example
 	@[ -d bin ] || exit
 
-bin/example: _example/example.go xmpp.go xmpp_version.go
+bin/example: _example/example.go xmpp.go xmpp_get_info.go
 	@[ -d bin ] || mkdir bin
 	go build -o $@ _example/example.go
 	@strip $@ || echo "example OK"
