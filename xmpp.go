@@ -619,12 +619,11 @@ type Presence struct {
 }
 
 type IQ struct {
-	ID        string
-	From      string
-	To        string
-	Type      string
-	Query     string
-	QueryName xml.Name
+	ID    string
+	From  string
+	To    string
+	Type  string
+	Query []byte
 }
 
 // Recv waits to receive the next XMPP stanza.
@@ -668,8 +667,15 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 					return Chat{}, err
 				}
 			}
-			return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type,
-				Query: v.Query.InnerXML, QueryName: v.Query.XMLName}, nil
+			if v.Query.XMLName.Local == "" {
+				return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type}, nil
+			} else if res, err := xml.Marshal(v.Query); err != nil {
+				// should never occur
+				return Chat{}, err
+			} else {
+				return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type,
+					Query: res}, nil
+			}
 		}
 	}
 }
