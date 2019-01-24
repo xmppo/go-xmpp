@@ -487,6 +487,8 @@ func (c *Client) startTLSIfRequired(f *streamFeatures, o *Options, domain string
 	case f.StartTLS == nil:
 		// the server does not support STARTTLS
 		return f, nil
+	case !o.StartTLS && f.StartTLS.Required == nil:
+		return f, nil
 	case f.StartTLS.Required != nil:
 		// the server requires STARTTLS.
 	case !o.StartTLS:
