@@ -199,13 +199,35 @@ type Options struct {
 // NewClient establishes a new Client connection based on a set of Options.
 func (o Options) NewClient() (*Client, error) {
 	host := o.Host
+	if strings.TrimSpace(host) == "" {
+		a := strings.SplitN(o.User, "@", 2)
+		if len(a) == 2 {
+			if _, addrs, err := net.LookupSRV("xmpp-client", "tcp", a[1]); err == nil {
+				if len(addrs) > 0 {
+					// default to first record
+					host = fmt.Sprintf("%s:%d", addrs[0].Target, addrs[0].Port)
+					defP := addrs[0].Priority
+					for _, adr := range addrs {
+						if adr.Priority < defP {
+							host = fmt.Sprintf("%s:%d", adr.Target, adr.Port)
+							defP = adr.Priority
+						}
+					}
+				} else {
+					host = a[1]
+				}
+			} else {
+				host = a[1]
+			}
+		}
+	}
 	c, err := connect(host, o.User, o.Password)
 	if err != nil {
 		return nil, err
 	}
 
-	if strings.LastIndex(o.Host, ":") > 0 {
-		host = host[:strings.LastIndex(o.Host, ":")]
+	if strings.LastIndex(host, ":") > 0 {
+		host = host[:strings.LastIndex(host, ":")]
 	}
 
 	client := new(Client)
@@ -641,13 +663,21 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 			return Presence{v.From, v.To, v.Type, v.Show, v.Status}, nil
 		case *clientIQ:
 			// TODO check more strictly
-			if bytes.Equal(bytes.TrimSpace(v.Query), []byte(`<ping xmlns='urn:xmpp:ping'/>`)) || bytes.Equal(bytes.TrimSpace(v.Query), []byte(`<ping xmlns="urn:xmpp:ping"/>`)) {
+			if v.Query.XMLName.Space == "urn:xmpp:ping" {
 				err := c.SendResultPing(v.ID, v.From)
 				if err != nil {
 					return Chat{}, err
 				}
 			}
-			return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type, Query: v.Query}, nil
+			if v.Query.XMLName.Local == "" {
+				return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type}, nil
+			} else if res, err := xml.Marshal(v.Query); err != nil {
+				// should never occur
+				return Chat{}, err
+			} else {
+				return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type,
+					Query: res}, nil
+			}
 		}
 	}
 }
@@ -843,12 +873,12 @@ type clientPresence struct {
 
 type clientIQ struct {
 	// info/query
-	XMLName xml.Name `xml:"jabber:client iq"`
-	From    string   `xml:"from,attr"`
-	ID      string   `xml:"id,attr"`
-	To      string   `xml:"to,attr"`
-	Type    string   `xml:"type,attr"` // error, get, result, set
-	Query   []byte   `xml:",innerxml"`
+	XMLName xml.Name   `xml:"jabber:client iq"`
+	From    string     `xml:"from,attr"`
+	ID      string     `xml:"id,attr"`
+	To      string     `xml:"to,attr"`
+	Type    string     `xml:"type,attr"` // error, get, result, set
+	Query   XMLElement `xml:",any"`
 	Error   clientError
 	Bind    bindBind
 }
