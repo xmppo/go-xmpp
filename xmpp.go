@@ -638,6 +638,11 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 		}
 		switch v := val.(type) {
 		case *clientMessage:
+			if v.Event.XMLNS == XMPPNS_PUBSUB_EVENT {
+				// Handle Pubsub notifications
+				return pubsubClientToReturn(v.Event), nil
+			}
+
 			stamp, _ := time.Parse(
 				"2006-01-02T15:04:05Z",
 				v.Delay.Stamp,
@@ -662,19 +667,91 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 		case *clientPresence:
 			return Presence{v.From, v.To, v.Type, v.Show, v.Status}, nil
 		case *clientIQ:
-			// TODO check more strictly
-			if v.Query.XMLName.Space == "urn:xmpp:ping" {
+			switch {
+			case v.Query.XMLName.Space == "urn:xmpp:ping":
+				// TODO check more strictly
 				err := c.SendResultPing(v.ID, v.From)
 				if err != nil {
 					return Chat{}, err
 				}
-			}
-			if v.Query.XMLName.Local == "" {
+				fallthrough
+			case v.Type == "error":
+				switch v.ID {
+				case "sub1":
+					// Pubsub subscription failed
+					var errs []clientPubsubError
+					err := xml.Unmarshal([]byte(v.Error.InnerXML), &errs)
+					if err != nil {
+						return PubsubSubscription{}, err
+					}
+
+					var errsStr []string
+					for _, e := range errs {
+						errsStr = append(errsStr, e.XMLName.Local)
+					}
+
+					return PubsubSubscription{
+						Errors: errsStr,
+					}, nil
+				}
+			case v.Type == "result" && v.ID == "unsub1":
+				// Unsubscribing MAY contain a pubsub element. But it does
+				// not have to
+				return PubsubUnsubscription{
+					SubID:  "",
+					JID:    v.From,
+					Node:   "",
+					Errors: nil,
+				}, nil
+			case v.Query.XMLName.Local == "pubsub":
+				switch v.ID {
+				case "sub1":
+					// Subscription or unsubscription was successful
+					var sub clientPubsubSubscription
+					err := xml.Unmarshal([]byte(v.Query.InnerXML), &sub)
+					if err != nil {
+						return PubsubSubscription{}, err
+					}
+
+					return PubsubSubscription{
+						SubID:  sub.SubID,
+						JID:    sub.JID,
+						Node:   sub.Node,
+						Errors: nil,
+					}, nil
+				case "unsub1":
+					var sub clientPubsubSubscription
+					err := xml.Unmarshal([]byte(v.Query.InnerXML), &sub)
+					if err != nil {
+						return PubsubUnsubscription{}, err
+					}
+
+					return PubsubUnsubscription{
+						SubID:  sub.SubID,
+						JID:    v.From,
+						Node:   sub.Node,
+						Errors: nil,
+					}, nil
+				case "items1", "items3":
+					var p clientPubsubItems
+					err := xml.Unmarshal([]byte(v.Query.InnerXML), &p)
+					if err != nil {
+						return PubsubItems{}, err
+					}
+
+					return PubsubItems{
+						p.Node,
+						pubsubItemsToReturn(p.Items),
+					}, nil
+				}
+			case v.Query.XMLName.Local == "":
 				return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type}, nil
-			} else if res, err := xml.Marshal(v.Query); err != nil {
-				// should never occur
-				return Chat{}, err
-			} else {
+			default:
+				res, err := xml.Marshal(v.Query)
+				if err != nil {
+					return Chat{}, err
+				}
+
 				return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type,
 					Query: res}, nil
 			}
@@ -807,6 +884,9 @@ type clientMessage struct {
 	Body    string `xml:"body"`
 	Thread  string `xml:"thread"`
 
+	// Pubsub
+	Event clientPubsubEvent `xml:"event"`
+
 	// Any hasn't matched element
 	Other []XMLElement `xml:",any"`
 
@@ -884,11 +964,12 @@ type clientIQ struct {
 }
 
 type clientError struct {
-	XMLName xml.Name `xml:"jabber:client error"`
-	Code    string   `xml:",attr"`
-	Type    string   `xml:",attr"`
-	Any     xml.Name
-	Text    string
+	XMLName  xml.Name `xml:"jabber:client error"`
+	Code     string   `xml:",attr"`
+	Type     string   `xml:"type,attr"`
+	Any      xml.Name
+	InnerXML []byte `xml:",innerxml"`
+	Text     string
 }
 
 type clientQuery struct {
