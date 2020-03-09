@@ -2,15 +2,15 @@ package xmpp
 
 import (
 	"crypto/sha1"
-	"encoding/xml"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/xml"
 	"errors"
 	"strconv"
 )
 
 const (
-	XMPPNS_AVATAR_PEP_DATA = "urn:xmpp:avatar:data"
+	XMPPNS_AVATAR_PEP_DATA     = "urn:xmpp:avatar:data"
 	XMPPNS_AVATAR_PEP_METADATA = "urn:xmpp:avatar:metadata"
 )
 
@@ -30,9 +30,9 @@ type clientAvatarInfo struct {
 }
 
 type clientAvatarMetadata struct {
-	XMLName  xml.Name `xml:"metadata"`
-	XMLNS    string   `xml:"xmlns,attr"`
-	Info     clientAvatarInfo `xml:"info"`
+	XMLName xml.Name         `xml:"metadata"`
+	XMLNS   string           `xml:"xmlns,attr"`
+	Info    clientAvatarInfo `xml:"info"`
 }
 
 type AvatarData struct {
@@ -84,13 +84,13 @@ func handleAvatarMetadata(body []byte, from string) (AvatarMetadata, error) {
 	}
 
 	return AvatarMetadata{
-		From: from,
-		Bytes: atoiw(meta.Info.Bytes),
-		Width: atoiw(meta.Info.Width),
+		From:   from,
+		Bytes:  atoiw(meta.Info.Bytes),
+		Width:  atoiw(meta.Info.Width),
 		Height: atoiw(meta.Info.Height),
-		ID: meta.Info.ID,
-		Type: meta.Info.Type,
-		URL: meta.Info.URL,
+		ID:     meta.Info.ID,
+		Type:   meta.Info.Type,
+		URL:    meta.Info.URL,
 	}, nil
 }
 

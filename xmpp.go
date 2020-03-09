@@ -650,9 +650,9 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				// XEP-0084 only specifies a subscription to
 				// the metadata node.
 				/*case XMPPNS_AVATAR_PEP_DATA:
-					return handleAvatarData(v.Event.Items.Items[0].Body,
-						v.From,
-						v.Event.Items.Items[0].ID)*/
+				return handleAvatarData(v.Event.Items.Items[0].Body,
+					v.From,
+					v.Event.Items.Items[0].ID)*/
 				default:
 					return pubsubClientToReturn(v.Event), nil
 				}
@@ -768,12 +768,12 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 							pubsubItemsToReturn(p.Items),
 						}, nil
 					}
-				// Note: XEP-0084 states that metadata and data
-				// should be fetched with an id of retrieve1.
-				// Since we already have PubSub implemented, we
-				// can just use items1 and items3 to do the same
-				// as an Avatar node is just a PEP (PubSub) node.
-				/*case "retrieve1":
+					// Note: XEP-0084 states that metadata and data
+					// should be fetched with an id of retrieve1.
+					// Since we already have PubSub implemented, we
+					// can just use items1 and items3 to do the same
+					// as an Avatar node is just a PEP (PubSub) node.
+					/*case "retrieve1":
 					var p clientPubsubItems
 					err := xml.Unmarshal([]byte(v.Query.InnerXML), &p)
 					if err != nil {
