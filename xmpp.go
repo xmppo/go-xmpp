@@ -335,7 +335,6 @@ func cnonce() string {
 }
 
 func (c *Client) init(o *Options) error {
-
 	var domain string
 	var user string
 	a := strings.SplitN(o.User, "@", 2)
@@ -501,7 +500,7 @@ func (c *Client) init(o *Options) error {
 	c.domain = domain
 
 	if o.Session {
-		//if server support session, open it
+		// if server support session, open it
 		fmt.Fprintf(c.conn, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>", xmlEscape(domain), cookie, nsSession)
 	}
 
@@ -537,7 +536,7 @@ func (c *Client) startTLSIfRequired(f *streamFeatures, o *Options, domain string
 	tc := o.TLSConfig
 	if tc == nil {
 		tc = DefaultConfig.Clone()
-		//TODO(scott): we should consider using the server's address or reverse lookup
+		// TODO(scott): we should consider using the server's address or reverse lookup
 		tc.ServerName = domain
 	}
 	t := tls.Client(c.conn, tc)
@@ -728,15 +727,46 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				}
 			case v.Type == "result":
 				switch v.ID {
+				case "sub1":
+					if v.Query.XMLName.Local == "pubsub" {
+						// Subscription or unsubscription was successful
+						var sub clientPubsubSubscription
+						err := xml.Unmarshal([]byte(v.Query.InnerXML), &sub)
+						if err != nil {
+							return PubsubSubscription{}, err
+						}
+
+						return PubsubSubscription{
+							SubID:  sub.SubID,
+							JID:    sub.JID,
+							Node:   sub.Node,
+							Errors: nil,
+						}, nil
+					}
 				case "unsub1":
-					// Unsubscribing MAY contain a pubsub element. But it does
-					// not have to
-					return PubsubUnsubscription{
-						SubID:  "",
-						JID:    v.From,
-						Node:   "",
-						Errors: nil,
-					}, nil
+					if v.Query.XMLName.Local == "pubsub" {
+						var sub clientPubsubSubscription
+						err := xml.Unmarshal([]byte(v.Query.InnerXML), &sub)
+						if err != nil {
+							return PubsubUnsubscription{}, err
+						}
+
+						return PubsubUnsubscription{
+							SubID:  sub.SubID,
+							JID:    v.From,
+							Node:   sub.Node,
+							Errors: nil,
+						}, nil
+					} else {
+						// Unsubscribing MAY contain a pubsub element. But it does
+						// not have to
+						return PubsubUnsubscription{
+							SubID:  "",
+							JID:    v.From,
+							Node:   "",
+							Errors: nil,
+						}, nil
+					}
 				case "info1":
 					if v.Query.XMLName.Space == XMPPNS_DISCO_ITEMS {
 						var itemsQuery clientDiscoItemsQuery
@@ -763,64 +793,36 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 							Identities: clientIdentitiesToReturn(disco.Identities),
 						}, nil
 					}
-				}
-			case v.Query.XMLName.Local == "pubsub":
-				switch v.ID {
-				case "sub1":
-					// Subscription or unsubscription was successful
-					var sub clientPubsubSubscription
-					err := xml.Unmarshal([]byte(v.Query.InnerXML), &sub)
-					if err != nil {
-						return PubsubSubscription{}, err
-					}
-
-					return PubsubSubscription{
-						SubID:  sub.SubID,
-						JID:    sub.JID,
-						Node:   sub.Node,
-						Errors: nil,
-					}, nil
-				case "unsub1":
-					var sub clientPubsubSubscription
-					err := xml.Unmarshal([]byte(v.Query.InnerXML), &sub)
-					if err != nil {
-						return PubsubUnsubscription{}, err
-					}
-
-					return PubsubUnsubscription{
-						SubID:  sub.SubID,
-						JID:    v.From,
-						Node:   sub.Node,
-						Errors: nil,
-					}, nil
 				case "items1", "items3":
-					var p clientPubsubItems
-					err := xml.Unmarshal([]byte(v.Query.InnerXML), &p)
-					if err != nil {
-						return PubsubItems{}, err
-					}
-
-					switch p.Node {
-					case XMPPNS_AVATAR_PEP_DATA:
-						if len(p.Items) == 0 {
-							return AvatarData{}, errors.New("No avatar data items available")
+					if v.Query.XMLName.Local == "pubsub" {
+						var p clientPubsubItems
+						err := xml.Unmarshal([]byte(v.Query.InnerXML), &p)
+						if err != nil {
+							return PubsubItems{}, err
 						}
 
-						return handleAvatarData(p.Items[0].Body,
-							v.From,
-							p.Items[0].ID)
-					case XMPPNS_AVATAR_PEP_METADATA:
-						if len(p.Items) == 0 {
-							return AvatarMetadata{}, errors.New("No avatar metadata items available")
-						}
+						switch p.Node {
+						case XMPPNS_AVATAR_PEP_DATA:
+							if len(p.Items) == 0 {
+								return AvatarData{}, errors.New("No avatar data items available")
+							}
 
-						return handleAvatarMetadata(p.Items[0].Body,
-							v.From)
-					default:
-						return PubsubItems{
-							p.Node,
-							pubsubItemsToReturn(p.Items),
-						}, nil
+							return handleAvatarData(p.Items[0].Body,
+								v.From,
+								p.Items[0].ID)
+						case XMPPNS_AVATAR_PEP_METADATA:
+							if len(p.Items) == 0 {
+								return AvatarMetadata{}, errors.New("No avatar metadata items available")
+							}
+
+							return handleAvatarMetadata(p.Items[0].Body,
+								v.From)
+						default:
+							return PubsubItems{
+								p.Node,
+								pubsubItemsToReturn(p.Items),
+							}, nil
+						}
 					}
 					// Note: XEP-0084 states that metadata and data
 					// should be fetched with an id of retrieve1.
@@ -828,20 +830,22 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 					// can just use items1 and items3 to do the same
 					// as an Avatar node is just a PEP (PubSub) node.
 					/*case "retrieve1":
-					var p clientPubsubItems
-					err := xml.Unmarshal([]byte(v.Query.InnerXML), &p)
-					if err != nil {
-						return PubsubItems{}, err
-					}
+					if v.Query.XMLName.Local == "pubsub" {
+						var p clientPubsubItems
+						err := xml.Unmarshal([]byte(v.Query.InnerXML), &p)
+						if err != nil {
+							return PubsubItems{}, err
+						}
 
-					switch p.Node {
-					case XMPPNS_AVATAR_PEP_DATA:
-						return handleAvatarData(p.Items[0].Body,
-							v.From,
-							p.Items[0].ID)
-					case XMPPNS_AVATAR_PEP_METADATA:
-						return handleAvatarMetadata(p.Items[0].Body,
-							v
+						switch p.Node {
+						case XMPPNS_AVATAR_PEP_DATA:
+							return handleAvatarData(p.Items[0].Body,
+								v.From,
+								p.Items[0].ID)
+						case XMPPNS_AVATAR_PEP_METADATA:
+							return handleAvatarMetadata(p.Items[0].Body,
+								v.From)
+						}
 					}*/
 				}
 			case v.Query.XMLName.Local == "":
@@ -852,8 +856,10 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 					return Chat{}, err
 				}
 
-				return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type,
-					Query: res}, nil
+				return IQ{
+					ID: v.ID, From: v.From, To: v.To, Type: v.Type,
+					Query: res,
+				}, nil
 			}
 		}
 	}
