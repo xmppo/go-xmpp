@@ -698,15 +698,46 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				}
 			case v.Type == "result":
 				switch v.ID {
+				case "sub1":
+					if v.Query.XMLName.Local == "pubsub" {
+						// Subscription or unsubscription was successful
+						var sub clientPubsubSubscription
+						err := xml.Unmarshal([]byte(v.Query.InnerXML), &sub)
+						if err != nil {
+							return PubsubSubscription{}, err
+						}
+
+						return PubsubSubscription{
+							SubID:  sub.SubID,
+							JID:    sub.JID,
+							Node:   sub.Node,
+							Errors: nil,
+						}, nil
+					}
 				case "unsub1":
-					// Unsubscribing MAY contain a pubsub element. But it does
-					// not have to
-					return PubsubUnsubscription{
-						SubID:  "",
-						JID:    v.From,
-						Node:   "",
-						Errors: nil,
-					}, nil
+					if v.Query.XMLName.Local == "pubsub" {
+						var sub clientPubsubSubscription
+						err := xml.Unmarshal([]byte(v.Query.InnerXML), &sub)
+						if err != nil {
+							return PubsubUnsubscription{}, err
+						}
+
+						return PubsubUnsubscription{
+							SubID:  sub.SubID,
+							JID:    v.From,
+							Node:   sub.Node,
+							Errors: nil,
+						}, nil
+					} else {
+						// Unsubscribing MAY contain a pubsub element. But it does
+						// not have to
+						return PubsubUnsubscription{
+							SubID:  "",
+							JID:    v.From,
+							Node:   "",
+							Errors: nil,
+						}, nil
+					}
 				case "info1":
 					if v.Query.XMLName.Space == XMPPNS_DISCO_ITEMS {
 						var itemsQuery clientDiscoItemsQuery
@@ -733,47 +764,19 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 							Identities: clientIdentitiesToReturn(disco.Identities),
 						}, nil
 					}
-				}
-			case v.Query.XMLName.Local == "pubsub":
-				switch v.ID {
-				case "sub1":
-					// Subscription or unsubscription was successful
-					var sub clientPubsubSubscription
-					err := xml.Unmarshal([]byte(v.Query.InnerXML), &sub)
-					if err != nil {
-						return PubsubSubscription{}, err
-					}
-
-					return PubsubSubscription{
-						SubID:  sub.SubID,
-						JID:    sub.JID,
-						Node:   sub.Node,
-						Errors: nil,
-					}, nil
-				case "unsub1":
-					var sub clientPubsubSubscription
-					err := xml.Unmarshal([]byte(v.Query.InnerXML), &sub)
-					if err != nil {
-						return PubsubUnsubscription{}, err
-					}
-
-					return PubsubUnsubscription{
-						SubID:  sub.SubID,
-						JID:    v.From,
-						Node:   sub.Node,
-						Errors: nil,
-					}, nil
 				case "items1", "items3":
-					var p clientPubsubItems
-					err := xml.Unmarshal([]byte(v.Query.InnerXML), &p)
-					if err != nil {
-						return PubsubItems{}, err
-					}
+					if v.Query.XMLName.Local == "pubsub" {
+						var p clientPubsubItems
+						err := xml.Unmarshal([]byte(v.Query.InnerXML), &p)
+						if err != nil {
+							return PubsubItems{}, err
+						}
 
-					return PubsubItems{
-						p.Node,
-						pubsubItemsToReturn(p.Items),
-					}, nil
+						return PubsubItems{
+							p.Node,
+							pubsubItemsToReturn(p.Items),
+						}, nil
+					}
 				}
 			case v.Query.XMLName.Local == "":
 				return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type}, nil
