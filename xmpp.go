@@ -237,6 +237,7 @@ func (o Options) NewClient() (*Client, error) {
 		var tlsconn *tls.Conn
 		if o.TLSConfig != nil {
 			tlsconn = tls.Client(c, o.TLSConfig)
+			host = o.TLSConfig.ServerName
 		} else {
 			DefaultConfig.ServerName = host
 			newconfig := DefaultConfig
