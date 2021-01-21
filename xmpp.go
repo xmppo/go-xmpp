@@ -43,7 +43,7 @@ const (
 )
 
 // Default TLS configuration options
-var DefaultConfig tls.Config
+var DefaultConfig = &tls.Config{}
 
 // DebugWriter is the writer used to write debugging output to.
 var DebugWriter io.Writer = os.Stderr
@@ -238,10 +238,9 @@ func (o Options) NewClient() (*Client, error) {
 		if o.TLSConfig != nil {
 			tlsconn = tls.Client(c, o.TLSConfig)
 		} else {
-			DefaultConfig.ServerName = host
-			newconfig := DefaultConfig
+			newconfig := DefaultConfig.Clone()
 			newconfig.ServerName = host
-			tlsconn = tls.Client(c, &newconfig)
+			tlsconn = tls.Client(c, newconfig)
 		}
 		if err = tlsconn.Handshake(); err != nil {
 			return nil, err
@@ -526,8 +525,7 @@ func (c *Client) startTLSIfRequired(f *streamFeatures, o *Options, domain string
 
 	tc := o.TLSConfig
 	if tc == nil {
-		tc = new(tls.Config)
-		*tc = DefaultConfig
+		tc = DefaultConfig.Clone()
 		//TODO(scott): we should consider using the server's address or reverse lookup
 		tc.ServerName = domain
 	}
