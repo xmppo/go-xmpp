@@ -76,7 +76,7 @@ func containsIgnoreCase(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
 
-func connect(host, user, passwd string) (net.Conn, error) {
+func connect(host, user, passwd string, timeout time.Duration) (net.Conn, error) {
 	addr := host
 
 	if strings.TrimSpace(host) == "" {
@@ -117,7 +117,7 @@ func connect(host, user, passwd string) (net.Conn, error) {
 		}
 	}
 
-	c, err := net.Dial("tcp", addr)
+	c, err := net.DialTimeout("tcp", addr, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +152,10 @@ type Options struct {
 
 	// Password supplies the password to use for authentication with the remote server.
 	Password string
+
+	// DialTimeout is the time limit for establishing a connection. A
+	// DialTimeout of zero means no timeout.
+	DialTimeout time.Duration
 
 	// Resource specifies an XMPP client resource, like "bot", instead of accepting one
 	// from the server.  Use "" to let the server generate one for your client.
@@ -221,7 +225,7 @@ func (o Options) NewClient() (*Client, error) {
 			}
 		}
 	}
-	c, err := connect(host, o.User, o.Password)
+	c, err := connect(host, o.User, o.Password, o.DialTimeout)
 	if err != nil {
 		return nil, err
 	}
