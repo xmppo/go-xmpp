@@ -820,7 +820,7 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 		thdtext = `<thread>` + xmlEscape(chat.Thread) + `</thread>`
 	}
 	if chat.Markable {
-		markabletext = `<markable xmlns='urn:xmpp:chat-markers:0'/></message>`
+		markabletext = `<markable xmlns='urn:xmpp:chat-markers:0'/>`
 	}
 	if chat.Ooburl != `` {
 		oobtext = `<x xmlns="jabber:x:oob"><url>` + xmlEscape(chat.Ooburl) + `</url>`
