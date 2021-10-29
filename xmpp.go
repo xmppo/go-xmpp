@@ -43,7 +43,7 @@ const (
 )
 
 // Default TLS configuration options
-var DefaultConfig tls.Config
+var DefaultConfig = &tls.Config{}
 
 // DebugWriter is the writer used to write debugging output to.
 var DebugWriter io.Writer = os.Stderr
@@ -76,7 +76,7 @@ func containsIgnoreCase(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
 
-func connect(host, user, passwd string) (net.Conn, error) {
+func connect(host, user, passwd string, timeout time.Duration) (net.Conn, error) {
 	addr := host
 
 	if strings.TrimSpace(host) == "" {
@@ -117,7 +117,7 @@ func connect(host, user, passwd string) (net.Conn, error) {
 		}
 	}
 
-	c, err := net.Dial("tcp", addr)
+	c, err := net.DialTimeout("tcp", addr, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +152,10 @@ type Options struct {
 
 	// Password supplies the password to use for authentication with the remote server.
 	Password string
+
+	// DialTimeout is the time limit for establishing a connection. A
+	// DialTimeout of zero means no timeout.
+	DialTimeout time.Duration
 
 	// Resource specifies an XMPP client resource, like "bot", instead of accepting one
 	// from the server.  Use "" to let the server generate one for your client.
@@ -221,7 +225,7 @@ func (o Options) NewClient() (*Client, error) {
 			}
 		}
 	}
-	c, err := connect(host, o.User, o.Password)
+	c, err := connect(host, o.User, o.Password, o.DialTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -237,11 +241,11 @@ func (o Options) NewClient() (*Client, error) {
 		var tlsconn *tls.Conn
 		if o.TLSConfig != nil {
 			tlsconn = tls.Client(c, o.TLSConfig)
+			host = o.TLSConfig.ServerName
 		} else {
-			DefaultConfig.ServerName = host
-			newconfig := DefaultConfig
+			newconfig := DefaultConfig.Clone()
 			newconfig.ServerName = host
-			tlsconn = tls.Client(c, &newconfig)
+			tlsconn = tls.Client(c, newconfig)
 		}
 		if err = tlsconn.Handshake(); err != nil {
 			return nil, err
@@ -335,13 +339,19 @@ func (c *Client) init(o *Options) error {
 	var domain string
 	var user string
 	a := strings.SplitN(o.User, "@", 2)
-	if len(o.User) > 0 {
+	// Check if User is not empty. Otherwise, we'll be attempting ANONYMOUS with Host domain.
+	switch {
+	case len(o.User) > 0:
 		if len(a) != 2 {
 			return errors.New("xmpp: invalid username (want user@domain): " + o.User)
 		}
 		user = a[0]
 		domain = a[1]
-	} // Otherwise, we'll be attempting ANONYMOUS
+	case strings.Contains(o.Host, ":"):
+		domain = strings.SplitN(o.Host, ":", 2)[0]
+	default:
+		domain = o.Host
+	}
 
 	// Declare intent to be a jabber client and gather stream features.
 	f, err := c.startStream(o, domain)
@@ -526,8 +536,7 @@ func (c *Client) startTLSIfRequired(f *streamFeatures, o *Options, domain string
 
 	tc := o.TLSConfig
 	if tc == nil {
-		tc = new(tls.Config)
-		*tc = DefaultConfig
+		tc = DefaultConfig.Clone()
 		//TODO(scott): we should consider using the server's address or reverse lookup
 		tc.ServerName = domain
 	}
@@ -642,7 +651,20 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 		case *clientMessage:
 			if v.Event.XMLNS == XMPPNS_PUBSUB_EVENT {
 				// Handle Pubsub notifications
-				return pubsubClientToReturn(v.Event), nil
+				switch v.Event.Items.Node {
+				case XMPPNS_AVATAR_PEP_METADATA:
+					return handleAvatarMetadata(v.Event.Items.Items[0].Body,
+						v.From)
+				// I am not sure whether this can even happen.
+				// XEP-0084 only specifies a subscription to
+				// the metadata node.
+				/*case XMPPNS_AVATAR_PEP_DATA:
+				return handleAvatarData(v.Event.Items.Items[0].Body,
+					v.From,
+					v.Event.Items.Items[0].ID)*/
+				default:
+					return pubsubClientToReturn(v.Event), nil
+				}
 			}
 
 			stamp, _ := time.Parse(
@@ -772,11 +794,42 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 							return PubsubItems{}, err
 						}
 
+					switch p.Node {
+					case XMPPNS_AVATAR_PEP_DATA:
+						return handleAvatarData(p.Items[0].Body,
+							v.From,
+							p.Items[0].ID)
+					case XMPPNS_AVATAR_PEP_METADATA:
+						return handleAvatarMetadata(p.Items[0].Body,
+							v.From)
+					default:
 						return PubsubItems{
 							p.Node,
 							pubsubItemsToReturn(p.Items),
 						}, nil
 					}
+
+					// Note: XEP-0084 states that metadata and data
+					// should be fetched with an id of retrieve1.
+					// Since we already have PubSub implemented, we
+					// can just use items1 and items3 to do the same
+					// as an Avatar node is just a PEP (PubSub) node.
+					/*case "retrieve1":
+					var p clientPubsubItems
+					err := xml.Unmarshal([]byte(v.Query.InnerXML), &p)
+					if err != nil {
+						return PubsubItems{}, err
+					}
+
+					switch p.Node {
+					case XMPPNS_AVATAR_PEP_DATA:
+						return handleAvatarData(p.Items[0].Body,
+							v.From,
+							p.Items[0].ID)
+					case XMPPNS_AVATAR_PEP_METADATA:
+						return handleAvatarMetadata(p.Items[0].Body,
+							v
+					}*/
 				}
 			case v.Query.XMLName.Local == "":
 				return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type}, nil
