@@ -653,6 +653,10 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				// Handle Pubsub notifications
 				switch v.Event.Items.Node {
 				case XMPPNS_AVATAR_PEP_METADATA:
+					if len(v.Event.Items.Items) == 0 {
+						return AvatarMetadata{}, error("No avatar metadata items available")
+					}
+
 					return handleAvatarMetadata(v.Event.Items.Items[0].Body,
 						v.From)
 				// I am not sure whether this can even happen.
@@ -765,10 +769,18 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 
 					switch p.Node {
 					case XMPPNS_AVATAR_PEP_DATA:
+						if len(p.Items) == 0 {
+							return AvatarData{}, error("No avatar data items available")
+						}
+
 						return handleAvatarData(p.Items[0].Body,
 							v.From,
 							p.Items[0].ID)
 					case XMPPNS_AVATAR_PEP_METADATA:
+						if len(p.Items) == 0 {
+							return AvatarMetadata{}, error("No avatar metadata items available")
+						}
+
 						return handleAvatarMetadata(p.Items[0].Body,
 							v.From)
 					default:
