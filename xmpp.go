@@ -721,6 +721,14 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 					return PubsubSubscription{
 						Errors: errsStr,
 					}, nil
+				default:
+					res, err := xml.Marshal(v.Query)
+					if err != nil {
+						return Chat{}, err
+					}
+
+					return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type,
+						Query: res}, nil
 				}
 			case v.Type == "result" && v.ID == "unsub1":
 				// Unsubscribing MAY contain a pubsub element. But it does
