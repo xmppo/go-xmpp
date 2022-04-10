@@ -818,6 +818,14 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 						return handleAvatarMetadata(p.Items[0].Body,
 							v
 					}*/
+				default:
+					res, err := xml.Marshal(v.Query)
+					if err != nil {
+						return Chat{}, err
+					}
+
+					return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type,
+						Query: res}, nil
 				}
 			case v.Query.XMLName.Local == "":
 				return IQ{ID: v.ID, From: v.From, To: v.To, Type: v.Type}, nil
