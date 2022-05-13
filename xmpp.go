@@ -1009,6 +1009,7 @@ func (m *clientMessage) OtherStrings() []string {
 
 type XMLElement struct {
 	XMLName  xml.Name
+	Attr     []xml.Attr `xml:",any,attr"` // Save the attributes of the xml element
 	InnerXML string `xml:",innerxml"`
 }
 
