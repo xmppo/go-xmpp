@@ -59,7 +59,7 @@ func getCookie() Cookie {
 	return Cookie(binary.LittleEndian.Uint64(buf[:]))
 }
 
-// Client holds XMPP connection opitons
+// Client holds XMPP connection options
 type Client struct {
 	conn   net.Conn // connection to server
 	jid    string   // Jabber ID for our connection
