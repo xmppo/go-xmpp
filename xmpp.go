@@ -15,11 +15,14 @@ package xmpp
 import (
 	"bufio"
 	"bytes"
+	"crypto/hmac"
 	"crypto/md5"
 	"crypto/rand"
+	"crypto/sha1"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -29,8 +32,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/pbkdf2"
 )
 
 const (
@@ -363,7 +369,8 @@ func (c *Client) init(o *Options) error {
 	if f, err = c.startTLSIfRequired(f, o, domain); err != nil {
 		return err
 	}
-
+	var mechanism string
+	var serverSignature []byte
 	if o.User == "" && o.Password == "" {
 		foundAnonymous := false
 		for _, m := range f.Mechanisms.Mechanism {
@@ -384,77 +391,179 @@ func (c *Client) init(o *Options) error {
 			return errors.New("refusing to authenticate over unencrypted TCP connection")
 		}
 
-		mechanism := ""
+		mechanism = ""
+		fmt.Println(f.Mechanisms.Mechanism)
 		for _, m := range f.Mechanisms.Mechanism {
-			if m == "X-OAUTH2" && o.OAuthToken != "" && o.OAuthScope != "" {
+			switch m {
+			case "SCRAM-SHA-1":
 				mechanism = m
-				// Oauth authentication: send base64-encoded \x00 user \x00 token.
-				raw := "\x00" + user + "\x00" + o.OAuthToken
-				enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
-				base64.StdEncoding.Encode(enc, []byte(raw))
-				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='X-OAUTH2' auth:service='oauth2' "+
-					"xmlns:auth='%s'>%s</auth>\n", nsSASL, o.OAuthXmlNs, enc)
-				break
-			}
-			if m == "PLAIN" {
-				mechanism = m
-				// Plain authentication: send base64-encoded \x00 user \x00 password.
-				raw := "\x00" + user + "\x00" + o.Password
-				enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
-				base64.StdEncoding.Encode(enc, []byte(raw))
-				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='PLAIN'>%s</auth>\n", nsSASL, enc)
-				break
-			}
-			if m == "DIGEST-MD5" {
-				mechanism = m
-				// Digest-MD5 authentication
-				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='DIGEST-MD5'/>\n", nsSASL)
-				var ch saslChallenge
-				if err = c.p.DecodeElement(&ch, nil); err != nil {
-					return errors.New("unmarshal <challenge>: " + err.Error())
+			case "X-OAUTH2":
+				if mechanism == "" {
+					mechanism = m
 				}
-				b, err := base64.StdEncoding.DecodeString(string(ch))
-				if err != nil {
-					return err
+			case "PLAIN":
+				if mechanism == "" {
+					mechanism = m
 				}
-				tokens := map[string]string{}
-				for _, token := range strings.Split(string(b), ",") {
-					kv := strings.SplitN(strings.TrimSpace(token), "=", 2)
-					if len(kv) == 2 {
-						if kv[1][0] == '"' && kv[1][len(kv[1])-1] == '"' {
-							kv[1] = kv[1][1 : len(kv[1])-1]
-						}
-						tokens[kv[0]] = kv[1]
+			case "DIGEST-MD5":
+				if mechanism == "" {
+					mechanism = m
+				}
+			}
+		}
+		if mechanism == "SCRAM-SHA-1" {
+			clientNonce := cnonce()
+			clientFirstMessage := "n=" + user + ",r=" + clientNonce
+			fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='SCRAM-SHA-1'>%s</auth>",
+				nsSASL, base64.StdEncoding.EncodeToString([]byte("n,,"+
+					clientFirstMessage)))
+			var sfm string
+			if err = c.p.DecodeElement(&sfm, nil); err != nil {
+				return errors.New("unmarshal <challenge>: " + err.Error())
+			}
+			b, err := base64.StdEncoding.DecodeString(string(sfm))
+			if err != nil {
+				return err
+			}
+			var serverNonce string
+			var salt []byte
+			var iterations int
+			for _, serverReply := range strings.Split(string(b), ",") {
+				switch {
+				case strings.HasPrefix(serverReply, "r="):
+					serverNonce = strings.SplitN(serverReply, "=", 2)[1]
+					if !strings.HasPrefix(serverNonce, clientNonce) {
+						return err
 					}
+				case strings.HasPrefix(serverReply, "s="):
+					salt, err = base64.StdEncoding.DecodeString(strings.SplitN(serverReply, "=", 2)[1])
+				case strings.HasPrefix(serverReply, "i="):
+					iterations, err = strconv.Atoi(strings.SplitN(serverReply,
+						"=", 2)[1])
+					if err != nil {
+						return err
+					}
+				default:
+					return errors.New("unexpected conted in SCRAM challenge")
 				}
-				realm, _ := tokens["realm"]
-				nonce, _ := tokens["nonce"]
-				qop, _ := tokens["qop"]
-				charset, _ := tokens["charset"]
-				cnonceStr := cnonce()
-				digestURI := "xmpp/" + domain
-				nonceCount := fmt.Sprintf("%08x", 1)
-				digest := saslDigestResponse(user, realm, o.Password, nonce, cnonceStr, "AUTHENTICATE", digestURI, nonceCount)
-				message := "username=\"" + user + "\", realm=\"" + realm + "\", nonce=\"" + nonce + "\", cnonce=\"" + cnonceStr +
-					"\", nc=" + nonceCount + ", qop=" + qop + ", digest-uri=\"" + digestURI + "\", response=" + digest + ", charset=" + charset
-
-				fmt.Fprintf(c.conn, "<response xmlns='%s'>%s</response>\n", nsSASL, base64.StdEncoding.EncodeToString([]byte(message)))
-
-				var rspauth saslRspAuth
-				if err = c.p.DecodeElement(&rspauth, nil); err != nil {
-					return errors.New("unmarshal <challenge>: " + err.Error())
-				}
-				b, err = base64.StdEncoding.DecodeString(string(rspauth))
-				if err != nil {
-					return err
-				}
-				fmt.Fprintf(c.conn, "<response xmlns='%s'/>\n", nsSASL)
-				break
 			}
+			clientFinalMessageBare := "c=biws,r=" + serverNonce
+			saltedPassword := pbkdf2.Key([]byte(o.Password), salt,
+				iterations, sha1.New().Size(), sha1.New)
+			h := hmac.New(sha1.New, saltedPassword)
+			_, err = h.Write([]byte("Client Key"))
+			if err != nil {
+				return err
+			}
+			clientKey := h.Sum(nil)
+			h.Reset()
+			storedKey := sha1.Sum(clientKey)
+			_, err = h.Write([]byte("Server Key"))
+			if err != nil {
+				return err
+			}
+			serverFirstMessage, err := base64.StdEncoding.DecodeString(sfm)
+			if err != nil {
+				return err
+			}
+			authMessage := clientFirstMessage + "," + string(serverFirstMessage) +
+				"," + clientFinalMessageBare
+			h = hmac.New(sha1.New, storedKey[:])
+			_, err = h.Write([]byte(authMessage))
+			if err != nil {
+				return err
+			}
+			clientSignature := h.Sum(nil)
+			h.Reset()
+			if len(clientKey) != len(clientSignature) {
+				return errors.New("SCRAM-SHA-1: client key and signature length mismatch")
+			}
+			clientProof := make([]byte, len(clientKey))
+			for i := range clientKey {
+				clientProof[i] = clientKey[i] ^ clientSignature[i]
+			}
+			h = hmac.New(sha1.New, saltedPassword)
+			_, err = h.Write([]byte("Server Key"))
+			if err != nil {
+				return err
+			}
+			serverKey := h.Sum(nil)
+			h.Reset()
+			h = hmac.New(sha1.New, serverKey)
+			_, err = h.Write([]byte(authMessage))
+			if err != nil {
+				return err
+			}
+			serverSignature = h.Sum(nil)
+			clientFinalMessage := base64.StdEncoding.EncodeToString([]byte(clientFinalMessageBare +
+				",p=" + base64.StdEncoding.EncodeToString(clientProof)))
+			fmt.Fprintf(c.conn, "<response xmlns='%s'>%s</response>", nsSASL,
+				clientFinalMessage)
+			fmt.Fprintf(os.Stdout, "<response xmlns='%s'>%s</response>", nsSASL,
+				clientFinalMessage)
 		}
-		if mechanism == "" {
-			return fmt.Errorf("PLAIN authentication is not an option: %v", f.Mechanisms.Mechanism)
+		if mechanism == "X-OAUTH2" && o.OAuthToken != "" && o.OAuthScope != "" {
+			// Oauth authentication: send base64-encoded \x00 user \x00 token.
+			raw := "\x00" + user + "\x00" + o.OAuthToken
+			enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
+			base64.StdEncoding.Encode(enc, []byte(raw))
+			fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='X-OAUTH2' auth:service='oauth2' "+
+				"xmlns:auth='%s'>%s</auth>\n", nsSASL, o.OAuthXmlNs, enc)
 		}
+		if mechanism == "PLAIN" {
+			// Plain authentication: send base64-encoded \x00 user \x00 password.
+			raw := "\x00" + user + "\x00" + o.Password
+			enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
+			base64.StdEncoding.Encode(enc, []byte(raw))
+			fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='PLAIN'>%s</auth>\n", nsSASL, enc)
+		}
+		if mechanism == "DIGEST-MD5" {
+			// Digest-MD5 authentication
+			fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='DIGEST-MD5'/>\n", nsSASL)
+			var ch saslChallenge
+			if err = c.p.DecodeElement(&ch, nil); err != nil {
+				return errors.New("unmarshal <challenge>: " + err.Error())
+			}
+			b, err := base64.StdEncoding.DecodeString(string(ch))
+			if err != nil {
+				return err
+			}
+			tokens := map[string]string{}
+			for _, token := range strings.Split(string(b), ",") {
+				kv := strings.SplitN(strings.TrimSpace(token), "=", 2)
+				if len(kv) == 2 {
+					if kv[1][0] == '"' && kv[1][len(kv[1])-1] == '"' {
+						kv[1] = kv[1][1 : len(kv[1])-1]
+					}
+					tokens[kv[0]] = kv[1]
+				}
+			}
+			realm, _ := tokens["realm"]
+			nonce, _ := tokens["nonce"]
+			qop, _ := tokens["qop"]
+			charset, _ := tokens["charset"]
+			cnonceStr := cnonce()
+			digestURI := "xmpp/" + domain
+			nonceCount := fmt.Sprintf("%08x", 1)
+			digest := saslDigestResponse(user, realm, o.Password, nonce, cnonceStr, "AUTHENTICATE", digestURI, nonceCount)
+			message := "username=\"" + user + "\", realm=\"" + realm + "\", nonce=\"" + nonce + "\", cnonce=\"" + cnonceStr +
+				"\", nc=" + nonceCount + ", qop=" + qop + ", digest-uri=\"" + digestURI + "\", response=" + digest + ", charset=" + charset
+
+			fmt.Fprintf(c.conn, "<response xmlns='%s'>%s</response>\n", nsSASL, base64.StdEncoding.EncodeToString([]byte(message)))
+
+			var rspauth saslRspAuth
+			if err = c.p.DecodeElement(&rspauth, nil); err != nil {
+				return errors.New("unmarshal <challenge>: " + err.Error())
+			}
+			b, err = base64.StdEncoding.DecodeString(string(rspauth))
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(c.conn, "<response xmlns='%s'/>\n", nsSASL)
+		}
+	}
+	if mechanism == "" {
+		return fmt.Errorf("PLAIN authentication is not an option: %v", f.Mechanisms.Mechanism)
 	}
 	// Next message should be either success or failure.
 	name, val, err := next(c.p)
@@ -463,6 +572,10 @@ func (c *Client) init(o *Options) error {
 	}
 	switch v := val.(type) {
 	case *saslSuccess:
+		// TODO: Check server signature sent in success message
+		if hex.EncodeToString(serverSignature) != hex.EncodeToString(serverSignature) {
+			return errors.New("server signature mismatch")
+		}
 	case *saslFailure:
 		errorMessage := v.Text
 		if errorMessage == "" {
