@@ -809,29 +809,29 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 							return PubsubItems{}, err
 						}
 
-					switch p.Node {
-					case XMPPNS_AVATAR_PEP_DATA:
-						if len(p.Items) == 0 {
-							return AvatarData{}, errors.New("No avatar data items available")
-						}
+						switch p.Node {
+						case XMPPNS_AVATAR_PEP_DATA:
+							if len(p.Items) == 0 {
+								return AvatarData{}, errors.New("No avatar data items available")
+							}
 
-						return handleAvatarData(p.Items[0].Body,
-							v.From,
-							p.Items[0].ID)
-					case XMPPNS_AVATAR_PEP_METADATA:
-						if len(p.Items) == 0 {
-							return AvatarMetadata{}, errors.New("No avatar metadata items available")
-						}
+							return handleAvatarData(p.Items[0].Body,
+								v.From,
+								p.Items[0].ID)
+						case XMPPNS_AVATAR_PEP_METADATA:
+							if len(p.Items) == 0 {
+								return AvatarMetadata{}, errors.New("No avatar metadata items available")
+							}
 
-						return handleAvatarMetadata(p.Items[0].Body,
-							v.From)
-					default:
-						return PubsubItems{
-							p.Node,
-							pubsubItemsToReturn(p.Items),
-						}, nil
+							return handleAvatarMetadata(p.Items[0].Body,
+								v.From)
+						default:
+							return PubsubItems{
+								p.Node,
+								pubsubItemsToReturn(p.Items),
+							}, nil
+						}
 					}
-				}
 					// Note: XEP-0084 states that metadata and data
 					// should be fetched with an id of retrieve1.
 					// Since we already have PubSub implemented, we
@@ -997,7 +997,7 @@ type saslAbort struct {
 
 type saslSuccess struct {
 	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-sasl success"`
-	Text string	 `xml:",chardata"`
+	Text    string   `xml:",chardata"`
 }
 
 type saslFailure struct {
@@ -1046,7 +1046,7 @@ func (m *clientMessage) OtherStrings() []string {
 type XMLElement struct {
 	XMLName  xml.Name
 	Attr     []xml.Attr `xml:",any,attr"` // Save the attributes of the xml element
-	InnerXML string `xml:",innerxml"`
+	InnerXML string     `xml:",innerxml"`
 }
 
 func (e *XMLElement) String() string {
