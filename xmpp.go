@@ -499,8 +499,6 @@ func (c *Client) init(o *Options) error {
 				",p=" + base64.StdEncoding.EncodeToString(clientProof)))
 			fmt.Fprintf(c.conn, "<response xmlns='%s'>%s</response>", nsSASL,
 				clientFinalMessage)
-			fmt.Fprintf(os.Stdout, "<response xmlns='%s'>%s</response>", nsSASL,
-				clientFinalMessage)
 		}
 		if mechanism == "X-OAUTH2" && o.OAuthToken != "" && o.OAuthScope != "" {
 			// Oauth authentication: send base64-encoded \x00 user \x00 token.
