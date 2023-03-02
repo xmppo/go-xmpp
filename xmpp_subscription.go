@@ -14,6 +14,11 @@ func (c *Client) RevokeSubscription(jid string) {
 		xmlEscape(jid))
 }
 
+func (c *Client) RetrieveSubscription(jid string) {
+	fmt.Fprintf(c.conn, "<presence to='%s' type='unsubscribe'/>",
+		xmlEscape(jid))
+}
+
 func (c *Client) RequestSubscription(jid string) {
 	fmt.Fprintf(c.conn, "<presence to='%s' type='subscribe'/>",
 		xmlEscape(jid))
