@@ -568,9 +568,9 @@ func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error)
 		StanzaWriter = c.conn
 	}
 
-	_, err := fmt.Fprintf(StanzaWriter, "<?xml version='1.0'?>\n">
+	_, err := fmt.Fprintf(StanzaWriter, "<?xml version='1.0'?>"+
 		"<stream:stream to='%s' xmlns='%s'"+
-		" xmlns:stream='%s' version='1.0'>\n",
+		" xmlns:stream='%s' version='1.0'>",
 		xmlEscape(domain), nsClient, nsStream)
 	if err != nil {
 		return nil, err
@@ -831,7 +831,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 							pubsubItemsToReturn(p.Items),
 						}, nil
 					}
-
+				}
 					// Note: XEP-0084 states that metadata and data
 					// should be fetched with an id of retrieve1.
 					// Since we already have PubSub implemented, we
