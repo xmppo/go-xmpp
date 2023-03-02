@@ -962,6 +962,7 @@ type saslAbort struct {
 
 type saslSuccess struct {
 	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-sasl success"`
+	Text string	 `xml:",chardata"`
 }
 
 type saslFailure struct {
