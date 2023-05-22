@@ -70,10 +70,11 @@ func getCookie() Cookie {
 
 // Client holds XMPP connection options
 type Client struct {
-	conn   net.Conn // connection to server
-	jid    string   // Jabber ID for our connection
-	domain string
-	p      *xml.Decoder
+	conn         net.Conn // connection to server
+	jid          string   // Jabber ID for our connection
+	domain       string
+	p            *xml.Decoder
+	stanzaWriter io.Writer
 }
 
 func (c *Client) JID() string {
@@ -378,7 +379,7 @@ func (c *Client) init(o *Options) error {
 		foundAnonymous := false
 		for _, m := range f.Mechanisms.Mechanism {
 			if m == "ANONYMOUS" {
-				fmt.Fprintf(StanzaWriter, "<auth xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL)
+				fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL)
 				foundAnonymous = true
 				break
 			}
@@ -436,7 +437,7 @@ func (c *Client) init(o *Options) error {
 			}
 			clientNonce := cnonce()
 			clientFirstMessage := "n=" + user + ",r=" + clientNonce
-			fmt.Fprintf(StanzaWriter, "<auth xmlns='%s' mechanism='%s'>%s</auth>",
+			fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='%s'>%s</auth>",
 				nsSASL, mechanism, base64.StdEncoding.EncodeToString([]byte("n,,"+
 					clientFirstMessage)))
 			var sfm string
@@ -536,7 +537,7 @@ func (c *Client) init(o *Options) error {
 			}
 			clientFinalMessage := base64.StdEncoding.EncodeToString([]byte(clientFinalMessageBare +
 				",p=" + base64.StdEncoding.EncodeToString(clientProof)))
-			fmt.Fprintf(StanzaWriter, "<response xmlns='%s'>%s</response>", nsSASL,
+			fmt.Fprintf(c.stanzaWriter, "<response xmlns='%s'>%s</response>", nsSASL,
 				clientFinalMessage)
 		}
 		if mechanism == "X-OAUTH2" && o.OAuthToken != "" && o.OAuthScope != "" {
@@ -544,7 +545,7 @@ func (c *Client) init(o *Options) error {
 			raw := "\x00" + user + "\x00" + o.OAuthToken
 			enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
 			base64.StdEncoding.Encode(enc, []byte(raw))
-			fmt.Fprintf(StanzaWriter, "<auth xmlns='%s' mechanism='X-OAUTH2' auth:service='oauth2' "+
+			fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='X-OAUTH2' auth:service='oauth2' "+
 				"xmlns:auth='%s'>%s</auth>\n", nsSASL, o.OAuthXmlNs, enc)
 		}
 		if mechanism == "PLAIN" {
@@ -556,7 +557,7 @@ func (c *Client) init(o *Options) error {
 		}
 		if mechanism == "DIGEST-MD5" {
 			// Digest-MD5 authentication
-			fmt.Fprintf(StanzaWriter, "<auth xmlns='%s' mechanism='DIGEST-MD5'/>\n", nsSASL)
+			fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='DIGEST-MD5'/>\n", nsSASL)
 			var ch saslChallenge
 			if err = c.p.DecodeElement(&ch, nil); err != nil {
 				return errors.New("unmarshal <challenge>: " + err.Error())
@@ -586,7 +587,7 @@ func (c *Client) init(o *Options) error {
 			message := "username=\"" + user + "\", realm=\"" + realm + "\", nonce=\"" + nonce + "\", cnonce=\"" + cnonceStr +
 				"\", nc=" + nonceCount + ", qop=" + qop + ", digest-uri=\"" + digestURI + "\", response=" + digest + ", charset=" + charset
 
-			fmt.Fprintf(StanzaWriter, "<response xmlns='%s'>%s</response>\n", nsSASL, base64.StdEncoding.EncodeToString([]byte(message)))
+			fmt.Fprintf(c.stanzaWriter, "<response xmlns='%s'>%s</response>\n", nsSASL, base64.StdEncoding.EncodeToString([]byte(message)))
 
 			var rspauth saslRspAuth
 			if err = c.p.DecodeElement(&rspauth, nil); err != nil {
@@ -596,7 +597,7 @@ func (c *Client) init(o *Options) error {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(StanzaWriter, "<response xmlns='%s'/>\n", nsSASL)
+			fmt.Fprintf(c.stanzaWriter, "<response xmlns='%s'/>\n", nsSASL)
 		}
 	}
 	if mechanism == "" {
@@ -649,9 +650,9 @@ func (c *Client) init(o *Options) error {
 
 	// Send IQ message asking to bind to the local user name.
 	if o.Resource == "" {
-		fmt.Fprintf(StanzaWriter, "<iq type='set' id='%x'><bind xmlns='%s'></bind></iq>\n", cookie, nsBind)
+		fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%x'><bind xmlns='%s'></bind></iq>\n", cookie, nsBind)
 	} else {
-		fmt.Fprintf(StanzaWriter, "<iq type='set' id='%x'><bind xmlns='%s'><resource>%s</resource></bind></iq>\n", cookie, nsBind, o.Resource)
+		fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%x'><bind xmlns='%s'><resource>%s</resource></bind></iq>\n", cookie, nsBind, o.Resource)
 	}
 	var iq clientIQ
 	if err = c.p.DecodeElement(&iq, nil); err != nil {
@@ -665,11 +666,11 @@ func (c *Client) init(o *Options) error {
 
 	if o.Session {
 		//if server support session, open it
-		fmt.Fprintf(StanzaWriter, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>", xmlEscape(domain), cookie, nsSession)
+		fmt.Fprintf(c.stanzaWriter, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>", xmlEscape(domain), cookie, nsSession)
 	}
 
 	// We're connected and can now receive and send messages.
-	fmt.Fprintf(StanzaWriter, "<presence xml:lang='en'><show>%s</show><status>%s</status></presence>", o.Status, o.StatusMessage)
+	fmt.Fprintf(c.stanzaWriter, "<presence xml:lang='en'><show>%s</show><status>%s</status></presence>", o.Status, o.StatusMessage)
 
 	return nil
 }
@@ -691,7 +692,7 @@ func (c *Client) startTLSIfRequired(f *streamFeatures, o *Options, domain string
 	}
 	var err error
 
-	fmt.Fprintf(StanzaWriter, "<starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>\n")
+	fmt.Fprintf(c.stanzaWriter, "<starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>\n")
 	var k tlsProceed
 	if err = c.p.DecodeElement(&k, nil); err != nil {
 		return f, errors.New("unmarshal <proceed>: " + err.Error())
@@ -724,13 +725,13 @@ func (c *Client) startTLSIfRequired(f *streamFeatures, o *Options, domain string
 func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error) {
 	if o.Debug {
 		c.p = xml.NewDecoder(tee{c.conn, DebugWriter})
-		StanzaWriter = io.MultiWriter(c.conn, DebugWriter)
+		c.stanzaWriter = io.MultiWriter(c.conn, DebugWriter)
 	} else {
 		c.p = xml.NewDecoder(c.conn)
-		StanzaWriter = c.conn
+		c.stanzaWriter = c.conn
 	}
 
-	_, err := fmt.Fprintf(StanzaWriter, "<?xml version='1.0'?>"+
+	_, err := fmt.Fprintf(c.stanzaWriter, "<?xml version='1.0'?>"+
 		"<stream:stream to='%s' xmlns='%s'"+
 		" xmlns:stream='%s' version='1.0'>",
 		xmlEscape(domain), nsClient, nsStream)
@@ -1058,7 +1059,7 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 
 	stanza := "<message to='%s' type='%s' id='%s' xml:lang='en'>" + subtext + "<body>%s</body>" + oobtext + thdtext + "</message>"
 
-	return fmt.Fprintf(StanzaWriter, stanza,
+	return fmt.Fprintf(c.stanzaWriter, stanza,
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce(), xmlEscape(chat.Text))
 }
 
@@ -1075,17 +1076,17 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 		}
 		oobtext += `</x>`
 	}
-	return fmt.Fprintf(StanzaWriter, "<message to='%s' type='%s' id='%s' xml:lang='en'>"+oobtext+thdtext+"</message>",
+	return fmt.Fprintf(c.stanzaWriter, "<message to='%s' type='%s' id='%s' xml:lang='en'>"+oobtext+thdtext+"</message>",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce())
 }
 
 // SendOrg sends the original text without being wrapped in an XMPP message stanza.
 func (c *Client) SendOrg(org string) (n int, err error) {
-	return fmt.Fprint(StanzaWriter, org)
+	return fmt.Fprint(c.stanzaWriter, org)
 }
 
 func (c *Client) SendPresence(presence Presence) (n int, err error) {
-	return fmt.Fprintf(StanzaWriter, "<presence from='%s' to='%s'/>", xmlEscape(presence.From), xmlEscape(presence.To))
+	return fmt.Fprintf(c.stanzaWriter, "<presence from='%s' to='%s'/>", xmlEscape(presence.From), xmlEscape(presence.To))
 }
 
 // SendKeepAlive sends a "whitespace keepalive" as described in chapter 4.6.1 of RFC6120.
@@ -1095,7 +1096,7 @@ func (c *Client) SendKeepAlive() (n int, err error) {
 
 // SendHtml sends the message as HTML as defined by XEP-0071
 func (c *Client) SendHtml(chat Chat) (n int, err error) {
-	return fmt.Fprintf(StanzaWriter, "<message to='%s' type='%s' xml:lang='en'>"+
+	return fmt.Fprintf(c.stanzaWriter, "<message to='%s' type='%s' xml:lang='en'>"+
 		"<body>%s</body>"+
 		"<html xmlns='http://jabber.org/protocol/xhtml-im'><body xmlns='http://www.w3.org/1999/xhtml'>%s</body></html></message>",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text), chat.Text)
@@ -1103,7 +1104,7 @@ func (c *Client) SendHtml(chat Chat) (n int, err error) {
 
 // Roster asks for the chat roster.
 func (c *Client) Roster() error {
-	fmt.Fprintf(StanzaWriter, "<iq from='%s' type='get' id='roster1'><query xmlns='jabber:iq:roster'/></iq>\n", xmlEscape(c.jid))
+	fmt.Fprintf(c.stanzaWriter, "<iq from='%s' type='get' id='roster1'><query xmlns='jabber:iq:roster'/></iq>\n", xmlEscape(c.jid))
 	return nil
 }
 

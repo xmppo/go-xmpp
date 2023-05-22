@@ -11,7 +11,7 @@ func (c *Client) PingC2S(jid, server string) error {
 	if server == "" {
 		server = c.domain
 	}
-	_, err := fmt.Fprintf(StanzaWriter, "<iq from='%s' to='%s' id='c2s1' type='get'>\n"+
+	_, err := fmt.Fprintf(c.stanzaWriter, "<iq from='%s' to='%s' id='c2s1' type='get'>\n"+
 		"<ping xmlns='urn:xmpp:ping'/>\n"+
 		"</iq>",
 		xmlEscape(jid), xmlEscape(server))
@@ -19,7 +19,7 @@ func (c *Client) PingC2S(jid, server string) error {
 }
 
 func (c *Client) PingS2S(fromServer, toServer string) error {
-	_, err := fmt.Fprintf(StanzaWriter, "<iq from='%s' to='%s' id='s2s1' type='get'>\n"+
+	_, err := fmt.Fprintf(c.stanzaWriter, "<iq from='%s' to='%s' id='s2s1' type='get'>\n"+
 		"<ping xmlns='urn:xmpp:ping'/>\n"+
 		"</iq>",
 		xmlEscape(fromServer), xmlEscape(toServer))
@@ -27,7 +27,7 @@ func (c *Client) PingS2S(fromServer, toServer string) error {
 }
 
 func (c *Client) SendResultPing(id, toServer string) error {
-	_, err := fmt.Fprintf(StanzaWriter, "<iq type='result' to='%s' id='%s'/>",
+	_, err := fmt.Fprintf(c.stanzaWriter, "<iq type='result' to='%s' id='%s'/>",
 		xmlEscape(toServer), xmlEscape(id))
 	return err
 }

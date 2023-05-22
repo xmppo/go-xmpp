@@ -5,12 +5,12 @@ import (
 )
 
 func (c *Client) ApproveSubscription(jid string) {
-	fmt.Fprintf(StanzaWriter, "<presence to='%s' type='subscribed'/>",
+	fmt.Fprintf(c.stanzaWriter, "<presence to='%s' type='subscribed'/>",
 		xmlEscape(jid))
 }
 
 func (c *Client) RevokeSubscription(jid string) {
-	fmt.Fprintf(StanzaWriter, "<presence to='%s' type='unsubscribed'/>",
+	fmt.Fprintf(c.stanzaWriter, "<presence to='%s' type='unsubscribed'/>",
 		xmlEscape(jid))
 }
 
@@ -20,6 +20,6 @@ func (c *Client) RetrieveSubscription(jid string) {
 }
 
 func (c *Client) RequestSubscription(jid string) {
-	fmt.Fprintf(StanzaWriter, "<presence to='%s' type='subscribe'/>",
+	fmt.Fprintf(c.stanzaWriter, "<presence to='%s' type='subscribe'/>",
 		xmlEscape(jid))
 }
