@@ -55,7 +55,6 @@ var DefaultConfig = &tls.Config{}
 
 // DebugWriter is the writer used to write debugging output to.
 var DebugWriter io.Writer = os.Stderr
-var StanzaWriter io.Writer
 
 // Cookie is a unique XMPP session identifier
 type Cookie uint64
