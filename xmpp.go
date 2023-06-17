@@ -1169,8 +1169,50 @@ func (c *Client) SendOrg(org string) (n int, err error) {
 	return fmt.Fprint(c.stanzaWriter, org+"\n")
 }
 
+// SendPresence sends Presence wrapped inside XMPP presence stanza.
 func (c *Client) SendPresence(presence Presence) (n int, err error) {
-	return fmt.Fprintf(c.stanzaWriter, "<presence from='%s' to='%s'/>\n", xmlEscape(presence.From), xmlEscape(presence.To))
+	// Forge opening presence tag
+	var buf string = "<presence"
+
+	if presence.From != "" {
+		buf = buf + fmt.Sprintf(" from='%s'", xmlEscape(presence.From))
+	}
+
+	if presence.To != "" {
+		buf = buf + fmt.Sprintf(" to='%s'", xmlEscape(presence.To))
+	}
+
+	if presence.Type != "" {
+		// https://www.ietf.org/rfc/rfc3921.txt, 2.2.1, types can only be
+		// unavailable, subscribe, subscribed, unsubscribe, unsubscribed, probe, error
+		switch presence.Type {
+		case "unavailable", "subscribe", "subscribed", "unsubscribe", "unsubscribed", "probe", "error":
+			buf = buf + fmt.Sprintf(" type='%s'", xmlEscape(presence.Type))
+		}
+	}
+
+	buf = buf + ">"
+
+	// TODO: there may be optional tag "priority", but former presence type does not take this into account
+	//       so either we must follow std, change type xmpp.Presence and break backward compatibility
+	//       or leave it as-is and potentially break client software
+
+	if presence.Show != "" {
+		// https://www.ietf.org/rfc/rfc3921.txt 2.2.2.1, show can be only
+		// away, chat, dnd, xa
+		switch presence.Show {
+		case "away", "chat", "dnd", "xa":
+			buf = buf + fmt.Sprintf("<show>%s</show>", xmlEscape(presence.Show))
+		}
+	}
+
+	if presence.Status != "" {
+		buf = buf + fmt.Sprintf("<status>%s</status>", xmlEscape(presence.Status))
+	}
+
+	buf = buf + "</presence>"
+
+	return fmt.Fprint(c.stanzaWriter, buf)
 }
 
 // SendKeepAlive sends a "whitespace keepalive" as described in chapter 4.6.1 of RFC6120.
