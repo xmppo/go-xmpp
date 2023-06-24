@@ -22,8 +22,8 @@ func (c *Client) DiscoverNodeInfo(node string) (string, error) {
 }
 
 // Discover information about given item from given jid.
-func (c *Client) DiscoverInfo(from string, to string, node string) (string, error) {
-	query := fmt.Sprintf("<query xmlns='%s' node='%s'/>", XMPPNS_DISCO_INFO, node)
+func (c *Client) DiscoverInfo(from string, to string) (string, error) {
+	query := fmt.Sprintf("<query xmlns='%s'/>", XMPPNS_DISCO_INFO)
 	return c.RawInformation(from, to, "info3", IQTypeGet, query)
 }
 
