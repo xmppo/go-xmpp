@@ -436,7 +436,7 @@ func (c *Client) init(o *Options) error {
 			}
 			clientNonce := cnonce()
 			clientFirstMessage := "n=" + user + ",r=" + clientNonce
-			fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='%s'>%s</auth>",
+			fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='%s'>%s</auth>\n",
 				nsSASL, mechanism, base64.StdEncoding.EncodeToString([]byte("n,,"+
 					clientFirstMessage)))
 			var sfm string
@@ -536,7 +536,7 @@ func (c *Client) init(o *Options) error {
 			}
 			clientFinalMessage := base64.StdEncoding.EncodeToString([]byte(clientFinalMessageBare +
 				",p=" + base64.StdEncoding.EncodeToString(clientProof)))
-			fmt.Fprintf(c.stanzaWriter, "<response xmlns='%s'>%s</response>", nsSASL,
+			fmt.Fprintf(c.stanzaWriter, "<response xmlns='%s'>%s</response>\n", nsSASL,
 				clientFinalMessage)
 		}
 		if mechanism == "X-OAUTH2" && o.OAuthToken != "" && o.OAuthScope != "" {
@@ -665,11 +665,11 @@ func (c *Client) init(o *Options) error {
 
 	if o.Session {
 		//if server support session, open it
-		fmt.Fprintf(c.stanzaWriter, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>", xmlEscape(domain), cookie, nsSession)
+		fmt.Fprintf(c.stanzaWriter, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>\n", xmlEscape(domain), cookie, nsSession)
 	}
 
 	// We're connected and can now receive and send messages.
-	fmt.Fprintf(c.stanzaWriter, "<presence xml:lang='en'><show>%s</show><status>%s</status></presence>", o.Status, o.StatusMessage)
+	fmt.Fprintf(c.stanzaWriter, "<presence xml:lang='en'><show>%s</show><status>%s</status></presence>\n", o.Status, o.StatusMessage)
 
 	return nil
 }
@@ -732,7 +732,7 @@ func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error)
 
 	_, err := fmt.Fprintf(c.stanzaWriter, "<?xml version='1.0'?>"+
 		"<stream:stream to='%s' xmlns='%s'"+
-		" xmlns:stream='%s' version='1.0'>",
+		" xmlns:stream='%s' version='1.0'>\n",
 		xmlEscape(domain), nsClient, nsStream)
 	if err != nil {
 		return nil, err
@@ -1056,7 +1056,7 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 		oobtext += `</x>`
 	}
 
-	stanza := "<message to='%s' type='%s' id='%s' xml:lang='en'>" + subtext + "<body>%s</body>" + oobtext + thdtext + "</message>"
+	stanza := "<message to='%s' type='%s' id='%s' xml:lang='en'>" + subtext + "<body>%s</body>" + oobtext + thdtext + "</message>\n"
 
 	return fmt.Fprintf(c.stanzaWriter, stanza,
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce(), xmlEscape(chat.Text))
@@ -1075,17 +1075,17 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 		}
 		oobtext += `</x>`
 	}
-	return fmt.Fprintf(c.stanzaWriter, "<message to='%s' type='%s' id='%s' xml:lang='en'>"+oobtext+thdtext+"</message>",
+	return fmt.Fprintf(c.stanzaWriter, "<message to='%s' type='%s' id='%s' xml:lang='en'>"+oobtext+thdtext+"</message>\n",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce())
 }
 
 // SendOrg sends the original text without being wrapped in an XMPP message stanza.
 func (c *Client) SendOrg(org string) (n int, err error) {
-	return fmt.Fprint(c.stanzaWriter, org)
+	return fmt.Fprint(c.stanzaWriter, org+"\n")
 }
 
 func (c *Client) SendPresence(presence Presence) (n int, err error) {
-	return fmt.Fprintf(c.stanzaWriter, "<presence from='%s' to='%s'/>", xmlEscape(presence.From), xmlEscape(presence.To))
+	return fmt.Fprintf(c.stanzaWriter, "<presence from='%s' to='%s'/>\n", xmlEscape(presence.From), xmlEscape(presence.To))
 }
 
 // SendKeepAlive sends a "whitespace keepalive" as described in chapter 4.6.1 of RFC6120.
@@ -1097,7 +1097,7 @@ func (c *Client) SendKeepAlive() (n int, err error) {
 func (c *Client) SendHtml(chat Chat) (n int, err error) {
 	return fmt.Fprintf(c.stanzaWriter, "<message to='%s' type='%s' xml:lang='en'>"+
 		"<body>%s</body>"+
-		"<html xmlns='http://jabber.org/protocol/xhtml-im'><body xmlns='http://www.w3.org/1999/xhtml'>%s</body></html></message>",
+		"<html xmlns='http://jabber.org/protocol/xhtml-im'><body xmlns='http://www.w3.org/1999/xhtml'>%s</body></html></message>\n",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text), chat.Text)
 }
 
