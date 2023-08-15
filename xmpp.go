@@ -469,7 +469,7 @@ func (c *Client) init(o *Options) error {
 						return err
 					}
 				default:
-					return errors.New("unexpected conted in SCRAM challenge")
+					return errors.New("unexpected content in SCRAM challenge")
 				}
 			}
 			clientFinalMessageBare := "c=biws,r=" + serverNonce
