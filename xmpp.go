@@ -208,6 +208,9 @@ type Options struct {
 
 	// Status message
 	StatusMessage string
+
+	// Auth mechanism to use
+	Mechanism string
 }
 
 // NewClient establishes a new Client connection based on a set of Options.
@@ -396,30 +399,38 @@ func (c *Client) init(o *Options) error {
 		}
 
 		mechanism = ""
-		for _, m := range f.Mechanisms.Mechanism {
-			switch m {
-			case "SCRAM-SHA-512":
-				mechanism = m
-			case "SCRAM-SHA-256":
-				if mechanism != "SCRAM-SHA-512" {
+		if o.Mechanism == "" {
+			for _, m := range f.Mechanisms.Mechanism {
+				switch m {
+				case "SCRAM-SHA-512":
 					mechanism = m
+				case "SCRAM-SHA-256":
+					if mechanism != "SCRAM-SHA-512" {
+						mechanism = m
+					}
+				case "SCRAM-SHA-1":
+					if mechanism != "SCRAM-SHA-512" &&
+						mechanism != "SCRAM-SHA-256" {
+						mechanism = m
+					}
+				case "X-OAUTH2":
+					if mechanism == "" {
+						mechanism = m
+					}
+				case "PLAIN":
+					if mechanism == "" {
+						mechanism = m
+					}
+				case "DIGEST-MD5":
+					if mechanism == "" {
+						mechanism = m
+					}
 				}
-			case "SCRAM-SHA-1":
-				if mechanism != "SCRAM-SHA-512" &&
-					mechanism != "SCRAM-SHA-256" {
-					mechanism = m
-				}
-			case "X-OAUTH2":
-				if mechanism == "" {
-					mechanism = m
-				}
-			case "PLAIN":
-				if mechanism == "" {
-					mechanism = m
-				}
-			case "DIGEST-MD5":
-				if mechanism == "" {
-					mechanism = m
+			}
+		} else {
+			for _, m := range f.Mechanisms.Mechanism {
+				if m == o.Mechanism {
+					mechanism = o.Mechanism
 				}
 			}
 		}
