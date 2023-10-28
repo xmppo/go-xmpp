@@ -74,6 +74,7 @@ type Client struct {
 	domain       string
 	p            *xml.Decoder
 	stanzaWriter io.Writer
+	Mechanism    string
 }
 
 func (c *Client) JID() string {
@@ -625,6 +626,7 @@ func (c *Client) init(o *Options) error {
 			if string(serverSignature) != string(serverSignatureRemote) {
 				return errors.New("SCRAM: server signature mismatch")
 			}
+			c.Mechanism = mechanism
 		}
 	case *saslFailure:
 		errorMessage := v.Text
