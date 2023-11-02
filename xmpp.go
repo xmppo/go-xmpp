@@ -372,8 +372,10 @@ func (c *Client) init(o *Options) error {
 	if f, err = c.startTLSIfRequired(f, o, domain); err != nil {
 		return err
 	}
-	var mechanism string
-	var serverSignature []byte
+	var mechanism, channelBinding, clientFirstMessage, clientFinalMessageBare, authMessage string
+	var serverSignature, keyingMaterial []byte
+	var scramPlus, ok, tlsConnOK, tls13 bool
+	var tlsConn *tls.Conn
 	if o.User == "" && o.Password == "" {
 		foundAnonymous := false
 		for _, m := range f.Mechanisms.Mechanism {
@@ -394,17 +396,48 @@ func (c *Client) init(o *Options) error {
 			return errors.New("refusing to authenticate over unencrypted TCP connection")
 		}
 
+		tlsConn, ok = c.conn.(*tls.Conn)
+		if ok {
+			tlsConnOK = true
+		}
 		mechanism = ""
 		for _, m := range f.Mechanisms.Mechanism {
 			switch m {
+			case "SCRAM-SHA-512-PLUS":
+				if tlsConnOK {
+					mechanism = m
+					scramPlus = true
+				}
 			case "SCRAM-SHA-512":
-				mechanism = m
-			case "SCRAM-SHA-256":
-				if mechanism != "SCRAM-SHA-512" {
+				if mechanism != "SCRAM-SHA-512-PLUS" &&
+					mechanism != "SCRAM-SHA-256-PLUS" &&
+					mechanism != "SCRAM-SHA-1-PLUS" {
 					mechanism = m
 				}
+			case "SCRAM-SHA-256-PLUS":
+				if mechanism != "SCRAM-SHA-512-PLUS" && tlsConnOK {
+					mechanism = m
+					scramPlus = true
+				}
+			case "SCRAM-SHA-256":
+				if mechanism != "SCRAM-SHA-512-PLUS" &&
+					mechanism != "SCRAM-SHA-256-PLUS" &&
+					mechanism != "SCRAM-SHA-1-PLUS" &&
+					mechanism != "SCRAM-SHA-512" {
+					mechanism = m
+				}
+			case "SCRAM-SHA-1-PLUS":
+				if mechanism != "SCRAM-SHA-512-PLUS" &&
+					mechanism != "SCRAM-SHA-256-PLUS" &&
+					tlsConnOK {
+					mechanism = m
+					scramPlus = true
+				}
 			case "SCRAM-SHA-1":
-				if mechanism != "SCRAM-SHA-512" &&
+				if mechanism != "SCRAM-SHA-512-PLUS" &&
+					mechanism != "SCRAM-SHA-256-PLUS" &&
+					mechanism != "SCRAM-SHA-1-PLUS" &&
+					mechanism != "SCRAM-SHA-512" &&
 					mechanism != "SCRAM-SHA-256" {
 					mechanism = m
 				}
@@ -423,22 +456,52 @@ func (c *Client) init(o *Options) error {
 			}
 		}
 		if strings.HasPrefix(mechanism, "SCRAM-SHA") {
+			if scramPlus {
+				tlsState := tlsConn.ConnectionState()
+				switch tlsState.Version {
+				case tls.VersionTLS13:
+					keyingMaterial, err = tlsState.ExportKeyingMaterial("EXPORTER-Channel-Binding", nil, 32)
+					tls13 = true
+					if err != nil {
+						return err
+					}
+				case tls.VersionTLS10, tls.VersionTLS11, tls.VersionTLS12:
+					keyingMaterial = tlsState.TLSUnique
+				default:
+					return errors.New(mechanism + ": unknown TLS version: " + tls.VersionName(tlsState.Version))
+				}
+				if len(keyingMaterial) == 0 {
+					return errors.New(mechanism + ": no keying material")
+				}
+				if tls13 {
+					channelBinding = base64.StdEncoding.EncodeToString(append([]byte("p=tls-exporter,,"), keyingMaterial[:]...))
+				} else {
+					channelBinding = base64.StdEncoding.EncodeToString(append([]byte("p=tls-unique,,"), keyingMaterial[:]...))
+				}
+			}
 			var shaNewFn func() hash.Hash
 			switch mechanism {
-			case "SCRAM-SHA-512":
+			case "SCRAM-SHA-512", "SCRAM-SHA-512-PLUS":
 				shaNewFn = sha512.New
-			case "SCRAM-SHA-256":
+			case "SCRAM-SHA-256", "SCRAM-SHA-256-PLUS":
 				shaNewFn = sha256.New
-			case "SCRAM-SHA-1":
+			case "SCRAM-SHA-1", "SCRAM-SHA-1-PLUS":
 				shaNewFn = sha1.New
 			default:
 				return errors.New("unsupported auth mechanism")
 			}
 			clientNonce := cnonce()
-			clientFirstMessage := "n=" + user + ",r=" + clientNonce
+			if scramPlus {
+				if tls13 {
+					clientFirstMessage = "p=tls-exporter,,n=" + user + ",r=" + clientNonce
+				} else {
+					clientFirstMessage = "p=tls-unique,,n=" + user + ",r=" + clientNonce
+				}
+			} else {
+				clientFirstMessage = "n,,n=" + user + ",r=" + clientNonce
+			}
 			fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='%s'>%s</auth>",
-				nsSASL, mechanism, base64.StdEncoding.EncodeToString([]byte("n,,"+
-					clientFirstMessage)))
+				nsSASL, mechanism, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)))
 			var sfm string
 			if err = c.p.DecodeElement(&sfm, nil); err != nil {
 				return errors.New("unmarshal <challenge>: " + err.Error())
@@ -472,7 +535,11 @@ func (c *Client) init(o *Options) error {
 					return errors.New("unexpected content in SCRAM challenge")
 				}
 			}
-			clientFinalMessageBare := "c=biws,r=" + serverNonce
+			if scramPlus {
+				clientFinalMessageBare = "c=" + channelBinding + ",r=" + serverNonce
+			} else {
+				clientFinalMessageBare = "c=biws,r=" + serverNonce
+			}
 			saltedPassword := pbkdf2.Key([]byte(o.Password), salt,
 				iterations, shaNewFn().Size(), shaNewFn)
 			h := hmac.New(shaNewFn, saltedPassword)
@@ -484,13 +551,13 @@ func (c *Client) init(o *Options) error {
 			h.Reset()
 			var storedKey []byte
 			switch mechanism {
-			case "SCRAM-SHA-512":
+			case "SCRAM-SHA-512", "SCRAM-SHA-512-PLUS":
 				storedKey512 := sha512.Sum512(clientKey)
 				storedKey = storedKey512[:]
-			case "SCRAM-SHA-256":
+			case "SCRAM-SHA-256", "SCRAM-SH-256-PLUS":
 				storedKey256 := sha256.Sum256(clientKey)
 				storedKey = storedKey256[:]
-			case "SCRAM-SHA-1":
+			case "SCRAM-SHA-1", "SCRAM-SHA-1-PLUS":
 				storedKey1 := sha1.Sum(clientKey)
 				storedKey = storedKey1[:]
 			}
@@ -502,8 +569,8 @@ func (c *Client) init(o *Options) error {
 			if err != nil {
 				return err
 			}
-			authMessage := clientFirstMessage + "," + string(serverFirstMessage) +
-				"," + clientFinalMessageBare
+			authMessage = strings.SplitAfter(clientFirstMessage, ",,")[1] + "," +
+				string(serverFirstMessage) + "," + clientFinalMessageBare
 			h = hmac.New(shaNewFn, storedKey[:])
 			_, err = h.Write([]byte(authMessage))
 			if err != nil {
