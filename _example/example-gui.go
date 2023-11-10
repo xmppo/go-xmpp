@@ -2,11 +2,12 @@ package main
 
 import (
 	"crypto/tls"
-	"github.com/mattn/go-gtk/gtk"
-	"github.com/mattn/go-xmpp"
 	"log"
 	"os"
 	"strings"
+
+	"github.com/mattn/go-gtk/gtk"
+	"github.com/mattn/go-xmpp"
 )
 
 func main() {

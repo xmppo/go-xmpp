@@ -85,14 +85,14 @@ func TestStanzaError(t *testing.T) {
 			"\n\t\t\n\t\t\n\t",
 		},
 		OtherElem: []XMLElement{
-			XMLElement{
+			{
 				XMLName:  xml.Name{Space: "google:mobile:data", Local: "gcm"},
-				Attr:     []xml.Attr{xml.Attr{Name:xml.Name{Space:"", Local:"xmlns"}, Value:"google:mobile:data"}},
+				Attr:     []xml.Attr{{Name: xml.Name{Space: "", Local: "xmlns"}, Value: "google:mobile:data"}},
 				InnerXML: "\n\t\t{\"random\": \"&lt;text&gt;\"}\n\t",
 			},
-			XMLElement{
+			{
 				XMLName: xml.Name{Space: "jabber:client", Local: "error"},
-				Attr:    []xml.Attr{xml.Attr{Name:xml.Name{Space:"", Local:"code"}, Value:"400"},xml.Attr{Name:xml.Name{Space:"", Local:"type"}, Value:"modify"}},
+				Attr:    []xml.Attr{{Name: xml.Name{Space: "", Local: "code"}, Value: "400"}, {Name: xml.Name{Space: "", Local: "type"}, Value: "modify"}},
 				InnerXML: `
 		<bad-request xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"/>
 		<text xmlns="urn:ietf:params:xml:ns:xmpp-stanzas">
@@ -124,12 +124,13 @@ var emptyPubSub = strings.TrimSpace(`
   </pubsub>
 </iq>
 `)
+
 func TestEmptyPubsub(t *testing.T) {
 	var c Client
 	c.conn = tConnect(emptyPubSub)
 	c.p = xml.NewDecoder(c.conn)
 	m, err := c.Recv()
-	
+
 	switch m.(type) {
 	case AvatarData:
 		if err == nil {
