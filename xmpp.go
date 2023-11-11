@@ -511,7 +511,7 @@ func (c *Client) init(o *Options) error {
 			} else {
 				clientFirstMessage = "n,,n=" + user + ",r=" + clientNonce
 			}
-			fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='%s'>%s</auth>",
+			fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='%s'>%s</auth>\n",
 				nsSASL, mechanism, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)))
 			var sfm string
 			if err = c.p.DecodeElement(&sfm, nil); err != nil {
