@@ -181,6 +181,9 @@ type Options struct {
 	// provided to the server as the xmlns:auth attribute of the OAuth2 authentication request.
 	OAuthXmlNs string
 
+	// AuthExternal will be chosen if this is set to true and if server supports it
+	AuthExternal bool
+
 	// TLS Config
 	TLSConfig *tls.Config
 
@@ -454,6 +457,10 @@ func (c *Client) init(o *Options) error {
 					if mechanism == "" {
 						mechanism = m
 					}
+				case "EXTERNAL":
+					if mechanism == "" {
+						mechanism = m
+					}
 				}
 			}
 		} else {
@@ -630,7 +637,7 @@ func (c *Client) init(o *Options) error {
 			raw := "\x00" + user + "\x00" + o.Password
 			enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
 			base64.StdEncoding.Encode(enc, []byte(raw))
-			fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='PLAIN'>%s</auth>\n", nsSASL, enc)
+			fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='PLAIN'>%s</auth>\n", nsSASL, enc)
 		}
 		if mechanism == "DIGEST-MD5" {
 			// Digest-MD5 authentication
@@ -675,6 +682,10 @@ func (c *Client) init(o *Options) error {
 				return err
 			}
 			fmt.Fprintf(c.stanzaWriter, "<response xmlns='%s'/>\n", nsSASL)
+		}
+		if mechanism == "EXTERNAL" && o.AuthExternal {
+			// EXTERNAL authentication
+			fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='EXTERNAL'/>\n", nsSASL)
 		}
 	}
 	if mechanism == "" {
