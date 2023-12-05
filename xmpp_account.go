@@ -77,15 +77,17 @@ func (c *Client) CreateAccount(username string, password string, attributes map[
 	return err
 }
 
-// ChangePassword enables a user to change his or her password with a server or service
-func (c *Client) ChangePassword(username string, password string) error {
-	attrBuilder := buildAccountAttr(username, password, nil)
+// ChangePassword enables a user to change his or her password with a server or service.
+// With the user's username parameter which will change the password and new password
+func (c *Client) ChangePassword(username string, newPassword string) error {
+	attrBuilder := buildAccountAttr(username, newPassword, nil)
 	const xmlIQ = "<iq type='set' to='%s' id='changePassword1'><query xmlns='%s'>%s</query></iq>"
 	_, err := fmt.Fprintf(c.stanzaWriter, xmlIQ, c.domain, nsRegister, attrBuilder)
 	return err
 }
 
-// RemoveAccount cancel a registration with a host by sending a <remove/> element in an IQ set
+// RemoveAccount cancel a registration with a host by sending a <remove/> element in an IQ set.
+// With the username parameter belonging to the user to be deleted
 func (c *Client) RemoveAccount(username string) error {
 	from := c.jid
 	const xmlIQ = "<iq type='set' from='%s' id='removeAccount1'><query xmlns='%s'><remove/></query></iq>"
@@ -93,8 +95,8 @@ func (c *Client) RemoveAccount(username string) error {
 	return err
 }
 
-// SearchAccount search information repositories on the Jabber network
-// searchServiceName is the Search Service Properties Name from your server
+// SearchAccount search information repositories on the Jabber network.
+// searchServiceName is the Search Service Properties Name from your server.
 func (c *Client) SearchAccount(searchServiceName, username, fieldName, fieldValue string) error {
 	from := c.jid
 	searchService := fmt.Sprintf("%s.%s", searchServiceName, c.domain)
