@@ -1096,6 +1096,19 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 						return handleAvatarMetadata(p.Items[0].Body,
 							v
 					}*/
+				case "searchAccount1":
+					if v.Query.XMLName.Space == nsSearch {
+						var accountQuery clientSearchAccountQuery
+						err := xml.Unmarshal(v.InnerXML, &accountQuery)
+						if err != nil {
+							return PubsubSubscription{}, err
+						}
+
+						return SearchAccountResult{
+							Jid:      v.From,
+							Accounts: clientSearchAccountItemToReturn(accountQuery.Items),
+						}, nil
+					}
 				default:
 					res, err := xml.Marshal(v.Query)
 					if err != nil {
