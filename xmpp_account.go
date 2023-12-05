@@ -97,7 +97,7 @@ func (c *Client) RemoveAccount(username string) error {
 
 // SearchAccount search information repositories on the Jabber network.
 // searchServiceName is the Search Service Properties Name from your server.
-func (c *Client) SearchAccount(searchServiceName, username, fieldName, fieldValue string) error {
+func (c *Client) SearchAccount(searchServiceName, fieldName, fieldValue string) error {
 	from := c.jid
 	searchService := fmt.Sprintf("%s.%s", searchServiceName, c.domain)
 	searchQuery := fmt.Sprintf("<%s>%s</%s>", fieldName, fieldValue, fieldName)
