@@ -1101,7 +1101,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 						var accountQuery clientSearchAccountQuery
 						err := xml.Unmarshal(v.InnerXML, &accountQuery)
 						if err != nil {
-							return PubsubSubscription{}, err
+							return SearchAccountResult{}, err
 						}
 
 						return SearchAccountResult{
