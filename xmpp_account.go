@@ -3,12 +3,14 @@ package xmpp
 import (
 	"encoding/xml"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
 const (
-	nsRegister = "jabber:iq:register"
-	nsSearch   = "jabber:iq:search"
+	nsRegister     = "jabber:iq:register"
+	nsSearch       = "jabber:iq:search"
+	nsLastActivity = "jabber:iq:last"
 )
 
 type clientSearchAccountItem struct {
@@ -40,6 +42,21 @@ type SearchAccountResult struct {
 	Accounts []SearchAccountResultItem
 }
 
+type lastActivity struct {
+	XMLName xml.Name `xml:"query"`
+	Text    string   `xml:",chardata"`
+	Xmlns   string   `xml:"xmlns,attr"`
+	Seconds string   `xml:"seconds,attr"`
+}
+
+// LastActivityResult represent last activity response
+// when current entity session is authorized to view the user's presence information
+type LastActivityResult struct {
+	From              string
+	Text              string
+	LastActiveSeconds int
+}
+
 func clientSearchAccountItemToReturn(accounts []clientSearchAccountItem) []SearchAccountResultItem {
 	var ret []SearchAccountResultItem
 	for _, account := range accounts {
@@ -55,10 +72,23 @@ func clientSearchAccountItemToReturn(accounts []clientSearchAccountItem) []Searc
 	return ret
 }
 
+func handleLastActivityResult(from string, lastActivity lastActivity) (LastActivityResult, error) {
+	lastActiveSeconds, err := strconv.Atoi(lastActivity.Seconds)
+	if err != nil {
+		return LastActivityResult{}, err
+	}
+
+	return LastActivityResult{
+		From:              from,
+		Text:              lastActivity.Text,
+		LastActiveSeconds: lastActiveSeconds,
+	}, nil
+}
+
 func buildAccountAttr(username string, password string, attributes map[string]string) string {
 	var attrBuilder strings.Builder
-	attrBuilder.WriteString(fmt.Sprintf("<username>%s</username>", username))
-	attrBuilder.WriteString(fmt.Sprintf("<password>%s</password>", password))
+	attrBuilder.WriteString(fmt.Sprintf("<username>%s</username>", xmlEscape(username)))
+	attrBuilder.WriteString(fmt.Sprintf("<password>%s</password>", xmlEscape(password)))
 
 	if attributes != nil {
 		for k, v := range attributes {
@@ -82,7 +112,7 @@ func (c *Client) CreateAccount(username string, password string, attributes map[
 func (c *Client) ChangePassword(username string, newPassword string) error {
 	attrBuilder := buildAccountAttr(username, newPassword, nil)
 	const xmlIQ = "<iq type='set' to='%s' id='changePassword1'><query xmlns='%s'>%s</query></iq>"
-	_, err := fmt.Fprintf(c.stanzaWriter, xmlIQ, c.domain, nsRegister, attrBuilder)
+	_, err := fmt.Fprintf(c.stanzaWriter, xmlIQ, xmlEscape(c.domain), nsRegister, attrBuilder)
 	return err
 }
 
@@ -91,7 +121,7 @@ func (c *Client) ChangePassword(username string, newPassword string) error {
 func (c *Client) RemoveAccount() error {
 	from := c.jid
 	const xmlIQ = "<iq type='set' from='%s' id='removeAccount1'><query xmlns='%s'><remove/></query></iq>"
-	_, err := fmt.Fprintf(c.stanzaWriter, xmlIQ, from, nsRegister)
+	_, err := fmt.Fprintf(c.stanzaWriter, xmlIQ, xmlEscape(from), nsRegister)
 	return err
 }
 
@@ -100,8 +130,21 @@ func (c *Client) RemoveAccount() error {
 func (c *Client) SearchAccount(searchServiceName, fieldName, fieldValue string) error {
 	from := c.jid
 	searchService := fmt.Sprintf("%s.%s", searchServiceName, c.domain)
-	searchQuery := fmt.Sprintf("<%s>%s</%s>", fieldName, fieldValue, fieldName)
+	searchQuery := fmt.Sprintf("<%s>%s</%s>", fieldName, xmlEscape(fieldValue), fieldName)
 	const xmlIQ = "<iq type='set' from='%s' to='%s' id='searchAccount1' xml:lang='en'><query xmlns='%s'>%s</query></iq>\n"
-	_, err := fmt.Fprintf(c.stanzaWriter, xmlIQ, from, searchService, nsSearch, searchQuery)
+	_, err := fmt.Fprintf(c.stanzaWriter, xmlIQ, xmlEscape(from), searchService, nsSearch, searchQuery)
+	return err
+}
+
+// RequestLastActivity request last activity information regarding another entity
+func (c *Client) RequestLastActivity(to string) error {
+	targetEntity := strings.SplitN(to, "@", 2)
+	if len(targetEntity) < 2 {
+		to = fmt.Sprintf("%s@%s", to, c.domain)
+	}
+
+	from := c.jid
+	const xmlIQ = "<iq from='%s' id='requestLastActivity1' to='%s' type='get'><query xmlns='%s'/></iq>"
+	_, err := fmt.Fprintf(c.stanzaWriter, xmlIQ, xmlEscape(from), xmlEscape(to), nsLastActivity)
 	return err
 }

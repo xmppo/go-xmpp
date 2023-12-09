@@ -1109,6 +1109,16 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 							Accounts: clientSearchAccountItemToReturn(accountQuery.Items),
 						}, nil
 					}
+				case "requestLastActivity1":
+					if v.Query.XMLName.Space == nsLastActivity {
+						var lastActivity lastActivity
+						err := xml.Unmarshal(v.InnerXML, &lastActivity)
+						if err != nil {
+							return LastActivityResult{}, err
+						}
+
+						return handleLastActivityResult(v.From, lastActivity)
+					}
 				default:
 					res, err := xml.Marshal(v.Query)
 					if err != nil {
