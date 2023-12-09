@@ -86,9 +86,9 @@ func (c *Client) ChangePassword(username string, newPassword string) error {
 	return err
 }
 
-// RemoveAccount cancel a registration with a host by sending a <remove/> element in an IQ set.
-// With the username parameter belonging to the user to be deleted
-func (c *Client) RemoveAccount(username string) error {
+// RemoveAccount cancel or delete the current session registration
+// with a host by sending a <remove/> element in an IQ set.
+func (c *Client) RemoveAccount() error {
 	from := c.jid
 	const xmlIQ = "<iq type='set' from='%s' id='removeAccount1'><query xmlns='%s'><remove/></query></iq>"
 	_, err := fmt.Fprintf(c.stanzaWriter, xmlIQ, from, nsRegister)
