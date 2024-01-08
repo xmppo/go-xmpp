@@ -535,6 +535,9 @@ func (c *Client) init(o *Options) error {
 					}
 				case strings.HasPrefix(serverReply, "s="):
 					salt, err = base64.StdEncoding.DecodeString(strings.SplitN(serverReply, "=", 2)[1])
+					if err != nil {
+						return err
+					}
 					if string(salt) == "" {
 						return errors.New("SCRAM: server sent empty salt")
 					}
