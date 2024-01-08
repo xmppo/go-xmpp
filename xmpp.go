@@ -575,9 +575,6 @@ func (c *Client) init(o *Options) error {
 					dHash := dgh.Sum(nil)
 					dHashb64 := base64.StdEncoding.EncodeToString(dHash)
 					if dHashb64 != serverDgProtectHash {
-						println("raw", dgProtect)
-						println("calc:", dHashb64)
-						println("recv:", serverDgProtectHash)
 						return errors.New("SCRAM: downgrade protection hash mismatch")
 					}
 					dgh.Reset()
