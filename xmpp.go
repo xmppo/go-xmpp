@@ -34,6 +34,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -46,6 +47,7 @@ const (
 	nsTLS     = "urn:ietf:params:xml:ns:xmpp-tls"
 	nsSASL    = "urn:ietf:params:xml:ns:xmpp-sasl"
 	nsBind    = "urn:ietf:params:xml:ns:xmpp-bind"
+	nsSASLCB  = "urn:xmpp:sasl-cb:0"
 	nsClient  = "jabber:client"
 	nsSession = "urn:ietf:params:xml:ns:xmpp-session"
 )
@@ -521,7 +523,7 @@ func (c *Client) init(o *Options) error {
 			if err != nil {
 				return err
 			}
-			var serverNonce string
+			var serverNonce, dgProtect string
 			var salt []byte
 			var iterations int
 			for _, serverReply := range strings.Split(string(b), ",") {
@@ -542,6 +544,40 @@ func (c *Client) init(o *Options) error {
 					if err != nil {
 						return err
 					}
+				case strings.HasPrefix(serverReply, "d="):
+					serverDgProtectHash := strings.SplitN(serverReply, "=", 2)[1]
+					slices.Sort(f.Mechanisms.Mechanism)
+					for _, mech := range f.Mechanisms.Mechanism {
+						if dgProtect == "" {
+							dgProtect = mech
+						} else {
+							dgProtect = dgProtect + "," + mech
+						}
+					}
+					dgProtect = dgProtect + "|"
+					var cbsSlice []string
+					for _, cbs := range f.ChannelBindings.ChannelBinding {
+						cbsSlice = append(cbsSlice, cbs.Type)
+					}
+					slices.Sort(cbsSlice)
+					for i, cb := range cbsSlice {
+						if i == 0 {
+							dgProtect = dgProtect + cb
+						} else {
+							dgProtect = dgProtect + "," + cb
+						}
+					}
+					dgh := shaNewFn()
+					dgh.Write([]byte(dgProtect))
+					dHash := dgh.Sum(nil)
+					dHashb64 := base64.StdEncoding.EncodeToString(dHash)
+					if dHashb64 != serverDgProtectHash {
+						println("raw", dgProtect)
+						println("calc:", dHashb64)
+						println("recv:", serverDgProtectHash)
+						return errors.New("SCRAM: downgrade protection hash mismatch")
+					}
+					dgh.Reset()
 				default:
 					return errors.New("unexpected content in SCRAM challenge")
 				}
@@ -1194,12 +1230,12 @@ func (c *Client) Roster() error {
 
 // RFC 3920  C.1  Streams name space
 type streamFeatures struct {
-	XMLName        xml.Name `xml:"http://etherx.jabber.org/streams features"`
-	StartTLS       *tlsStartTLS
-	Mechanisms     saslMechanisms
-	ChannelBinding saslChannelBinding
-	Bind           bindBind
-	Session        bool
+	XMLName         xml.Name `xml:"http://etherx.jabber.org/streams features"`
+	StartTLS        *tlsStartTLS
+	Mechanisms      saslMechanisms
+	ChannelBindings saslChannelBindings
+	Bind            bindBind
+	Session         bool
 }
 
 type streamError struct {
@@ -1233,7 +1269,7 @@ type saslAuth struct {
 	Mechanism string   `xml:",attr"`
 }
 
-type saslChannelBinding struct {
+type saslChannelBindings struct {
 	XMLName        xml.Name `xml:"sasl-channel-binding"`
 	Text           string   `xml:",chardata"`
 	Xmlns          string   `xml:"xmlns,attr"`
@@ -1436,6 +1472,8 @@ func next(p *xml.Decoder) (xml.Name, interface{}, error) {
 		nv = &saslSuccess{}
 	case nsSASL + " failure":
 		nv = &saslFailure{}
+	case nsSASLCB + " sasl-channel-binding":
+		nv = &saslChannelBindings{}
 	case nsBind + " bind":
 		nv = &bindBind{}
 	case nsClient + " message":
