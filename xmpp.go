@@ -635,6 +635,50 @@ func (c *Client) init(o *Options) error {
 			base64.StdEncoding.Encode(enc, []byte(raw))
 			fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='PLAIN'>%s</auth>\n", nsSASL, enc)
 		}
+		if mechanism == "DIGEST-MD5" {
+			// Digest-MD5 authentication
+			fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='DIGEST-MD5'/>\n", nsSASL)
+			var ch saslChallenge
+			if err = c.p.DecodeElement(&ch, nil); err != nil {
+				return errors.New("unmarshal <challenge>: " + err.Error())
+			}
+			b, err := base64.StdEncoding.DecodeString(string(ch))
+			if err != nil {
+				return err
+			}
+			tokens := map[string]string{}
+			for _, token := range strings.Split(string(b), ",") {
+				kv := strings.SplitN(strings.TrimSpace(token), "=", 2)
+				if len(kv) == 2 {
+					if kv[1][0] == '"' && kv[1][len(kv[1])-1] == '"' {
+						kv[1] = kv[1][1 : len(kv[1])-1]
+					}
+					tokens[kv[0]] = kv[1]
+				}
+			}
+			realm, _ := tokens["realm"]
+			nonce, _ := tokens["nonce"]
+			qop, _ := tokens["qop"]
+			charset, _ := tokens["charset"]
+			cnonceStr := cnonce()
+			digestURI := "xmpp/" + domain
+			nonceCount := fmt.Sprintf("%08x", 1)
+			digest := saslDigestResponse(user, realm, o.Password, nonce, cnonceStr, "AUTHENTICATE", digestURI, nonceCount)
+			message := "username=\"" + user + "\", realm=\"" + realm + "\", nonce=\"" + nonce + "\", cnonce=\"" + cnonceStr +
+				"\", nc=" + nonceCount + ", qop=" + qop + ", digest-uri=\"" + digestURI + "\", response=" + digest + ", charset=" + charset
+
+			fmt.Fprintf(c.stanzaWriter, "<response xmlns='%s'>%s</response>\n", nsSASL, base64.StdEncoding.EncodeToString([]byte(message)))
+
+			var rspauth saslRspAuth
+			if err = c.p.DecodeElement(&rspauth, nil); err != nil {
+				return errors.New("unmarshal <challenge>: " + err.Error())
+			}
+			b, err = base64.StdEncoding.DecodeString(string(rspauth))
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(c.stanzaWriter, "<response xmlns='%s'/>\n", nsSASL)
+		}
 	}
 	if mechanism == "" {
 		return fmt.Errorf("no viable authentication method available: %v", f.Mechanisms.Mechanism)
