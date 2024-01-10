@@ -406,64 +406,37 @@ func (c *Client) init(o *Options) error {
 			tlsConnOK = true
 		}
 		mechanism = ""
-		if o.Mechanism == "" {
-			for _, m := range f.Mechanisms.Mechanism {
-				switch m {
-				case "SCRAM-SHA-512-PLUS":
-					if tlsConnOK {
-						mechanism = m
-					}
-				case "SCRAM-SHA-256-PLUS":
-					if mechanism != "SCRAM-SHA-512-PLUS" && tlsConnOK {
-						mechanism = m
-					}
-				case "SCRAM-SHA-1-PLUS":
-					if mechanism != "SCRAM-SHA-512-PLUS" &&
-						mechanism != "SCRAM-SHA-256-PLUS" &&
-						tlsConnOK {
-						mechanism = m
-					}
-				case "SCRAM-SHA-512":
-					if mechanism != "SCRAM-SHA-512-PLUS" &&
-						mechanism != "SCRAM-SHA-256-PLUS" &&
-						mechanism != "SCRAM-SHA-1-PLUS" {
-						mechanism = m
-					}
-				case "SCRAM-SHA-256":
-					if mechanism != "SCRAM-SHA-512-PLUS" &&
-						mechanism != "SCRAM-SHA-256-PLUS" &&
-						mechanism != "SCRAM-SHA-1-PLUS" &&
-						mechanism != "SCRAM-SHA-512" {
-						mechanism = m
-					}
-				case "SCRAM-SHA-1":
-					if mechanism != "SCRAM-SHA-512-PLUS" &&
-						mechanism != "SCRAM-SHA-256-PLUS" &&
-						mechanism != "SCRAM-SHA-1-PLUS" &&
-						mechanism != "SCRAM-SHA-512" &&
-						mechanism != "SCRAM-SHA-256" {
-						mechanism = m
-					}
-				case "X-OAUTH2":
-					if mechanism == "" {
-						mechanism = m
-					}
-				case "PLAIN":
-					if mechanism == "" {
-						mechanism = m
-					}
-				case "DIGEST-MD5":
-					if mechanism == "" {
-						mechanism = m
-					}
-				}
-			}
-		} else {
-			for _, m := range f.Mechanisms.Mechanism {
-				if m == o.Mechanism {
-					mechanism = o.Mechanism
-				}
-			}
+		switch {
+		case slices.Contains(f.Mechanisms.Mechanism,
+			o.Mechanism) && o.Mechanism != "":
+			mechanism = o.Mechanism
+		case slices.Contains(f.Mechanisms.Mechanism,
+			"SCRAM-SHA-512-PLUS") && tlsConnOK:
+			mechanism = "SCRAM-SHA-512-PLUS"
+		case slices.Contains(f.Mechanisms.Mechanism,
+			"SCRAM-SHA-256-PLUS") && tlsConnOK:
+			mechanism = "SCRAM-SHA-256-PLUS"
+		case slices.Contains(f.Mechanisms.Mechanism,
+			"SCRAM-SHA-1-PLUS") && tlsConnOK:
+			mechanism = "SCRAM-SHA-1-PLUS"
+		case slices.Contains(f.Mechanisms.Mechanism,
+			"SCRAM-SHA-512"):
+			mechanism = "SCRAM-SHA-512"
+		case slices.Contains(f.Mechanisms.Mechanism,
+			"SCRAM-SHA-256"):
+			mechanism = "SCRAM-SHA-256"
+		case slices.Contains(f.Mechanisms.Mechanism,
+			"SCRAM-SHA-1"):
+			mechanism = "SCRAM-SHA-1"
+		case slices.Contains(f.Mechanisms.Mechanism,
+			"X-OAUTH2"):
+			mechanism = "X-OAUTH2"
+		case slices.Contains(f.Mechanisms.Mechanism,
+			"PLAIN") && tlsConnOK:
+			mechanism = "PLAIN"
+		case slices.Contains(f.Mechanisms.Mechanism,
+			"DIGEST-MD5"):
+			mechanism = "DIGEST-MD5"
 		}
 		if strings.HasPrefix(mechanism, "SCRAM-SHA") {
 			if strings.HasSuffix(mechanism, "PLUS") {
