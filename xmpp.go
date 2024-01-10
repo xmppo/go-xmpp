@@ -681,7 +681,7 @@ func (c *Client) init(o *Options) error {
 		}
 	}
 	if mechanism == "" {
-		return fmt.Errorf("PLAIN authentication is not an option: %v", f.Mechanisms.Mechanism)
+		return fmt.Errorf("no viable authentication method available: %v", f.Mechanisms.Mechanism)
 	}
 	// Next message should be either success or failure.
 	name, val, err := next(c.p)
