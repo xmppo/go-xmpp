@@ -410,29 +410,21 @@ func (c *Client) init(o *Options) error {
 		case slices.Contains(f.Mechanisms.Mechanism,
 			o.Mechanism) && o.Mechanism != "":
 			mechanism = o.Mechanism
-		case slices.Contains(f.Mechanisms.Mechanism,
-			"SCRAM-SHA-512-PLUS") && tlsConnOK:
+		case slices.Contains(f.Mechanisms.Mechanism, "SCRAM-SHA-512-PLUS") && tlsConnOK:
 			mechanism = "SCRAM-SHA-512-PLUS"
-		case slices.Contains(f.Mechanisms.Mechanism,
-			"SCRAM-SHA-256-PLUS") && tlsConnOK:
+		case slices.Contains(f.Mechanisms.Mechanism, "SCRAM-SHA-256-PLUS") && tlsConnOK:
 			mechanism = "SCRAM-SHA-256-PLUS"
-		case slices.Contains(f.Mechanisms.Mechanism,
-			"SCRAM-SHA-1-PLUS") && tlsConnOK:
+		case slices.Contains(f.Mechanisms.Mechanism, "SCRAM-SHA-1-PLUS") && tlsConnOK:
 			mechanism = "SCRAM-SHA-1-PLUS"
-		case slices.Contains(f.Mechanisms.Mechanism,
-			"SCRAM-SHA-512"):
+		case slices.Contains(f.Mechanisms.Mechanism, "SCRAM-SHA-512"):
 			mechanism = "SCRAM-SHA-512"
-		case slices.Contains(f.Mechanisms.Mechanism,
-			"SCRAM-SHA-256"):
+		case slices.Contains(f.Mechanisms.Mechanism, "SCRAM-SHA-256"):
 			mechanism = "SCRAM-SHA-256"
-		case slices.Contains(f.Mechanisms.Mechanism,
-			"SCRAM-SHA-1"):
+		case slices.Contains(f.Mechanisms.Mechanism, "SCRAM-SHA-1"):
 			mechanism = "SCRAM-SHA-1"
-		case slices.Contains(f.Mechanisms.Mechanism,
-			"X-OAUTH2"):
+		case slices.Contains(f.Mechanisms.Mechanism, "X-OAUTH2"):
 			mechanism = "X-OAUTH2"
-		case slices.Contains(f.Mechanisms.Mechanism,
-			"PLAIN") && tlsConnOK:
+		case slices.Contains(f.Mechanisms.Mechanism, "PLAIN") && tlsConnOK:
 			mechanism = "PLAIN"
 		}
 		if strings.HasPrefix(mechanism, "SCRAM-SHA") {
