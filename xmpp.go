@@ -888,6 +888,7 @@ type Chat struct {
 	Thread    string
 	Ooburl    string
 	Oobdesc   string
+	Lang      string
 	Roster    Roster
 	Other     []string
 	OtherElem []XMLElement
@@ -964,6 +965,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				Other:     v.OtherStrings(),
 				OtherElem: v.Other,
 				Stamp:     stamp,
+				Lang:      v.Lang,
 			}
 			return chat, nil
 		case *clientQuery:
@@ -1314,6 +1316,7 @@ type clientMessage struct {
 	ID      string   `xml:"id,attr"`
 	To      string   `xml:"to,attr"`
 	Type    string   `xml:"type,attr"` // chat, error, groupchat, headline, or normal
+	Lang    string   `xml:"lang,attr"`
 
 	// These should technically be []clientText, but string is much more convenient.
 	Subject string `xml:"subject"`
