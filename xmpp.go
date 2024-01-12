@@ -466,20 +466,14 @@ func (c *Client) init(o *Options) error {
 					case x509.SHA1WithRSA, x509.SHA256WithRSA, x509.ECDSAWithSHA1,
 						x509.ECDSAWithSHA256, x509.SHA256WithRSAPSS:
 						h := sha256.New()
-						h.Write(tlsState.PeerCertificates[0].Raw)
-						keyingMaterial = h.Sum(nil)
-						h.Reset()
 					case x509.SHA384WithRSA, x509.ECDSAWithSHA384, x509.SHA384WithRSAPSS:
 						h := sha512.New384()
-						h.Write(tlsState.PeerCertificates[0].Raw)
-						keyingMaterial = h.Sum(nil)
-						h.Reset()
 					case x509.SHA512WithRSA, x509.ECDSAWithSHA512, x509.SHA512WithRSAPSS:
 						h := sha512.New()
-						h.Write(tlsState.PeerCertificates[0].Raw)
-						keyingMaterial = h.Sum(nil)
-						h.Reset()
 					}
+					h.Write(tlsState.PeerCertificates[0].Raw)
+					keyingMaterial = h.Sum(nil)
+					h.Reset()
 				}
 				if len(keyingMaterial) == 0 {
 					return errors.New(mechanism + ": no keying material")
