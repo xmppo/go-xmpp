@@ -41,6 +41,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/pbkdf2"
+	"golang.org/x/net/proxy"
 )
 
 const (
@@ -103,12 +104,12 @@ func connect(host, user, passwd string, timeout time.Duration) (net.Conn, error)
 		addr += ":5222"
 	}
 
-	proxy := os.Getenv("HTTP_PROXY")
-	if proxy == "" {
-		proxy = os.Getenv("http_proxy")
+	http_proxy := os.Getenv("HTTP_PROXY")
+	if http_proxy == "" {
+		http_proxy = os.Getenv("http_proxy")
 	}
 	// test for no proxy, takes a comma separated list with substrings to match
-	if proxy != "" {
+	if http_proxy != "" {
 		noproxy := os.Getenv("NO_PROXY")
 		if noproxy == "" {
 			noproxy = os.Getenv("no_proxy")
@@ -117,25 +118,38 @@ func connect(host, user, passwd string, timeout time.Duration) (net.Conn, error)
 			nplist := strings.Split(noproxy, ",")
 			for _, s := range nplist {
 				if containsIgnoreCase(addr, s) {
-					proxy = ""
+					http_proxy = ""
 					break
 				}
 			}
 		}
 	}
-	if proxy != "" {
-		url, err := url.Parse(proxy)
+	socks5Target, socks5 := strings.CutPrefix(http_proxy, "socks5://")
+	if http_proxy != "" && !socks5 {
+		url, err := url.Parse(http_proxy)
 		if err == nil {
 			addr = url.Host
 		}
 	}
-
-	c, err := net.DialTimeout("tcp", addr, timeout)
-	if err != nil {
-		return nil, err
+	var c net.Conn
+	var err error
+	if socks5 {
+		dialer, err := proxy.SOCKS5("tcp", socks5Target, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		c, err = dialer.Dial("tcp", addr)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		c, err = net.DialTimeout("tcp", addr, timeout)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	if proxy != "" {
+	if http_proxy != "" && !socks5 {
 		fmt.Fprintf(c, "CONNECT %s HTTP/1.1\r\n", host)
 		fmt.Fprintf(c, "Host: %s\r\n", host)
 		fmt.Fprintf(c, "\r\n")
