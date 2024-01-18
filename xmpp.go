@@ -35,6 +35,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -1153,6 +1154,7 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 
 	stanza := "<message to='%s' type='%s' id='%s' xml:lang='en'>" + subtext + "<body>%s</body>" + oobtext + thdtext + "</message>\n"
 
+	chat.Text = validUTF8(chat.Text)
 	return fmt.Fprintf(c.stanzaWriter, stanza,
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce(), xmlEscape(chat.Text))
 }
@@ -1533,4 +1535,13 @@ func (t tee) Read(p []byte) (n int, err error) {
 		t.w.Write([]byte("\n"))
 	}
 	return
+}
+
+func validUTF8(s string) string {
+	// Remove invalid code points.
+	s = strings.ToValidUTF8(s, "�")
+	reg := regexp.MustCompile(`[\x{0000}-\x{0008}\x{000B}\x{000C}\x{000E}-\x{001F}]`)
+	s = reg.ReplaceAllString(s, "�")
+
+	return s
 }
