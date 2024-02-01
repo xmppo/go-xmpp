@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mattn/go-xmpp"
+	"github.com/xmppo/go-xmpp"
 )
 
 var (

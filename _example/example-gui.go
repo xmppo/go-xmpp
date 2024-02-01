@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/mattn/go-gtk/gtk"
-	"github.com/mattn/go-xmpp"
+	"github.com/xmppo/go-xmpp"
 )
 
 func main() {
