@@ -580,8 +580,8 @@ func (c *Client) init(o *Options) error {
 						return errors.New("SCRAM: downgrade protection hash mismatch")
 					}
 					dgh.Reset()
-				default:
-					return errors.New("unexpected content in SCRAM challenge")
+				case strings.HasPrefix(serverReply, "m="):
+					return errors.New("SCRAM: server sent reserved 'm' attribute.")
 				}
 			}
 			if scramPlus {
