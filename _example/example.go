@@ -5,20 +5,23 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
-	"github.com/mattn/go-xmpp"
 	"log"
 	"os"
 	"strings"
+
+	"github.com/mattn/go-xmpp"
 )
 
-var server = flag.String("server", "talk.google.com:443", "server")
-var username = flag.String("username", "", "username")
-var password = flag.String("password", "", "password")
-var status = flag.String("status", "xa", "status")
-var statusMessage = flag.String("status-msg", "I for one welcome our new codebot overlords.", "status message")
-var notls = flag.Bool("notls", false, "No TLS")
-var debug = flag.Bool("debug", false, "debug output")
-var session = flag.Bool("session", false, "use server session")
+var (
+	server        = flag.String("server", "talk.google.com:443", "server")
+	username      = flag.String("username", "", "username")
+	password      = flag.String("password", "", "password")
+	status        = flag.String("status", "xa", "status")
+	statusMessage = flag.String("status-msg", "I for one welcome our new codebot overlords.", "status message")
+	notls         = flag.Bool("notls", false, "No TLS")
+	debug         = flag.Bool("debug", false, "debug output")
+	session       = flag.Bool("session", false, "use server session")
+)
 
 func serverName(host string) string {
 	return strings.Split(host, ":")[0]
@@ -48,7 +51,8 @@ func main() {
 
 	var talk *xmpp.Client
 	var err error
-	options := xmpp.Options{Host: *server,
+	options := xmpp.Options{
+		Host:          *server,
 		User:          *username,
 		Password:      *password,
 		NoTLS:         *notls,

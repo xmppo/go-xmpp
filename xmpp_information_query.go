@@ -5,9 +5,11 @@ import (
 	"strconv"
 )
 
-const IQTypeGet = "get"
-const IQTypeSet = "set"
-const IQTypeResult = "result"
+const (
+	IQTypeGet    = "get"
+	IQTypeSet    = "set"
+	IQTypeResult = "result"
+)
 
 func (c *Client) Discovery() (string, error) {
 	// use getCookie for a pseudo random id.
