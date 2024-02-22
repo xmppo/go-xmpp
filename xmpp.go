@@ -1262,11 +1262,6 @@ type saslMechanisms struct {
 	Mechanism []string `xml:"mechanism"`
 }
 
-type saslAuth struct {
-	XMLName   xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-sasl auth"`
-	Mechanism string   `xml:",attr"`
-}
-
 type saslChannelBindings struct {
 	XMLName        xml.Name `xml:"sasl-channel-binding"`
 	Text           string   `xml:",chardata"`
@@ -1276,12 +1271,6 @@ type saslChannelBindings struct {
 		Type string `xml:"type,attr"`
 	} `xml:"channel-binding"`
 }
-
-type saslChallenge string
-
-type saslRspAuth string
-
-type saslResponse string
 
 type saslAbort struct {
 	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-sasl abort"`
@@ -1366,11 +1355,6 @@ func (e *XMLElement) String() string {
 
 type Delay struct {
 	Stamp string `xml:"stamp,attr"`
-}
-
-type clientText struct {
-	Lang string `xml:",attr"`
-	Body string `xml:"chardata"`
 }
 
 type clientPresence struct {
