@@ -16,7 +16,6 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/hmac"
-	"crypto/md5"
 	"crypto/rand"
 	"crypto/sha1"
 	"crypto/sha256"
@@ -334,25 +333,6 @@ func (c *Client) Close() error {
 		return c.conn.Close()
 	}
 	return nil
-}
-
-func saslDigestResponse(username, realm, passwd, nonce, cnonceStr, authenticate, digestURI, nonceCountStr string) string {
-	h := func(text string) []byte {
-		h := md5.New()
-		h.Write([]byte(text))
-		return h.Sum(nil)
-	}
-	hex := func(bytes []byte) string {
-		return fmt.Sprintf("%x", bytes)
-	}
-	kd := func(secret, data string) []byte {
-		return h(secret + ":" + data)
-	}
-
-	a1 := string(h(username+":"+realm+":"+passwd)) + ":" + nonce + ":" + cnonceStr
-	a2 := authenticate + ":" + digestURI
-	response := hex(kd(hex(h(a1)), nonce+":"+nonceCountStr+":"+cnonceStr+":auth:"+hex(h(a2))))
-	return response
 }
 
 func cnonce() string {
