@@ -63,7 +63,6 @@ func main() {
 	}
 
 	talk, err = options.NewClient()
-
 	if err != nil {
 		log.Fatal(err)
 	}
