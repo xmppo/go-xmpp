@@ -331,6 +331,21 @@ func NewClientNoTLS(host, user, passwd string, debug bool) (*Client, error) {
 func (c *Client) Close() error {
 	if c.conn != (*tls.Conn)(nil) {
 		fmt.Fprintf(c.stanzaWriter, "</stream:stream>\n")
+		// Wait for the server also closing the stream.
+		for {
+			select {
+			case <-time.After(10 * time.Second):
+				break
+			default:
+				ee, err := nextEnd(c.p)
+				if err != nil {
+					return err
+				}
+				if ee.Name.Local == "stream" {
+					return c.conn.Close()
+				}
+			}
+		}
 		return c.conn.Close()
 	}
 	return nil
@@ -1416,6 +1431,20 @@ func nextStart(p *xml.Decoder) (xml.StartElement, error) {
 		}
 		switch t := t.(type) {
 		case xml.StartElement:
+			return t, nil
+		}
+	}
+}
+
+// Scan XML token stream to find next EndElement
+func nextEnd(p *xml.Decoder) (xml.EndElement, error) {
+	for {
+		t, err := p.Token()
+		if err != nil || t == nil {
+			return xml.EndElement{}, err
+		}
+		switch t := t.(type) {
+		case xml.EndElement:
 			return t, nil
 		}
 	}
