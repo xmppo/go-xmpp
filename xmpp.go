@@ -338,15 +338,18 @@ func (c *Client) Close() error {
 				break
 			default:
 				ee, err := nextEnd(c.p)
+				// If the server already closed the stream it is
+				// likely to receive an error when trying to parse
+				// the stream. Therefore the connection is also closed
+				// if an error is received.
 				if err != nil {
-					return err
+					return c.conn.Close()
 				}
 				if ee.Name.Local == "stream" {
 					return c.conn.Close()
 				}
 			}
 		}
-		return c.conn.Close()
 	}
 	return nil
 }
@@ -1438,6 +1441,7 @@ func nextStart(p *xml.Decoder) (xml.StartElement, error) {
 
 // Scan XML token stream to find next EndElement
 func nextEnd(p *xml.Decoder) (xml.EndElement, error) {
+	p.Strict = false
 	for {
 		t, err := p.Token()
 		if err != nil || t == nil {
