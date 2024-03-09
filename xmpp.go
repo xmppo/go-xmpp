@@ -536,10 +536,23 @@ func (c *Client) init(o *Options) error {
 			fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='%s'>%s</auth>\n",
 				nsSASL, mechanism, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)))
 			var sfm string
-			if err = c.p.DecodeElement(&sfm, nil); err != nil {
-				return errors.New("unmarshal <challenge>: " + err.Error())
+			_, val, err := next(c.p)
+			if err != nil {
+				return err
 			}
-			b, err := base64.StdEncoding.DecodeString(string(sfm))
+			switch v := val.(type) {
+			case *saslFailure:
+				errorMessage := v.Text
+				if errorMessage == "" {
+					// v.Any is type of sub-element in failure,
+					// which gives a description of what failed if there was no text element
+					errorMessage = v.Any.Local
+				}
+				return errors.New("auth failure: " + errorMessage)
+			case *saslChallenge:
+				sfm = v.Text
+			}
+			b, err := base64.StdEncoding.DecodeString(sfm)
 			if err != nil {
 				return err
 			}
@@ -1306,6 +1319,11 @@ type saslFailure struct {
 	Text    string   `xml:"text"`
 }
 
+type saslChallenge struct {
+	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-sasl challenge"`
+	Text    string   `xml:",chardata"`
+}
+
 // RFC 3920  C.5  Resource binding name space
 type bindBind struct {
 	XMLName  xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-bind bind"`
@@ -1480,7 +1498,7 @@ func next(p *xml.Decoder) (xml.Name, interface{}, error) {
 	case nsSASL + " mechanisms":
 		nv = &saslMechanisms{}
 	case nsSASL + " challenge":
-		nv = ""
+		nv = &saslChallenge{}
 	case nsSASL + " response":
 		nv = ""
 	case nsSASL + " abort":
