@@ -1461,7 +1461,7 @@ func nextStart(p *xml.Decoder) (xml.StartElement, error) {
 func nextEnd(p *xml.Decoder) (xml.EndElement, error) {
 	p.Strict = false
 	for {
-		t, err := p.Token()
+		t, err := p.RawToken()
 		if err != nil || t == nil {
 			return xml.EndElement{}, err
 		}
