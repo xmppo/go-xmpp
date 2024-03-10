@@ -753,16 +753,27 @@ func (c *Client) init(o *Options) error {
 	} else {
 		fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%x'><bind xmlns='%s'><resource>%s</resource></bind></iq>\n", cookie, nsBind, o.Resource)
 	}
-	var iq clientIQ
-	if err = c.p.DecodeElement(&iq, nil); err != nil {
-		return errors.New("unmarshal <iq>: " + err.Error())
+	_, val, err = next(c.p)
+	if err != nil {
+		return err
 	}
-	if &iq.Bind == nil {
-		return errors.New("<iq> result missing <bind>")
+	switch v := val.(type) {
+	case *streamError:
+		errorMessage := v.Text.Text
+		if errorMessage == "" {
+			// v.Any is type of sub-element in failure,
+			// which gives a description of what failed if there was no text element
+			errorMessage = v.Any.Space
+		}
+		return errors.New("stream error: " + errorMessage)
+	case *clientIQ:
+		if v.Bind.XMLName.Space == nsBind {
+			c.jid = v.Bind.Jid // our local id
+			c.domain = domain
+		} else {
+			return errors.New("bind: unexpected reply to xmpp-bind IQ")
+		}
 	}
-	c.jid = iq.Bind.Jid // our local id
-	c.domain = domain
-
 	if o.Session {
 		// if server support session, open it
 		fmt.Fprintf(c.stanzaWriter, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>\n", xmlEscape(domain), cookie, nsSession)
@@ -1271,7 +1282,11 @@ type streamFeatures struct {
 type streamError struct {
 	XMLName xml.Name `xml:"http://etherx.jabber.org/streams error"`
 	Any     xml.Name
-	Text    string
+	Text    struct {
+		Text  string `xml:",chardata"`
+		Lang  string `xml:"lang,attr"`
+		Xmlns string `xml:"xmlns,attr"`
+	} `xml:"text"`
 }
 
 // RFC 3920  C.3  TLS name space
