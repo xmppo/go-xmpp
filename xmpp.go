@@ -38,6 +38,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/pbkdf2"
@@ -59,6 +60,9 @@ var DefaultConfig = &tls.Config{}
 
 // DebugWriter is the writer used to write debugging output to.
 var DebugWriter io.Writer = os.Stderr
+
+// Mutex to prevent multiple access to xml.Decoder
+var nextMutex sync.Mutex
 
 // Cookie is a unique XMPP session identifier
 type Cookie uint64
@@ -917,7 +921,6 @@ type IQ struct {
 }
 
 // Recv waits to receive the next XMPP stanza.
-// Return type is either a presence notification or a chat message.
 func (c *Client) Recv() (stanza interface{}, err error) {
 	for {
 		_, val, err := next(c.p)
@@ -1461,14 +1464,26 @@ type rosterItem struct {
 // Scan XML token stream to find next StartElement.
 func nextStart(p *xml.Decoder) (xml.StartElement, error) {
 	for {
+		nextMutex.Lock()
 		t, err := p.Token()
 		if err != nil || t == nil {
+			nextMutex.Unlock()
 			return xml.StartElement{}, err
 		}
 		switch t := t.(type) {
 		case xml.StartElement:
+			nextMutex.Unlock()
 			return t, nil
+		// Also check for stream end element and stop waiting
+		// for new start elements if we received a closing stream
+		// element.
+		case xml.EndElement:
+			if t.Name.Local == "stream" {
+				nextMutex.Unlock()
+				return xml.StartElement{}, nil
+			}
 		}
+		nextMutex.Unlock()
 	}
 }
 
@@ -1476,14 +1491,19 @@ func nextStart(p *xml.Decoder) (xml.StartElement, error) {
 func nextEnd(p *xml.Decoder) (xml.EndElement, error) {
 	p.Strict = false
 	for {
-		t, err := p.RawToken()
-		if err != nil || t == nil {
+		nextMutex.Lock()
+		to, err := p.RawToken()
+		if err != nil || to == nil {
+			nextMutex.Unlock()
 			return xml.EndElement{}, err
 		}
+		t := xml.CopyToken(to)
 		switch t := t.(type) {
 		case xml.EndElement:
+			nextMutex.Unlock()
 			return t, nil
 		}
+		nextMutex.Unlock()
 	}
 }
 
