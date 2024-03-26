@@ -230,6 +230,9 @@ type Options struct {
 
 	// Auth mechanism to use
 	Mechanism string
+
+	// XEP-0474: SASL SCRAM Downgrade Protection
+	SSDP bool
 }
 
 // NewClient establishes a new Client connection based on a set of Options.
@@ -582,7 +585,7 @@ func (c *Client) init(o *Options) error {
 					if err != nil {
 						return err
 					}
-				case strings.HasPrefix(serverReply, "d="):
+				case strings.HasPrefix(serverReply, "d=") && o.SSDP:
 					serverDgProtectHash := strings.SplitN(serverReply, "=", 2)[1]
 					slices.Sort(f.Mechanisms.Mechanism)
 					for _, mech := range f.Mechanisms.Mechanism {
