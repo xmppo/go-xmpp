@@ -1490,12 +1490,11 @@ func (c *Client) nextEnd() (xml.EndElement, error) {
 	c.p.Strict = false
 	for {
 		c.nextMutex.Lock()
-		to, err := c.p.RawToken()
-		if err != nil || to == nil {
+		t, err := c.p.RawToken()
+		if err != nil || t == nil {
 			c.nextMutex.Unlock()
 			return xml.EndElement{}, err
 		}
-		t := xml.CopyToken(to)
 		switch t := t.(type) {
 		case xml.EndElement:
 			c.nextMutex.Unlock()
