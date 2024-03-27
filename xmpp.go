@@ -1466,11 +1466,12 @@ type rosterItem struct {
 func (c *Client) nextStart() (xml.StartElement, error) {
 	for {
 		c.nextMutex.Lock()
-		t, err := c.p.Token()
-		if err != nil || t == nil {
+		to, err := c.p.Token()
+		if err != nil || to == nil {
 			c.nextMutex.Unlock()
 			return xml.StartElement{}, err
 		}
+		t := xml.CopyToken(to)
 		switch t := t.(type) {
 		case xml.StartElement:
 			c.nextMutex.Unlock()
