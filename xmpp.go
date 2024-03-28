@@ -798,6 +798,7 @@ func (c *Client) init(o *Options) error {
 	}
 	if o.Session {
 		// if server support session, open it
+		cookie = getCookie() // generate new id value for session
 		fmt.Fprintf(c.stanzaWriter, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>\n", xmlEscape(domain), cookie, nsSession)
 	}
 
