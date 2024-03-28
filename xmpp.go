@@ -1214,7 +1214,8 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+subtext+"<body>%s</body>"+oobtext+thdtext+"</message>\n",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce(), xmlEscape(chat.Text))
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
-		return 0, errors.New("max. stanza size exceeded")
+		return 0, fmt.Errorf("stanza size (%v bytes) exceeds limit (%v bytes)",
+			len(stanza), c.LimitMaxBytes)
 	}
 
 	return fmt.Fprint(c.stanzaWriter, stanza)
@@ -1236,7 +1237,8 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+oobtext+thdtext+"</message>\n",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce())
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
-		return 0, errors.New("max. stanza size exceeded")
+		return 0, fmt.Errorf("stanza size (%v bytes) exceeds limit (%v bytes)",
+			len(stanza), c.LimitMaxBytes)
 	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
@@ -1245,7 +1247,8 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 func (c *Client) SendOrg(org string) (n int, err error) {
 	stanza := fmt.Sprint(org + "\n")
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
-		return 0, errors.New("max. stanza size exceeded")
+		return 0, fmt.Errorf("stanza size (%v bytes) exceeds limit (%v bytes)",
+			len(stanza), c.LimitMaxBytes)
 	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
@@ -1293,7 +1296,8 @@ func (c *Client) SendPresence(presence Presence) (n int, err error) {
 
 	stanza := fmt.Sprintf(buf + "</presence>")
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
-		return 0, errors.New("max. stanza size exceeded")
+		return 0, fmt.Errorf("stanza size (%v bytes) exceeds limit (%v bytes)",
+			len(stanza), c.LimitMaxBytes)
 	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
@@ -1309,7 +1313,8 @@ func (c *Client) SendHtml(chat Chat) (n int, err error) {
 		"<html xmlns='http://jabber.org/protocol/xhtml-im'><body xmlns='http://www.w3.org/1999/xhtml'>%s</body></html></message>\n",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text), chat.Text)
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
-		return 0, errors.New("max. stanza size exceeded")
+		return 0, fmt.Errorf("stanza size (%v bytes) exceeds limit (%v bytes)",
+			len(stanza), c.LimitMaxBytes)
 	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
