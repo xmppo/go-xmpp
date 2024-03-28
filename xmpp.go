@@ -765,6 +765,20 @@ func (c *Client) init(o *Options) error {
 	if f, err = c.startStream(o, domain); err != nil {
 		return err
 	}
+	// Make the max. stanza size limit available.
+	if f.Limits.MaxBytes != "" {
+		c.LimitMaxBytes, err = strconv.Atoi(f.Limits.MaxBytes)
+		if err != nil {
+			c.LimitMaxBytes = 0
+		}
+	}
+	// Make the servers time limit after which it might consider the stream idle available.
+	if f.Limits.IdleSeconds != "" {
+		c.LimitIdleSeconds, err = strconv.Atoi(f.Limits.IdleSeconds)
+		if err != nil {
+			c.LimitIdleSeconds = 0
+		}
+	}
 
 	// Generate a unique cookie
 	cookie := getCookie()
