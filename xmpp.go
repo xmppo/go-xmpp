@@ -46,13 +46,14 @@ import (
 )
 
 const (
-	nsStream  = "http://etherx.jabber.org/streams"
-	nsTLS     = "urn:ietf:params:xml:ns:xmpp-tls"
-	nsSASL    = "urn:ietf:params:xml:ns:xmpp-sasl"
-	nsBind    = "urn:ietf:params:xml:ns:xmpp-bind"
-	nsSASLCB  = "urn:xmpp:sasl-cb:0"
-	nsClient  = "jabber:client"
-	nsSession = "urn:ietf:params:xml:ns:xmpp-session"
+	nsStream       = "http://etherx.jabber.org/streams"
+	nsTLS          = "urn:ietf:params:xml:ns:xmpp-tls"
+	nsSASL         = "urn:ietf:params:xml:ns:xmpp-sasl"
+	nsBind         = "urn:ietf:params:xml:ns:xmpp-bind"
+	nsSASLCB       = "urn:xmpp:sasl-cb:0"
+	nsClient       = "jabber:client"
+	nsSession      = "urn:ietf:params:xml:ns:xmpp-session"
+	nsStreamLimits = "urn:xmpp:stream-limits:0"
 )
 
 // Default TLS configuration options
@@ -74,13 +75,15 @@ func getCookie() Cookie {
 
 // Client holds XMPP connection options
 type Client struct {
-	conn         net.Conn // connection to server
-	jid          string   // Jabber ID for our connection
-	domain       string
-	nextMutex    sync.Mutex // Mutex to prevent multiple access to xml.Decoder
-	p            *xml.Decoder
-	stanzaWriter io.Writer
-	Mechanism    string
+	conn             net.Conn // connection to server
+	jid              string   // Jabber ID for our connection
+	domain           string
+	nextMutex        sync.Mutex // Mutex to prevent multiple access to xml.Decoder
+	p                *xml.Decoder
+	stanzaWriter     io.Writer
+	LimitMaxBytes    int // Maximum stanza size (XEP-0478: Stream Limits Advertisement)
+	LimitIdleSeconds int // Maximum idle seconds (XEP-0478: Stream Limits Advertisement)
+	Mechanism        string
 }
 
 func (c *Client) JID() string {
@@ -391,6 +394,20 @@ func (c *Client) init(o *Options) error {
 	f, err := c.startStream(o, domain)
 	if err != nil {
 		return err
+	}
+	// Make the max. stanza size limit available.
+	if f.Limits.MaxBytes != "" {
+		c.LimitMaxBytes, err = strconv.Atoi(f.Limits.MaxBytes)
+		if err != nil {
+			c.LimitMaxBytes = 0
+		}
+	}
+	// Make the servers time limit after which it might consider the stream idle available.
+	if f.Limits.IdleSeconds != "" {
+		c.LimitIdleSeconds, err = strconv.Atoi(f.Limits.IdleSeconds)
+		if err != nil {
+			c.LimitIdleSeconds = 0
+		}
 	}
 
 	// If the server requires we STARTTLS, attempt to do so.
@@ -1179,11 +1196,14 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 		oobtext += `</x>`
 	}
 
-	stanza := "<message to='%s' type='%s' id='%s' xml:lang='en'>" + subtext + "<body>%s</body>" + oobtext + thdtext + "</message>\n"
-
 	chat.Text = validUTF8(chat.Text)
-	return fmt.Fprintf(c.stanzaWriter, stanza,
+	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+subtext+"<body>%s</body>"+oobtext+thdtext+"</message>\n",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce(), xmlEscape(chat.Text))
+	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
+		return 0, errors.New("max. stanza size exceeded")
+	}
+
+	return fmt.Fprint(c.stanzaWriter, stanza)
 }
 
 // SendOOB sends OOB data wrapped inside an XMPP message stanza, without actual body.
@@ -1199,13 +1219,21 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 		}
 		oobtext += `</x>`
 	}
-	return fmt.Fprintf(c.stanzaWriter, "<message to='%s' type='%s' id='%s' xml:lang='en'>"+oobtext+thdtext+"</message>\n",
+	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+oobtext+thdtext+"</message>\n",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce())
+	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
+		return 0, errors.New("max. stanza size exceeded")
+	}
+	return fmt.Fprint(c.stanzaWriter, stanza)
 }
 
 // SendOrg sends the original text without being wrapped in an XMPP message stanza.
 func (c *Client) SendOrg(org string) (n int, err error) {
-	return fmt.Fprint(c.stanzaWriter, org+"\n")
+	stanza := fmt.Sprint(org + "\n")
+	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
+		return 0, errors.New("max. stanza size exceeded")
+	}
+	return fmt.Fprint(c.stanzaWriter, stanza)
 }
 
 // SendPresence sends Presence wrapped inside XMPP presence stanza.
@@ -1249,9 +1277,11 @@ func (c *Client) SendPresence(presence Presence) (n int, err error) {
 		buf = buf + fmt.Sprintf("<status>%s</status>", xmlEscape(presence.Status))
 	}
 
-	buf = buf + "</presence>"
-
-	return fmt.Fprint(c.stanzaWriter, buf)
+	stanza := fmt.Sprintf(buf + "</presence>")
+	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
+		return 0, errors.New("max. stanza size exceeded")
+	}
+	return fmt.Fprint(c.stanzaWriter, stanza)
 }
 
 // SendKeepAlive sends a "whitespace keepalive" as described in chapter 4.6.1 of RFC6120.
@@ -1261,10 +1291,13 @@ func (c *Client) SendKeepAlive() (n int, err error) {
 
 // SendHtml sends the message as HTML as defined by XEP-0071
 func (c *Client) SendHtml(chat Chat) (n int, err error) {
-	return fmt.Fprintf(c.stanzaWriter, "<message to='%s' type='%s' xml:lang='en'>"+
-		"<body>%s</body>"+
+	stanza := fmt.Sprintf("<message to='%s' type='%s' xml:lang='en'><body>%s</body>"+
 		"<html xmlns='http://jabber.org/protocol/xhtml-im'><body xmlns='http://www.w3.org/1999/xhtml'>%s</body></html></message>\n",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text), chat.Text)
+	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
+		return 0, errors.New("max. stanza size exceeded")
+	}
+	return fmt.Fprint(c.stanzaWriter, stanza)
 }
 
 // Roster asks for the chat roster.
@@ -1281,6 +1314,7 @@ type streamFeatures struct {
 	ChannelBindings saslChannelBindings
 	Bind            bindBind
 	Session         bool
+	Limits          streamLimits
 }
 
 type streamError struct {
@@ -1341,6 +1375,14 @@ type saslFailure struct {
 type saslChallenge struct {
 	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-sasl challenge"`
 	Text    string   `xml:",chardata"`
+}
+
+type streamLimits struct {
+	XMLName     xml.Name `xml:"limits"`
+	Text        string   `xml:",chardata"`
+	Xmlns       string   `xml:"xmlns,attr"`
+	MaxBytes    string   `xml:"max-bytes"`
+	IdleSeconds string   `xml:"idle-seconds"`
 }
 
 // RFC 3920  C.5  Resource binding name space
