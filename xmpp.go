@@ -339,23 +339,22 @@ func NewClientNoTLS(host, user, passwd string, debug bool) (*Client, error) {
 func (c *Client) Close() error {
 	if c.conn != (*tls.Conn)(nil) {
 		fmt.Fprintf(c.stanzaWriter, "</stream:stream>\n")
+		go func() {
+			<-time.After(10 * time.Second)
+			c.conn.Close()
+		}()
 		// Wait for the server also closing the stream.
 		for {
-			select {
-			case <-time.After(10 * time.Second):
-				break
-			default:
-				ee, err := c.nextEnd()
-				// If the server already closed the stream it is
-				// likely to receive an error when trying to parse
-				// the stream. Therefore the connection is also closed
-				// if an error is received.
-				if err != nil {
-					return c.conn.Close()
-				}
-				if ee.Name.Local == "stream" {
-					return c.conn.Close()
-				}
+			ee, err := c.nextEnd()
+			// If the server already closed the stream it is
+			// likely to receive an error when trying to parse
+			// the stream. Therefore the connection is also closed
+			// if an error is received.
+			if err != nil {
+				return c.conn.Close()
+			}
+			if ee.Name.Local == "stream" {
+				return c.conn.Close()
 			}
 		}
 	}
