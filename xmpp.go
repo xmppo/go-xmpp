@@ -1555,7 +1555,7 @@ func (c *Client) nextEnd() (xml.EndElement, error) {
 	c.p.Strict = false
 	for {
 		c.nextMutex.Lock()
-		to, err := c.p.RawToken()
+		to, err := c.p.Token()
 		if err != nil || to == nil {
 			c.nextMutex.Unlock()
 			return xml.EndElement{}, err
