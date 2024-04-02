@@ -1563,6 +1563,11 @@ func (c *Client) nextEnd() (xml.EndElement, error) {
 		t := xml.CopyToken(to)
 		switch t := t.(type) {
 		case xml.EndElement:
+			// Do not unlock mutex if the stream is closed to
+			// prevent further reading on the stream.
+			if t.Name.Local == "stream" {
+				return t, nil
+			}
 			c.nextMutex.Unlock()
 			return t, nil
 		}
@@ -1623,9 +1628,11 @@ func (c *Client) next() (xml.Name, interface{}, error) {
 	}
 
 	// Unmarshal into that storage.
+	c.nextMutex.Lock()
 	if err = c.p.DecodeElement(nv, &se); err != nil {
 		return xml.Name{}, nil, err
 	}
+	c.nextMutex.Unlock()
 
 	return se.Name, nv, err
 }
