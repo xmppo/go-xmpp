@@ -79,6 +79,7 @@ type Client struct {
 	jid              string   // Jabber ID for our connection
 	domain           string
 	nextMutex        sync.Mutex // Mutex to prevent multiple access to xml.Decoder
+	shutdown         bool       // Variable signalling that the stream will be closed
 	p                *xml.Decoder
 	stanzaWriter     io.Writer
 	LimitMaxBytes    int // Maximum stanza size (XEP-0478: Stream Limits Advertisement)
@@ -338,6 +339,7 @@ func NewClientNoTLS(host, user, passwd string, debug bool) (*Client, error) {
 // Close closes the XMPP connection
 func (c *Client) Close() error {
 	if c.conn != (*tls.Conn)(nil) {
+		c.shutdown = true
 		fmt.Fprintf(c.stanzaWriter, "</stream:stream>\n")
 		go func() {
 			<-time.After(10 * time.Second)
@@ -1526,6 +1528,11 @@ type rosterItem struct {
 // Scan XML token stream to find next StartElement.
 func (c *Client) nextStart() (xml.StartElement, error) {
 	for {
+		// Do not read from the stream if it's
+		// going to be closed.
+		if c.shutdown {
+			return xml.StartElement{}, io.EOF
+		}
 		c.nextMutex.Lock()
 		to, err := c.p.Token()
 		if err != nil || to == nil {
