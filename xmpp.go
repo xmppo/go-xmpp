@@ -1537,14 +1537,6 @@ func (c *Client) nextStart() (xml.StartElement, error) {
 		case xml.StartElement:
 			c.nextMutex.Unlock()
 			return t, nil
-		// Also check for stream end element and stop waiting
-		// for new start elements if we received a closing stream
-		// element.
-		case xml.EndElement:
-			if t.Name.Local == "stream" {
-				c.nextMutex.Unlock()
-				return xml.StartElement{}, nil
-			}
 		}
 		c.nextMutex.Unlock()
 	}
