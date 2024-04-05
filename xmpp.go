@@ -64,9 +64,6 @@ var DefaultConfig = &tls.Config{}
 // DebugWriter is the writer used to write debugging output to.
 var DebugWriter io.Writer = os.Stderr
 
-// Cookie is a unique XMPP session identifier
-type Cookie uint64
-
 // Client holds XMPP connection options
 type Client struct {
 	conn             net.Conn // connection to server
@@ -876,13 +873,13 @@ func (c *Client) init(o *Options) error {
 
 	if !bind2 {
 		// Generate a unique cookie
-		cookie := uuid.New()
+		cookie := uuid.NewString()
 
 		// Send IQ message asking to bind to the local user name.
 		if o.Resource == "" {
-			fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%x'><bind xmlns='%s'></bind></iq>\n", cookie, nsBind)
+			fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%s'><bind xmlns='%s'></bind></iq>\n", cookie, nsBind)
 		} else {
-			fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%x'><bind xmlns='%s'><resource>%s</resource></bind></iq>\n", cookie, nsBind, o.Resource)
+			fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%s'><bind xmlns='%s'><resource>%s</resource></bind></iq>\n", cookie, nsBind, o.Resource)
 		}
 		_, val, err = c.next()
 		if err != nil {
@@ -908,8 +905,8 @@ func (c *Client) init(o *Options) error {
 	}
 	if o.Session {
 		// if server support session, open it
-		cookie := uuid.New() // generate new id value for session
-		fmt.Fprintf(c.stanzaWriter, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>\n", xmlEscape(domain), cookie, nsSession)
+		cookie := uuid.NewString() // generate new id value for session
+		fmt.Fprintf(c.stanzaWriter, "<iq to='%s' type='set' id='%s'><session xmlns='%s'/></iq>\n", xmlEscape(domain), cookie, nsSession)
 	}
 
 	// We're connected and can now receive and send messages.
