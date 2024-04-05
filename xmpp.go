@@ -557,10 +557,10 @@ func (c *Client) init(o *Options) error {
 			}
 			if sasl2 {
 				if bind2 {
-					if o.Resource != "" {
-						resource = o.Resource
+					if o.UserAgentSW != "" {
+						resource = o.UserAgentSW
 					} else {
-						resource = uuid.NewString()
+						resource = "go-xmpp"
 					}
 					bind2Data = fmt.Sprintf("<bind xmlns='%s'><tag>%s</tag></bind>",
 						nsBind2, resource)
