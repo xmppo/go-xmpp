@@ -16,7 +16,6 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/hmac"
-	"crypto/rand"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -28,7 +27,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"math/big"
 	"net"
 	"net/http"
 	"net/url"
@@ -362,16 +360,6 @@ func (c *Client) Close() error {
 	return nil
 }
 
-func cnonce() string {
-	randSize := big.NewInt(0)
-	randSize.Lsh(big.NewInt(1), 64)
-	cn, err := rand.Int(rand.Reader, randSize)
-	if err != nil {
-		return ""
-	}
-	return fmt.Sprintf("%016x", cn)
-}
-
 func (c *Client) init(o *Options) error {
 	var domain string
 	var user string
@@ -554,7 +542,7 @@ func (c *Client) init(o *Options) error {
 			default:
 				return errors.New("unsupported auth mechanism")
 			}
-			clientNonce := cnonce()
+			clientNonce := uuid.NewString()
 			if scramPlus {
 				switch {
 				case tls13 && !serverEndPoint:
@@ -1306,7 +1294,7 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 
 	chat.Text = validUTF8(chat.Text)
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+subtext+"<body>%s</body>"+oobtext+thdtext+"</message>\n",
-		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce(), xmlEscape(chat.Text))
+		xmlEscape(chat.Remote), xmlEscape(chat.Type), uuid.NewString(), xmlEscape(chat.Text))
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
@@ -1329,7 +1317,7 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 		oobtext += `</x>`
 	}
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+oobtext+thdtext+"</message>\n",
-		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce())
+		xmlEscape(chat.Remote), xmlEscape(chat.Type), uuid.NewString())
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
