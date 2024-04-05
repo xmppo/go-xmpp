@@ -975,9 +975,9 @@ func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error)
 	}
 
 	_, err := fmt.Fprintf(c.stanzaWriter, "<?xml version='1.0'?>"+
-		"<stream:stream to='%s' xmlns='%s'"+
+		"<stream:stream from='%s' to='%s' xmlns='%s'"+
 		" xmlns:stream='%s' version='1.0'>\n",
-		xmlEscape(domain), nsClient, nsStream)
+		xmlEscape(o.User), xmlEscape(domain), nsClient, nsStream)
 	if err != nil {
 		return nil, err
 	}
