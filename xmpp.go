@@ -23,6 +23,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -40,7 +41,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/net/proxy"
 )
@@ -63,6 +63,17 @@ var DefaultConfig = &tls.Config{}
 
 // DebugWriter is the writer used to write debugging output to.
 var DebugWriter io.Writer = os.Stderr
+
+// Cookie is a unique XMPP session identifier
+type Cookie uint64
+
+func getCookie() Cookie {
+	var buf [8]byte
+	if _, err := rand.Reader.Read(buf[:]); err != nil {
+		panic("Failed to read random bytes: " + err.Error())
+	}
+	return Cookie(binary.LittleEndian.Uint64(buf[:]))
+}
 
 // Client holds XMPP connection options
 type Client struct {
@@ -236,6 +247,10 @@ type Options struct {
 	// XEP-0388: XEP-0388: Extensible SASL Profile
 	// Value for device
 	UserAgentDev string
+
+	// XEP-0388: XEP-0388: Extensible SASL Profile
+	// Unique stable identifier for the client installation
+	UserAgentID string
 }
 
 // NewClient establishes a new Client connection based on a set of Options.
@@ -421,7 +436,8 @@ func (c *Client) init(o *Options) error {
 	var cbsSlice, mechSlice []string
 	var tlsConn *tls.Conn
 	// Use SASL2 if available
-	if f.Authentication.Mechanism != nil && c.IsEncrypted() {
+	if f.Authentication.Mechanism != nil && c.IsEncrypted() &&
+		o.UserAgentID != "" {
 		sasl2 = true
 		mechSlice = f.Authentication.Mechanism
 		// Detect whether bind2 is available
@@ -587,7 +603,7 @@ func (c *Client) init(o *Options) error {
 				}
 				fmt.Fprintf(c.stanzaWriter,
 					"<authenticate xmlns='%s' mechanism='%s'><initial-response>%s</initial-response><user-agent id='%s'>%s%s</user-agent>%s</authenticate>\n",
-					nsSASL2, mechanism, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)), uuid.NewString(), userAgentSW, userAgentDev, bind2Data)
+					nsSASL2, mechanism, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)), o.UserAgentID, userAgentSW, userAgentDev, bind2Data)
 			} else {
 				fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='%s'>%s</auth>\n",
 					nsSASL, mechanism, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)))
@@ -873,13 +889,13 @@ func (c *Client) init(o *Options) error {
 
 	if !bind2 {
 		// Generate a unique cookie
-		cookie := uuid.NewString()
+		cookie := getCookie()
 
 		// Send IQ message asking to bind to the local user name.
 		if o.Resource == "" {
-			fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%s'><bind xmlns='%s'></bind></iq>\n", cookie, nsBind)
+			fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%x'><bind xmlns='%s'></bind></iq>\n", cookie, nsBind)
 		} else {
-			fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%s'><bind xmlns='%s'><resource>%s</resource></bind></iq>\n", cookie, nsBind, o.Resource)
+			fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%x'><bind xmlns='%s'><resource>%s</resource></bind></iq>\n", cookie, nsBind, o.Resource)
 		}
 		_, val, err = c.next()
 		if err != nil {
@@ -905,8 +921,8 @@ func (c *Client) init(o *Options) error {
 	}
 	if o.Session {
 		// if server support session, open it
-		cookie := uuid.NewString() // generate new id value for session
-		fmt.Fprintf(c.stanzaWriter, "<iq to='%s' type='set' id='%s'><session xmlns='%s'/></iq>\n", xmlEscape(domain), cookie, nsSession)
+		cookie := getCookie() // generate new id value for session
+		fmt.Fprintf(c.stanzaWriter, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>\n", xmlEscape(domain), cookie, nsSession)
 	}
 
 	// We're connected and can now receive and send messages.
