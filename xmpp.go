@@ -409,7 +409,7 @@ func (c *Client) init(o *Options) error {
 	var cbsSlice, mechSlice []string
 	var tlsConn *tls.Conn
 	// Use SASL2 if available
-	if f.Authentication.Mechanism != nil {
+	if f.Authentication.Mechanism != nil && c.IsEncrypted() {
 		sasl2 = true
 		mechSlice = f.Authentication.Mechanism
 		// Detect whether bind2 is available
