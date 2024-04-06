@@ -251,6 +251,8 @@ type Options struct {
 	// XEP-0388: XEP-0388: Extensible SASL Profile
 	// Unique stable identifier for the client installation
 	// MUST be a valid UUIDv4
+	// SASL2 will not be used when not set, as current server implementations
+	// (ejabberd and prosody) require it
 	UserAgentID string
 }
 
