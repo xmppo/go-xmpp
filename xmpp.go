@@ -962,6 +962,14 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 			return Chat{}, err
 		}
 		switch v := val.(type) {
+		case *streamError:
+			errorMessage := v.Text.Text
+			if errorMessage == "" {
+				// v.Any is type of sub-element in failure,
+				// which gives a description of what failed if there was no text element
+				errorMessage = v.Any.Space
+			}
+			return Chat{}, errors.New("stream error: " + errorMessage)
 		case *clientMessage:
 			if v.Event.XMLNS == XMPPNS_PUBSUB_EVENT {
 				// Handle Pubsub notifications
