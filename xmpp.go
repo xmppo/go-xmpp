@@ -431,7 +431,7 @@ func (c *Client) init(o *Options) error {
 		return err
 	}
 	var mechanism, channelBinding, clientFirstMessage, clientFinalMessageBare, authMessage string
-	var bind2Data, resource, userAgentSW, userAgentDev string
+	var bind2Data, resource, userAgentSW, userAgentDev, userAgentID string
 	var serverSignature, keyingMaterial []byte
 	var scramPlus, ok, tlsConnOK, tls13, serverEndPoint, sasl2, bind2 bool
 	var cbsSlice, mechSlice []string
@@ -601,9 +601,12 @@ func (c *Client) init(o *Options) error {
 				if o.UserAgentDev != "" {
 					userAgentDev = fmt.Sprintf("<device>%s</device>", o.UserAgentDev)
 				}
+				if o.UserAgentID != "" {
+					userAgentID = fmt.Sprintf(" id='%s'", o.UserAgentID)
+				}
 				fmt.Fprintf(c.stanzaWriter,
-					"<authenticate xmlns='%s' mechanism='%s'><initial-response>%s</initial-response><user-agent id='%s'>%s%s</user-agent>%s</authenticate>\n",
-					nsSASL2, mechanism, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)), o.UserAgentID, userAgentSW, userAgentDev, bind2Data)
+					"<authenticate xmlns='%s' mechanism='%s'><initial-response>%s</initial-response><user-agent%s>%s%s</user-agent>%s</authenticate>\n",
+					nsSASL2, mechanism, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)), userAgentID, userAgentSW, userAgentDev, bind2Data)
 			} else {
 				fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='%s'>%s</auth>\n",
 					nsSASL, mechanism, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)))
