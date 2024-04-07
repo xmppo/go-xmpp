@@ -251,8 +251,6 @@ type Options struct {
 	// XEP-0388: XEP-0388: Extensible SASL Profile
 	// Unique stable identifier for the client installation
 	// MUST be a valid UUIDv4
-	// SASL2 will not be used when not set, as current server implementations
-	// (ejabberd and prosody) require it
 	UserAgentID string
 }
 
@@ -439,8 +437,7 @@ func (c *Client) init(o *Options) error {
 	var cbsSlice, mechSlice []string
 	var tlsConn *tls.Conn
 	// Use SASL2 if available
-	if f.Authentication.Mechanism != nil && c.IsEncrypted() &&
-		o.UserAgentID != "" {
+	if f.Authentication.Mechanism != nil && c.IsEncrypted() {
 		sasl2 = true
 		mechSlice = f.Authentication.Mechanism
 		// Detect whether bind2 is available
