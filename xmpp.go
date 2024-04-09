@@ -52,6 +52,7 @@ const (
 	nsSASL2        = "urn:xmpp:sasl:2"
 	nsBind         = "urn:ietf:params:xml:ns:xmpp-bind"
 	nsBind2        = "urn:xmpp:bind:0"
+	nsFast         = "urn:xmpp:fast:0"
 	nsSASLCB       = "urn:xmpp:sasl-cb:0"
 	nsClient       = "jabber:client"
 	nsSession      = "urn:ietf:params:xml:ns:xmpp-session"
@@ -75,6 +76,13 @@ func getCookie() Cookie {
 	return Cookie(binary.LittleEndian.Uint64(buf[:]))
 }
 
+// Fast holds the XEP-0484 fast token, mechanism and expiry date
+type Fast struct {
+	Token     string
+	Mechanism string
+	Expiry    time.Time
+}
+
 // Client holds XMPP connection options
 type Client struct {
 	conn             net.Conn // connection to server
@@ -87,6 +95,7 @@ type Client struct {
 	LimitMaxBytes    int // Maximum stanza size (XEP-0478: Stream Limits Advertisement)
 	LimitIdleSeconds int // Maximum idle seconds (XEP-0478: Stream Limits Advertisement)
 	Mechanism        string
+	Fast             Fast // XEP-0484 FAST Token, mechanism and expiry.
 }
 
 func (c *Client) JID() string {
@@ -240,7 +249,7 @@ type Options struct {
 	// XEP-0474: SASL SCRAM Downgrade Protection
 	SSDP bool
 
-	// XEP-0388: XEP-0388: Extensible SASL Profile
+	// XEP-0388: Extensible SASL Profile
 	// Value for software
 	UserAgentSW string
 
@@ -248,10 +257,18 @@ type Options struct {
 	// Value for device
 	UserAgentDev string
 
-	// XEP-0388: XEP-0388: Extensible SASL Profile
+	// XEP-0388: Extensible SASL Profile
 	// Unique stable identifier for the client installation
 	// MUST be a valid UUIDv4
 	UserAgentID string
+
+	// XEP-0484: Fast Authentication Streamlining Tokens
+	// Fast Token
+	FastToken string
+
+	// XEP-0484: Fast Authentication Streamlining Tokens
+	// Fast Mechanism
+	FastMechanism string
 }
 
 // NewClient establishes a new Client connection based on a set of Options.
@@ -431,7 +448,7 @@ func (c *Client) init(o *Options) error {
 		return err
 	}
 	var mechanism, channelBinding, clientFirstMessage, clientFinalMessageBare, authMessage string
-	var bind2Data, resource, userAgentSW, userAgentDev, userAgentID string
+	var bind2Data, resource, userAgentSW, userAgentDev, userAgentID, fastAuth string
 	var serverSignature, keyingMaterial []byte
 	var scramPlus, ok, tlsConnOK, tls13, serverEndPoint, sasl2, bind2 bool
 	var cbsSlice, mechSlice []string
@@ -604,9 +621,17 @@ func (c *Client) init(o *Options) error {
 				if o.UserAgentID != "" {
 					userAgentID = fmt.Sprintf(" id='%s'", o.UserAgentID)
 				}
+				if f.Authentication.Inline.Fast.Mechanism != nil {
+					if o.FastToken == "" {
+						fastAuth = fmt.Sprintf("<request-token xmlns='%s' mechanism='%s'/>", nsFast, f.Authentication.Inline.Fast.Mechanism[0])
+					} else {
+						fastAuth = fmt.Sprintf("<fast xmlns='%s' />", nsFast)
+						mechanism = o.FastMechanism
+					}
+				}
 				fmt.Fprintf(c.stanzaWriter,
-					"<authenticate xmlns='%s' mechanism='%s'><initial-response>%s</initial-response><user-agent%s>%s%s</user-agent>%s</authenticate>\n",
-					nsSASL2, mechanism, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)), userAgentID, userAgentSW, userAgentDev, bind2Data)
+					"<authenticate xmlns='%s' mechanism='%s'><initial-response>%s</initial-response><user-agent%s>%s%s</user-agent>%s%s</authenticate>\n",
+					nsSASL2, mechanism, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)), userAgentID, userAgentSW, userAgentDev, bind2Data, fastAuth)
 			} else {
 				fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='%s'>%s</auth>\n",
 					nsSASL, mechanism, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)))
@@ -828,6 +853,11 @@ func (c *Client) init(o *Options) error {
 		}
 		if bind2 {
 			c.jid = v.AuthorizationIdentifier
+		}
+		if v.Token.Token != "" {
+			c.Fast.Token = v.Token.Token
+			c.Fast.Mechanism = f.Authentication.Inline.Fast.Mechanism[0]
+			c.Fast.Expiry, _ = time.Parse(time.RFC3339, v.Token.Expiry)
 		}
 	case *saslSuccess:
 		if strings.HasPrefix(mechanism, "SCRAM-SHA") {
@@ -1488,9 +1518,16 @@ type sasl2Authentication struct {
 	Inline    struct {
 		Text string `xml:",chardata"`
 		Bind struct {
-			Text  string `xml:",chardata"`
-			Xmlns string `xml:"xmlns,attr"`
+			XMLName xml.Name `xml:"urn:xmpp:bind:0 bind"`
+			Xmlns   string   `xml:"xmlns,attr"`
+			Text    string   `xml:",chardata"`
 		} `xml:"bind"`
+		Fast struct {
+			XMLName   xml.Name `xml:"urn:xmpp:fast:0 fast"`
+			Text      string   `xml:",chardata"`
+			Tls0rtt   string   `xml:"tls-0rtt,attr"`
+			Mechanism []string `xml:"mechanism"`
+		} `xml:"fast"`
 	} `xml:"inline"`
 }
 
@@ -1521,8 +1558,14 @@ type sasl2Success struct {
 	AuthorizationIdentifier string   `xml:"authorization-identifier"`
 	Bound                   struct {
 		Text  string `xml:",chardata"`
-		Xmlns string `xml:"xmlns,attr"`
+		Xmlns string `xml:"urn:xmpp:bind:0,attr"`
 	} `xml:"bound"`
+	Token struct {
+		Text   string `xml:",chardata"`
+		Xmlns  string `xml:"urn:xmpp:fast:0,attr"`
+		Expiry string `xml:"expiry,attr"`
+		Token  string `xml:"token,attr"`
+	} `xml:"token"`
 }
 
 type saslSuccess struct {
