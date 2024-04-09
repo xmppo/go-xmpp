@@ -12,7 +12,7 @@ const (
 )
 
 func (c *Client) Discovery() (string, error) {
-	// use getCookie for a pseudo random id.
+	// use UUIDv4 for a pseudo random id.
 	reqID := strconv.FormatUint(uint64(getCookie()), 10)
 	return c.RawInformationQuery(c.jid, c.domain, reqID, IQTypeGet, XMPPNS_DISCO_ITEMS, "")
 }
