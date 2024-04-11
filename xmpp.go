@@ -370,8 +370,8 @@ func NewClientNoTLS(host, user, passwd string, debug bool) (*Client, error) {
 
 // Close closes the XMPP connection
 func (c *Client) Close() error {
+	c.shutdown = true
 	if c.conn != (*tls.Conn)(nil) {
-		c.shutdown = true
 		fmt.Fprintf(c.stanzaWriter, "</stream:stream>\n")
 		go func() {
 			<-time.After(10 * time.Second)
