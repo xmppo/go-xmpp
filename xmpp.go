@@ -742,7 +742,7 @@ func (c *Client) init(o *Options) error {
 				if bind2 {
 					c.jid = v.AuthorizationIdentifier
 				}
-				if v.Token.Token != "" && v.Token.Token != o.FastToken {
+				if v.Token.Token != "" || v.Token.Token != o.FastToken {
 					m := f.Authentication.Inline.Fast.Mechanism
 					switch {
 					case slices.Contains(m, "HT-SHA-256-EXPR") && tls13:
