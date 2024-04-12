@@ -621,7 +621,7 @@ func (c *Client) init(o *Options) error {
 				if o.UserAgentID != "" {
 					userAgentID = fmt.Sprintf(" id='%s'", o.UserAgentID)
 				}
-				if f.Authentication.Inline.Fast.Mechanism != nil && o.UserAgentID != "" {
+				if f.Authentication.Inline.Fast.Mechanism != nil && o.UserAgentID != "" && c.IsEncrypted() {
 					var mech string
 					if o.FastToken == "" {
 						m := f.Authentication.Inline.Fast.Mechanism
