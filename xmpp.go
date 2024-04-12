@@ -757,6 +757,14 @@ func (c *Client) init(o *Options) error {
 					c.Fast.Token = v.Token.Token
 					c.Fast.Expiry, _ = time.Parse(time.RFC3339, v.Token.Expiry)
 				}
+				if o.Session {
+					// if server support session, open it
+					cookie := getCookie() // generate new id value for session
+					fmt.Fprintf(c.stanzaWriter, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>\n", xmlEscape(domain), cookie, nsSession)
+				}
+
+				// We're connected and can now receive and send messages.
+				fmt.Fprintf(c.stanzaWriter, "<presence xml:lang='en'><show>%s</show><status>%s</status></presence>\n", o.Status, o.StatusMessage)
 				return nil
 			case *sasl2Challenge:
 				sfm = v.Text
@@ -955,21 +963,19 @@ func (c *Client) init(o *Options) error {
 			c.jid = v.AuthorizationIdentifier
 		}
 		if v.Token.Token != "" {
-			if v.Token.Token != "" {
-				m := f.Authentication.Inline.Fast.Mechanism
-				switch {
-				case slices.Contains(m, "HT-SHA-256-EXPR") && tls13:
-					c.Fast.Mechanism = "HT-SHA-256-EXPR"
-				case slices.Contains(m, "HT-SHA-256-UNIQ") && !tls13:
-					c.Fast.Mechanism = "HT-SHA-256-UNIQ"
-				case slices.Contains(m, "HT-SHA-256-ENDP"):
-					c.Fast.Mechanism = "HT-SHA-256-ENDP"
-				case slices.Contains(m, "HT-SHA-256-NONE"):
-					c.Fast.Mechanism = "HT-SHA-256-NONE"
-				}
-				c.Fast.Token = v.Token.Token
-				c.Fast.Expiry, _ = time.Parse(time.RFC3339, v.Token.Expiry)
+			m := f.Authentication.Inline.Fast.Mechanism
+			switch {
+			case slices.Contains(m, "HT-SHA-256-EXPR") && tls13:
+				c.Fast.Mechanism = "HT-SHA-256-EXPR"
+			case slices.Contains(m, "HT-SHA-256-UNIQ") && !tls13:
+				c.Fast.Mechanism = "HT-SHA-256-UNIQ"
+			case slices.Contains(m, "HT-SHA-256-ENDP"):
+				c.Fast.Mechanism = "HT-SHA-256-ENDP"
+			case slices.Contains(m, "HT-SHA-256-NONE"):
+				c.Fast.Mechanism = "HT-SHA-256-NONE"
 			}
+			c.Fast.Token = v.Token.Token
+			c.Fast.Expiry, _ = time.Parse(time.RFC3339, v.Token.Expiry)
 		}
 	case *saslSuccess:
 		if strings.HasPrefix(mechanism, "SCRAM-SHA") {
