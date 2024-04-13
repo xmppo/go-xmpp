@@ -269,6 +269,10 @@ type Options struct {
 	// XEP-0484: Fast Authentication Streamlining Tokens
 	// Fast Mechanism
 	FastMechanism string
+
+	// XEP-0484: Fast Authentication Streamlining Tokens
+	// Invalidate the current token
+	FastInvalidate bool
 }
 
 // NewClient establishes a new Client connection based on a set of Options.
@@ -639,7 +643,11 @@ func (c *Client) init(o *Options) error {
 						}
 						fastAuth = fmt.Sprintf("<request-token xmlns='%s' mechanism='%s'/>", nsFast, mech)
 					} else {
-						fastAuth = fmt.Sprintf("<fast xmlns='%s' />", nsFast)
+						var fastInvalidate string
+						if o.FastInvalidate {
+							fastInvalidate = " invalidate='true'"
+						}
+						fastAuth = fmt.Sprintf("<fast xmlns='%s'%s/>", nsFast, fastInvalidate)
 						tlsState := tlsConn.ConnectionState()
 						mechanism = o.FastMechanism
 						switch mechanism {
