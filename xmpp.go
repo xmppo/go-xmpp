@@ -1146,12 +1146,21 @@ func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error)
 		c.stanzaWriter = c.conn
 	}
 
-	_, err := fmt.Fprintf(c.stanzaWriter, "<?xml version='1.0'?>"+
-		"<stream:stream from='%s' to='%s' xmlns='%s'"+
-		" xmlns:stream='%s' version='1.0'>\n",
-		xmlEscape(o.User), xmlEscape(domain), nsClient, nsStream)
-	if err != nil {
-		return nil, err
+	if c.IsEncrypted() {
+		_, err := fmt.Fprintf(c.stanzaWriter, "<?xml version='1.0'?>"+
+			"<stream:stream from='%s' to='%s' xmlns='%s'"+
+			" xmlns:stream='%s' version='1.0'>\n",
+			xmlEscape(o.User), xmlEscape(domain), nsClient, nsStream)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		_, err := fmt.Fprintf(c.stanzaWriter, "<?xml version='1.0'?>"+
+			"<stream:stream to='%s' xmlns='%s' xmlns:stream='%s' version='1.0'>\n",
+			xmlEscape(domain), nsClient, nsStream)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// We expect the server to start a <stream>.
