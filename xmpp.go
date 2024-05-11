@@ -92,10 +92,10 @@ type Client struct {
 	shutdown         bool       // Variable signalling that the stream will be closed
 	p                *xml.Decoder
 	stanzaWriter     io.Writer
-	LimitMaxBytes    int // Maximum stanza size (XEP-0478: Stream Limits Advertisement)
-	LimitIdleSeconds int // Maximum idle seconds (XEP-0478: Stream Limits Advertisement)
-	Mechanism        string
-	Fast             Fast // XEP-0484 FAST Token, mechanism and expiry.
+	LimitMaxBytes    int    // Maximum stanza size (XEP-0478: Stream Limits Advertisement)
+	LimitIdleSeconds int    // Maximum idle seconds (XEP-0478: Stream Limits Advertisement)
+	Mechanism        string // SCRAM mechanism used.
+	Fast             Fast   // XEP-0484 FAST Token, mechanism and expiry.
 }
 
 func (c *Client) JID() string {
