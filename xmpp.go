@@ -107,7 +107,7 @@ func containsIgnoreCase(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
 
-func connect(host, user, passwd string, timeout time.Duration) (net.Conn, error) {
+func connect(host string, user string, timeout time.Duration) (net.Conn, error) {
 	addr := host
 
 	if strings.TrimSpace(host) == "" {
@@ -303,7 +303,7 @@ func (o Options) NewClient() (*Client, error) {
 			}
 		}
 	}
-	c, err := connect(host, o.User, o.Password, o.DialTimeout)
+	c, err := connect(host, o.User, o.DialTimeout)
 	if err != nil {
 		return nil, err
 	}
