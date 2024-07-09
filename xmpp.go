@@ -838,7 +838,7 @@ func (c *Client) init(o *Options) error {
 					}
 					dgh.Reset()
 				case strings.HasPrefix(serverReply, "m="):
-					return errors.New("SCRAM: server sent reserved 'm' attribute.")
+					return errors.New("scram: server sent reserved 'm' attribute")
 				}
 			}
 			if scramPlus {
@@ -1255,7 +1255,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				switch v.Event.Items.Node {
 				case XMPPNS_AVATAR_PEP_METADATA:
 					if len(v.Event.Items.Items) == 0 {
-						return AvatarMetadata{}, errors.New("No avatar metadata items available")
+						return AvatarMetadata{}, errors.New("no avatar metadata items available")
 					}
 
 					return handleAvatarMetadata(v.Event.Items.Items[0].Body,
@@ -1413,7 +1413,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 						switch p.Node {
 						case XMPPNS_AVATAR_PEP_DATA:
 							if len(p.Items) == 0 {
-								return AvatarData{}, errors.New("No avatar data items available")
+								return AvatarData{}, errors.New("no avatar data items available")
 							}
 
 							return handleAvatarData(p.Items[0].Body,
@@ -1421,7 +1421,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 								p.Items[0].ID)
 						case XMPPNS_AVATAR_PEP_METADATA:
 							if len(p.Items) == 0 {
-								return AvatarMetadata{}, errors.New("No avatar metadata items available")
+								return AvatarMetadata{}, errors.New("no avatar metadata items available")
 							}
 
 							return handleAvatarMetadata(p.Items[0].Body,

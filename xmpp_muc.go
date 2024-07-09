@@ -78,7 +78,7 @@ func (c *Client) JoinMUC(jid, nick string, history_type, history int, history_da
 				xmlEscape(jid), xmlEscape(nick), nsMUC, history_date.Format(time.RFC3339))
 		}
 	}
-	return 0, errors.New("Unknown history option")
+	return 0, errors.New("unknown history option")
 }
 
 // xep-0045 7.2.6
@@ -125,7 +125,7 @@ func (c *Client) JoinProtectedMUC(jid, nick string, password string, history_typ
 				xmlEscape(jid), xmlEscape(nick), nsMUC, xmlEscape(password), history_date.Format(time.RFC3339))
 		}
 	}
-	return 0, errors.New("Unknown history option")
+	return 0, errors.New("unknown history option")
 }
 
 // xep-0045 7.14
