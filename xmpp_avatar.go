@@ -104,22 +104,22 @@ func atoiw(str string) int {
 	return i
 }
 
-func (c *Client) AvatarSubscribeMetadata(jid string) {
-	c.PubsubSubscribeNode(XMPPNS_AVATAR_PEP_METADATA, jid)
+func (c *Client) AvatarSubscribeMetadata(jid string) error {
+	return c.PubsubSubscribeNode(XMPPNS_AVATAR_PEP_METADATA, jid)
 }
 
-func (c *Client) AvatarUnsubscribeMetadata(jid string) {
-	c.PubsubUnsubscribeNode(XMPPNS_AVATAR_PEP_METADATA, jid)
+func (c *Client) AvatarUnsubscribeMetadata(jid string) error {
+	return c.PubsubUnsubscribeNode(XMPPNS_AVATAR_PEP_METADATA, jid)
 }
 
-func (c *Client) AvatarRequestData(jid string) {
-	c.PubsubRequestLastItems(XMPPNS_AVATAR_PEP_DATA, jid)
+func (c *Client) AvatarRequestData(jid string) error {
+	return c.PubsubRequestLastItems(XMPPNS_AVATAR_PEP_DATA, jid)
 }
 
-func (c *Client) AvatarRequestDataByID(jid, id string) {
-	c.PubsubRequestItem(XMPPNS_AVATAR_PEP_DATA, jid, id)
+func (c *Client) AvatarRequestDataByID(jid, id string) error {
+	return c.PubsubRequestItem(XMPPNS_AVATAR_PEP_DATA, jid, id)
 }
 
-func (c *Client) AvatarRequestMetadata(jid string) {
-	c.PubsubRequestLastItems(XMPPNS_AVATAR_PEP_METADATA, jid)
+func (c *Client) AvatarRequestMetadata(jid string) error {
+	return c.PubsubRequestLastItems(XMPPNS_AVATAR_PEP_METADATA, jid)
 }

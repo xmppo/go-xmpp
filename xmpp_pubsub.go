@@ -101,28 +101,32 @@ func pubsubUnsubscriptionStanza(node, jid string) string {
 	return pubsubStanza(body)
 }
 
-func (c *Client) PubsubSubscribeNode(node, jid string) {
-	c.RawInformation(c.jid,
+func (c *Client) PubsubSubscribeNode(node, jid string) error {
+	_, err := c.RawInformation(c.jid,
 		jid,
 		"sub1",
 		"set",
 		pubsubSubscriptionStanza(node, c.jid))
+	return err
 }
 
-func (c *Client) PubsubUnsubscribeNode(node, jid string) {
-	c.RawInformation(c.jid,
+func (c *Client) PubsubUnsubscribeNode(node, jid string) error {
+	_, err := c.RawInformation(c.jid,
 		jid,
 		"unsub1",
 		"set",
 		pubsubUnsubscriptionStanza(node, c.jid))
+	return err
 }
 
-func (c *Client) PubsubRequestLastItems(node, jid string) {
+func (c *Client) PubsubRequestLastItems(node, jid string) error {
 	body := fmt.Sprintf("<items node='%s'/>", node)
-	c.RawInformation(c.jid, jid, "items1", "get", pubsubStanza(body))
+	_, err := c.RawInformation(c.jid, jid, "items1", "get", pubsubStanza(body))
+	return err
 }
 
-func (c *Client) PubsubRequestItem(node, jid, id string) {
+func (c *Client) PubsubRequestItem(node, jid, id string) error {
 	body := fmt.Sprintf("<items node='%s'><item id='%s'/></items>", node, id)
-	c.RawInformation(c.jid, jid, "items3", "get", pubsubStanza(body))
+	_, err := c.RawInformation(c.jid, jid, "items3", "get", pubsubStanza(body))
+	return err
 }
