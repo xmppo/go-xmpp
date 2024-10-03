@@ -1584,7 +1584,7 @@ func (c *Client) SendPresence(presence Presence) (n int, err error) {
 		buf = buf + fmt.Sprintf("<status>%s</status>", xmlEscape(presence.Status))
 	}
 
-	stanza := fmt.Sprintf(buf + "</presence>\n")
+	stanza := fmt.Sprintf("%s</presence>\n", buf)
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
