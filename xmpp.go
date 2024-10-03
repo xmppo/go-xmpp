@@ -1993,8 +1993,11 @@ type tee struct {
 func (t tee) Read(p []byte) (n int, err error) {
 	n, err = t.r.Read(p)
 	if n > 0 {
-		t.w.Write(p[0:n])
-		t.w.Write([]byte("\n"))
+		_, err = t.w.Write(p[0:n])
+		if err != nil {
+			return
+		}
+		_, err = t.w.Write([]byte("\n"))
 	}
 	return
 }
