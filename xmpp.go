@@ -577,11 +577,11 @@ func (c *Client) init(o *Options) error {
 				}
 				switch {
 				case tls13 && !serverEndPoint:
-					channelBinding = base64.StdEncoding.EncodeToString(append([]byte("p=tls-exporter,,"), keyingMaterial[:]...))
+					channelBinding = base64.StdEncoding.EncodeToString(slices.Concat([]byte("p=tls-exporter,,"), keyingMaterial))
 				case serverEndPoint:
-					channelBinding = base64.StdEncoding.EncodeToString(append([]byte("p=tls-server-end-point,,"), keyingMaterial[:]...))
+					channelBinding = base64.StdEncoding.EncodeToString(slices.Concat([]byte("p=tls-server-end-point,,"), keyingMaterial))
 				default:
-					channelBinding = base64.StdEncoding.EncodeToString(append([]byte("p=tls-unique,,"), keyingMaterial[:]...))
+					channelBinding = base64.StdEncoding.EncodeToString(slices.Concat([]byte("p=tls-unique,,"), keyingMaterial))
 				}
 			}
 			var shaNewFn func() hash.Hash
@@ -682,7 +682,7 @@ func (c *Client) init(o *Options) error {
 							return fmt.Errorf("fast: unsupported auth mechanism %s", mechanism)
 						}
 						h := hmac.New(sha256.New, []byte(o.FastToken))
-						initiator := append([]byte("Initiator")[:], keyingMaterial[:]...)
+						initiator := slices.Concat([]byte("Initiator"), keyingMaterial)
 						_, err = h.Write(initiator)
 						if err != nil {
 							return err
@@ -736,7 +736,7 @@ func (c *Client) init(o *Options) error {
 					// TODO: Check whether server implementations already support
 					// https://www.ietf.org/archive/id/draft-schmaus-kitten-sasl-ht-09.html#section-3.3
 					h := hmac.New(sha256.New, []byte(o.FastToken))
-					responder := append([]byte("Responder")[:], keyingMaterial[:]...)
+					responder := slices.Concat([]byte("Responder"), keyingMaterial)
 					_, err = h.Write(responder)
 					if err != nil {
 						return err
@@ -878,7 +878,7 @@ func (c *Client) init(o *Options) error {
 			}
 			authMessage = strings.SplitAfter(clientFirstMessage, ",,")[1] + "," +
 				string(serverFirstMessage) + "," + clientFinalMessageBare
-			h = hmac.New(shaNewFn, storedKey[:])
+			h = hmac.New(shaNewFn, storedKey)
 			_, err = h.Write([]byte(authMessage))
 			if err != nil {
 				return err
