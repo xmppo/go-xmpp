@@ -57,7 +57,7 @@ const (
 	nsClient       = "jabber:client"
 	nsSession      = "urn:ietf:params:xml:ns:xmpp-session"
 	nsStreamLimits = "urn:xmpp:stream-limits:0"
-	Version        = "0.2.4"
+	Version        = "0.2.5-dev"
 )
 
 // Default TLS configuration options
