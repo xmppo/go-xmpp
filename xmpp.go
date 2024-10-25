@@ -57,7 +57,7 @@ const (
 	nsClient       = "jabber:client"
 	nsSession      = "urn:ietf:params:xml:ns:xmpp-session"
 	nsStreamLimits = "urn:xmpp:stream-limits:0"
-	Version        = "0.2.4-dev"
+	Version        = "0.2.4"
 )
 
 // Default TLS configuration options
@@ -860,7 +860,7 @@ func (c *Client) init(o *Options) error {
 			case "SCRAM-SHA-512", "SCRAM-SHA-512-PLUS":
 				storedKey512 := sha512.Sum512(clientKey)
 				storedKey = storedKey512[:]
-			case "SCRAM-SHA-256", "SCRAM-SH-256-PLUS":
+			case "SCRAM-SHA-256", "SCRAM-SHA-256-PLUS":
 				storedKey256 := sha256.Sum256(clientKey)
 				storedKey = storedKey256[:]
 			case "SCRAM-SHA-1", "SCRAM-SHA-1-PLUS":
