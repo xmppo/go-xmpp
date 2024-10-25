@@ -525,10 +525,10 @@ func (c *Client) init(o *Options) error {
 			if strings.HasSuffix(mechanism, "PLUS") {
 				scramPlus = true
 			}
+			for _, cbs := range f.ChannelBindings.ChannelBinding {
+				cbsSlice = append(cbsSlice, cbs.Type)
+			}
 			if scramPlus {
-				for _, cbs := range f.ChannelBindings.ChannelBinding {
-					cbsSlice = append(cbsSlice, cbs.Type)
-				}
 				tlsState := tlsConn.ConnectionState()
 				switch tlsState.Version {
 				case tls.VersionTLS13:
@@ -821,11 +821,10 @@ func (c *Client) init(o *Options) error {
 							dgProtect = dgProtect + "," + mech
 						}
 					}
-					dgProtect = dgProtect + "|"
 					slices.Sort(cbsSlice)
 					for i, cb := range cbsSlice {
 						if i == 0 {
-							dgProtect = dgProtect + cb
+							dgProtect = dgProtect + "|" + cb
 						} else {
 							dgProtect = dgProtect + "," + cb
 						}
