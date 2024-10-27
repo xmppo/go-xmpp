@@ -457,7 +457,7 @@ func (c *Client) init(o *Options) error {
 		}
 	}
 
-	// If the server requires we STARTTLS, attempt to do so.
+	// If the server requires STARTTLS, attempt to do so.
 	if f, err = c.startTLSIfRequired(f, o, domain); err != nil {
 		return err
 	}
