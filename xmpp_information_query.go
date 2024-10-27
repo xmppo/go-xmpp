@@ -24,9 +24,9 @@ func (c *Client) DiscoverNodeInfo(node string) (string, error) {
 }
 
 // Discover information about given item from given jid.
-func (c *Client) DiscoverInfo(from string, to string) (string, error) {
+func (c *Client) DiscoverInfo(to string) (string, error) {
 	query := fmt.Sprintf("<query xmlns='%s'/>", XMPPNS_DISCO_INFO)
-	return c.RawInformation(from, to, "info3", IQTypeGet, query)
+	return c.RawInformation(c.jid, to, "info3", IQTypeGet, query)
 }
 
 // Discover items that the server exposes
