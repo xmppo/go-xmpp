@@ -64,6 +64,10 @@ const (
 	scramSHA256Plus = "SCRAM-SHA-256-PLUS"
 	scramSHA512     = "SCRAM-SHA-512"
 	scramSHA512Plus = "SCRAM-SHA-512-PLUS"
+	htSHA256Expr    = "HT-SHA-256-EXPR"
+	htSHA256Uniq    = "HT-SHA-256-UNIQ"
+	htSHA256Endp    = "HT-SHA-256-ENDP"
+	htSHA256None    = "HT-SHA-256-NONE"
 )
 
 // Default TLS configuration options
@@ -640,14 +644,14 @@ func (c *Client) init(o *Options) error {
 					if o.FastToken == "" {
 						m := f.Authentication.Inline.Fast.Mechanism
 						switch {
-						case slices.Contains(m, "HT-SHA-256-EXPR") && tls13:
-							mech = "HT-SHA-256-EXPR"
-						case slices.Contains(m, "HT-SHA-256-UNIQ") && !tls13:
-							mech = "HT-SHA-256-UNIQ"
-						case slices.Contains(m, "HT-SHA-256-ENDP"):
-							mech = "HT-SHA-256-ENDP"
-						case slices.Contains(m, "HT-SHA-256-NONE"):
-							mech = "HT-SHA-256-NONE"
+						case slices.Contains(m, htSHA256Expr) && tls13:
+							mech = htSHA256Expr
+						case slices.Contains(m, htSHA256Uniq) && !tls13:
+							mech = htSHA256Uniq
+						case slices.Contains(m, htSHA256Endp):
+							mech = htSHA256Endp
+						case slices.Contains(m, htSHA256None):
+							mech = htSHA256None
 						default:
 							return fmt.Errorf("fast: unsupported auth mechanism %s", m)
 						}
@@ -661,14 +665,14 @@ func (c *Client) init(o *Options) error {
 						tlsState := tlsConn.ConnectionState()
 						mechanism = o.FastMechanism
 						switch mechanism {
-						case "HT-SHA-256-EXPR":
+						case htSHA256Expr:
 							keyingMaterial, err = tlsState.ExportKeyingMaterial("EXPORTER-Channel-Binding", nil, 32)
 							if err != nil {
 								return err
 							}
-						case "HT-SHA-256-UNIQ":
+						case htSHA256Uniq:
 							keyingMaterial = tlsState.TLSUnique
-						case "HT-SHA-256-ENDP":
+						case htSHA256Endp:
 							var h hash.Hash
 							switch tlsState.PeerCertificates[0].SignatureAlgorithm {
 							case x509.SHA1WithRSA, x509.SHA256WithRSA, x509.ECDSAWithSHA1,
@@ -682,7 +686,7 @@ func (c *Client) init(o *Options) error {
 							h.Write(tlsState.PeerCertificates[0].Raw)
 							keyingMaterial = h.Sum(nil)
 							h.Reset()
-						case "HT-SHA-256-NONE":
+						case htSHA256None:
 							keyingMaterial = []byte("")
 						default:
 							return fmt.Errorf("fast: unsupported auth mechanism %s", mechanism)
@@ -763,14 +767,14 @@ func (c *Client) init(o *Options) error {
 				if v.Token.Token != "" && v.Token.Token != o.FastToken {
 					m := f.Authentication.Inline.Fast.Mechanism
 					switch {
-					case slices.Contains(m, "HT-SHA-256-EXPR") && tls13:
-						c.Fast.Mechanism = "HT-SHA-256-EXPR"
-					case slices.Contains(m, "HT-SHA-256-UNIQ") && !tls13:
-						c.Fast.Mechanism = "HT-SHA-256-UNIQ"
-					case slices.Contains(m, "HT-SHA-256-ENDP"):
-						c.Fast.Mechanism = "HT-SHA-256-ENDP"
-					case slices.Contains(m, "HT-SHA-256-NONE"):
-						c.Fast.Mechanism = "HT-SHA-256-NONE"
+					case slices.Contains(m, htSHA256Expr) && tls13:
+						c.Fast.Mechanism = htSHA256Expr
+					case slices.Contains(m, htSHA256Uniq) && !tls13:
+						c.Fast.Mechanism = htSHA256Uniq
+					case slices.Contains(m, htSHA256Endp):
+						c.Fast.Mechanism = htSHA256Endp
+					case slices.Contains(m, htSHA256None):
+						c.Fast.Mechanism = htSHA256None
 					}
 					c.Fast.Token = v.Token.Token
 					c.Fast.Expiry, _ = time.Parse(time.RFC3339, v.Token.Expiry)
@@ -982,14 +986,14 @@ func (c *Client) init(o *Options) error {
 		if v.Token.Token != "" {
 			m := f.Authentication.Inline.Fast.Mechanism
 			switch {
-			case slices.Contains(m, "HT-SHA-256-EXPR") && tls13:
-				c.Fast.Mechanism = "HT-SHA-256-EXPR"
-			case slices.Contains(m, "HT-SHA-256-UNIQ") && !tls13:
-				c.Fast.Mechanism = "HT-SHA-256-UNIQ"
-			case slices.Contains(m, "HT-SHA-256-ENDP"):
-				c.Fast.Mechanism = "HT-SHA-256-ENDP"
-			case slices.Contains(m, "HT-SHA-256-NONE"):
-				c.Fast.Mechanism = "HT-SHA-256-NONE"
+			case slices.Contains(m, htSHA256Expr) && tls13:
+				c.Fast.Mechanism = htSHA256Expr
+			case slices.Contains(m, htSHA256Uniq) && !tls13:
+				c.Fast.Mechanism = htSHA256Uniq
+			case slices.Contains(m, htSHA256Endp):
+				c.Fast.Mechanism = htSHA256Endp
+			case slices.Contains(m, htSHA256None):
+				c.Fast.Mechanism = htSHA256None
 			}
 			c.Fast.Token = v.Token.Token
 			c.Fast.Expiry, _ = time.Parse(time.RFC3339, v.Token.Expiry)
