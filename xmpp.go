@@ -46,18 +46,24 @@ import (
 )
 
 const (
-	nsStream       = "http://etherx.jabber.org/streams"
-	nsTLS          = "urn:ietf:params:xml:ns:xmpp-tls"
-	nsSASL         = "urn:ietf:params:xml:ns:xmpp-sasl"
-	nsSASL2        = "urn:xmpp:sasl:2"
-	nsBind         = "urn:ietf:params:xml:ns:xmpp-bind"
-	nsBind2        = "urn:xmpp:bind:0"
-	nsFast         = "urn:xmpp:fast:0"
-	nsSASLCB       = "urn:xmpp:sasl-cb:0"
-	nsClient       = "jabber:client"
-	nsSession      = "urn:ietf:params:xml:ns:xmpp-session"
-	nsStreamLimits = "urn:xmpp:stream-limits:0"
-	Version        = "0.2.5-dev"
+	Version         = "0.2.5-dev"
+	nsStream        = "http://etherx.jabber.org/streams"
+	nsTLS           = "urn:ietf:params:xml:ns:xmpp-tls"
+	nsSASL          = "urn:ietf:params:xml:ns:xmpp-sasl"
+	nsSASL2         = "urn:xmpp:sasl:2"
+	nsBind          = "urn:ietf:params:xml:ns:xmpp-bind"
+	nsBind2         = "urn:xmpp:bind:0"
+	nsFast          = "urn:xmpp:fast:0"
+	nsSASLCB        = "urn:xmpp:sasl-cb:0"
+	nsClient        = "jabber:client"
+	nsSession       = "urn:ietf:params:xml:ns:xmpp-session"
+	nsStreamLimits  = "urn:xmpp:stream-limits:0"
+	scramSHA1       = "SCRAM-SHA-1"
+	scramSHA1Plus   = "SCRAM-SHA-1-PLUS"
+	scramSHA256     = "SCRAM-SHA-256"
+	scramSHA256Plus = "SCRAM-SHA-256-PLUS"
+	scramSHA512     = "SCRAM-SHA-512"
+	scramSHA512Plus = "SCRAM-SHA-512-PLUS"
 )
 
 // Default TLS configuration options
@@ -503,18 +509,18 @@ func (c *Client) init(o *Options) error {
 			}
 		} else {
 			switch {
-			case slices.Contains(mechSlice, "SCRAM-SHA-512-PLUS") && tlsConnOK:
-				mechanism = "SCRAM-SHA-512-PLUS"
-			case slices.Contains(mechSlice, "SCRAM-SHA-256-PLUS") && tlsConnOK:
-				mechanism = "SCRAM-SHA-256-PLUS"
-			case slices.Contains(mechSlice, "SCRAM-SHA-1-PLUS") && tlsConnOK:
-				mechanism = "SCRAM-SHA-1-PLUS"
-			case slices.Contains(mechSlice, "SCRAM-SHA-512"):
-				mechanism = "SCRAM-SHA-512"
-			case slices.Contains(mechSlice, "SCRAM-SHA-256"):
-				mechanism = "SCRAM-SHA-256"
-			case slices.Contains(mechSlice, "SCRAM-SHA-1"):
-				mechanism = "SCRAM-SHA-1"
+			case slices.Contains(mechSlice, scramSHA512Plus) && tlsConnOK:
+				mechanism = scramSHA512Plus
+			case slices.Contains(mechSlice, scramSHA256Plus) && tlsConnOK:
+				mechanism = scramSHA256Plus
+			case slices.Contains(mechSlice, scramSHA1Plus) && tlsConnOK:
+				mechanism = scramSHA1Plus
+			case slices.Contains(mechSlice, scramSHA512):
+				mechanism = scramSHA512
+			case slices.Contains(mechSlice, scramSHA256):
+				mechanism = scramSHA256
+			case slices.Contains(mechSlice, scramSHA1):
+				mechanism = scramSHA1
 			case slices.Contains(mechSlice, "X-OAUTH2"):
 				mechanism = "X-OAUTH2"
 			case slices.Contains(mechSlice, "PLAIN") && tlsConnOK:
@@ -586,11 +592,11 @@ func (c *Client) init(o *Options) error {
 			}
 			var shaNewFn func() hash.Hash
 			switch mechanism {
-			case "SCRAM-SHA-512", "SCRAM-SHA-512-PLUS":
+			case scramSHA512, scramSHA512Plus:
 				shaNewFn = sha512.New
-			case "SCRAM-SHA-256", "SCRAM-SHA-256-PLUS":
+			case scramSHA256, scramSHA256Plus:
 				shaNewFn = sha256.New
-			case "SCRAM-SHA-1", "SCRAM-SHA-1-PLUS":
+			case scramSHA1, scramSHA1Plus:
 				shaNewFn = sha1.New
 			default:
 				return errors.New("unsupported auth mechanism")
@@ -857,13 +863,13 @@ func (c *Client) init(o *Options) error {
 			h.Reset()
 			var storedKey []byte
 			switch mechanism {
-			case "SCRAM-SHA-512", "SCRAM-SHA-512-PLUS":
+			case scramSHA512, scramSHA512Plus:
 				storedKey512 := sha512.Sum512(clientKey)
 				storedKey = storedKey512[:]
-			case "SCRAM-SHA-256", "SCRAM-SHA-256-PLUS":
+			case scramSHA256, scramSHA256Plus:
 				storedKey256 := sha256.Sum256(clientKey)
 				storedKey = storedKey256[:]
-			case "SCRAM-SHA-1", "SCRAM-SHA-1-PLUS":
+			case scramSHA1, scramSHA1Plus:
 				storedKey1 := sha1.Sum(clientKey)
 				storedKey = storedKey1[:]
 			}
