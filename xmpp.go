@@ -489,7 +489,11 @@ func (c *Client) init(o *Options) error {
 		foundAnonymous := false
 		for _, m := range mechSlice {
 			if m == "ANONYMOUS" {
-				fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL)
+				if sasl2 {
+					fmt.Fprintf(c.stanzaWriter, "<authenticate xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL2)
+				} else {
+					fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL)
+				}
 				foundAnonymous = true
 				break
 			}
@@ -937,7 +941,7 @@ func (c *Client) init(o *Options) error {
 			enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
 			base64.StdEncoding.Encode(enc, []byte(raw))
 			if sasl2 {
-				fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='X-OAUTH2' auth:service='oauth2' "+
+				fmt.Fprintf(c.stanzaWriter, "<authenticate xmlns='%s' mechanism='X-OAUTH2' auth:service='oauth2' "+
 					"xmlns:auth='%s'>%s</auth>\n", nsSASL2, o.OAuthXmlNs, enc)
 			} else {
 				fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='X-OAUTH2' auth:service='oauth2' "+
