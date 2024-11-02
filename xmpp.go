@@ -942,7 +942,7 @@ func (c *Client) init(o *Options) error {
 			base64.StdEncoding.Encode(enc, []byte(raw))
 			if sasl2 {
 				fmt.Fprintf(c.stanzaWriter, "<authenticate xmlns='%s' mechanism='X-OAUTH2' auth:service='oauth2' "+
-					"xmlns:auth='%s'>%s</auth>\n", nsSASL2, o.OAuthXmlNs, enc)
+					"xmlns:auth='%s'>%s</authenticate>\n", nsSASL2, o.OAuthXmlNs, enc)
 			} else {
 				fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='X-OAUTH2' auth:service='oauth2' "+
 					"xmlns:auth='%s'>%s</auth>\n", nsSASL, o.OAuthXmlNs, enc)
@@ -954,7 +954,7 @@ func (c *Client) init(o *Options) error {
 			enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
 			base64.StdEncoding.Encode(enc, []byte(raw))
 			if sasl2 {
-				fmt.Fprintf(c.conn, "<authenticate xmlns='%s' mechanism='PLAIN'>%s</auth>\n", nsSASL2, enc)
+				fmt.Fprintf(c.conn, "<authenticate xmlns='%s' mechanism='PLAIN'>%s</authenticate>\n", nsSASL2, enc)
 			} else {
 				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='PLAIN'>%s</auth>\n", nsSASL, enc)
 			}
