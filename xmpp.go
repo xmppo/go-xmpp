@@ -710,7 +710,7 @@ func (c *Client) init(o *Options) error {
 					"<authenticate xmlns='%s' mechanism='%s'><initial-response>%s</initial-response><user-agent%s>%s%s</user-agent>%s%s</authenticate>\n",
 					nsSASL2, mechanism, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)), userAgentID, userAgentSW, userAgentDev, bind2Data, fastAuth)
 			} else {
-				fmt.Fprintf(c.stanzaWriter, "<authenticate xmlns='%s' mechanism='%s'>%s</auth>\n",
+				fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='%s'>%s</auth>\n",
 					nsSASL, mechanism, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)))
 			}
 			var sfm string
