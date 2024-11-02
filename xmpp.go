@@ -534,8 +534,8 @@ func (c *Client) init(o *Options) error {
 				mechanism = scramSHA1
 			case slices.Contains(mechSlice, "X-OAUTH2"):
 				mechanism = "X-OAUTH2"
-				// Do not use PLAIN auth if NoPlain is set or if SSDP is used.
-			case slices.Contains(mechSlice, "PLAIN") && tlsConnOK && !o.NoPLAIN && !o.SSDP:
+				// Do not use PLAIN auth if NoPlain is set.
+			case slices.Contains(mechSlice, "PLAIN") && tlsConnOK && !o.NoPLAIN:
 				mechanism = "PLAIN"
 			}
 		}
