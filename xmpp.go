@@ -287,6 +287,9 @@ type Options struct {
 	// XEP-0484: Fast Authentication Streamlining Tokens
 	// Invalidate the current token
 	FastInvalidate bool
+
+	// NoPLAIN forbids authentication using plain passwords
+	NoPLAIN bool
 }
 
 // NewClient establishes a new Client connection based on a set of Options.
@@ -527,7 +530,8 @@ func (c *Client) init(o *Options) error {
 				mechanism = scramSHA1
 			case slices.Contains(mechSlice, "X-OAUTH2"):
 				mechanism = "X-OAUTH2"
-			case slices.Contains(mechSlice, "PLAIN") && tlsConnOK:
+				// Do not use PLAIN auth if NoPlain is set or if SSDP is used.
+			case slices.Contains(mechSlice, "PLAIN") && tlsConnOK && !o.NoPLAIN && !o.SSDP:
 				mechanism = "PLAIN"
 			}
 		}
