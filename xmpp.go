@@ -950,7 +950,7 @@ func (c *Client) init(o *Options) error {
 			enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
 			base64.StdEncoding.Encode(enc, []byte(raw))
 			if sasl2 {
-				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='PLAIN'>%s</auth>\n", nsSASL2, enc)
+				fmt.Fprintf(c.conn, "<authenticate xmlns='%s' mechanism='PLAIN'>%s</auth>\n", nsSASL2, enc)
 			} else {
 				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='PLAIN'>%s</auth>\n", nsSASL, enc)
 			}
