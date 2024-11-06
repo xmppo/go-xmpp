@@ -1289,6 +1289,13 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 					return pubsubClientToReturn(v.Event), nil
 				}
 			}
+			if v.Type == "error" {
+				errorMessage := v.Error.Text.Text
+				if errorMessage == "" {
+					errorMessage = v.Error.Any.Text
+				}
+				return Chat{}, fmt.Errorf("xmpp: received error from %s: %v", v.From, errorMessage)
+			}
 
 			stamp, _ := time.Parse(
 				"2006-01-02T15:04:05Z",
@@ -1782,6 +1789,20 @@ type clientMessage struct {
 
 	// Pubsub
 	Event clientPubsubEvent `xml:"event"`
+
+	// Error
+	Error struct {
+		Chardata string `xml:",chardata"`
+		Type     string `xml:"type,attr"`
+		Any      struct {
+			Text  string `xml:",chardata"`
+			Xmlns string `xml:"xmlns,attr"`
+		} `xml:",any"`
+		Text struct {
+			Text  string `xml:",chardata"`
+			Xmlns string `xml:"xmlns,attr"`
+		} `xml:"text"`
+	} `xml:"error"`
 
 	// Any hasn't matched element
 	Other []XMLElement `xml:",any"`
