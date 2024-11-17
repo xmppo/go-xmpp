@@ -76,11 +76,6 @@ var DefaultConfig = &tls.Config{}
 // DebugWriter is the writer used to write debugging output to.
 var DebugWriter io.Writer = os.Stderr
 
-// MessageError is used to signal whether a returned error is just an error
-// message from the server as this are typical less critical and do not affect
-// the connection.
-var MessageError = errors.New("error message")
-
 // Cookie is a unique XMPP session identifier
 type Cookie uint64
 
@@ -1299,7 +1294,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				if errorMessage == "" {
 					errorMessage = v.Error.Any.Text
 				}
-				return Chat{}, fmt.Errorf("xmpp: received %w from %s: %v", MessageError, v.From, errorMessage)
+				return Chat{}, fmt.Errorf("xmpp: received error from %s: %v", v.From, errorMessage)
 			}
 
 			stamp, _ := time.Parse(
