@@ -46,7 +46,7 @@ import (
 )
 
 const (
-	Version         = "0.2.7-dev"
+	Version         = "0.2.6"
 	nsStream        = "http://etherx.jabber.org/streams"
 	nsTLS           = "urn:ietf:params:xml:ns:xmpp-tls"
 	nsSASL          = "urn:ietf:params:xml:ns:xmpp-sasl"
