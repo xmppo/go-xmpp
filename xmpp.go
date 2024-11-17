@@ -76,10 +76,6 @@ var DefaultConfig = &tls.Config{}
 // DebugWriter is the writer used to write debugging output to.
 var DebugWriter io.Writer = os.Stderr
 
-// StreamError is used to signal whether a returned error is a stream error
-// or just an error message from the server.
-var StreamError error
-
 // Cookie is a unique XMPP session identifier
 type Cookie uint64
 
@@ -1260,8 +1256,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 	for {
 		_, val, err := c.next()
 		if err != nil {
-			StreamError = err
-			return Chat{}, StreamError
+			return Chat{}, err
 		}
 		switch v := val.(type) {
 		case *streamError:
@@ -1271,8 +1266,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				// which gives a description of what failed if there was no text element
 				errorMessage = v.Any.Space
 			}
-			StreamError = errors.New("stream error: " + errorMessage)
-			return Chat{}, StreamError
+			return Chat{}, errors.New("stream error: " + errorMessage)
 		case *clientMessage:
 			if v.Event.XMLNS == XMPPNS_PUBSUB_EVENT {
 				// Handle Pubsub notifications
