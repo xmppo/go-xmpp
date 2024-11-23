@@ -355,7 +355,6 @@ func (o Options) NewClient() (*Client, error) {
 	}
 
 	if err := client.init(&o); err != nil {
-		client.Close()
 		return nil, err
 	}
 
