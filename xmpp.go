@@ -432,11 +432,18 @@ func (c *Client) init(o *Options) error {
 	// Check if User is not empty. Otherwise, we'll be attempting ANONYMOUS with Host domain.
 	switch {
 	case len(o.User) > 0:
-		if len(a) != 2 {
-			return errors.New("xmpp: invalid username (want user@domain): " + o.User)
+		switch len(a) {
+		case 1:
+			// Allow it to specify the domain as username for ANONYMOUS authentication.
+			// Otherwise connection fails if the connection target differs from the server
+			// name
+			domain = o.User
+			user = ""
+			o.User = ""
+		case 2:
+			user = a[0]
+			domain = a[1]
 		}
-		user = a[0]
-		domain = a[1]
 	case strings.Contains(o.Host, ":"):
 		domain = strings.SplitN(o.Host, ":", 2)[0]
 	default:
@@ -499,6 +506,8 @@ func (c *Client) init(o *Options) error {
 		}
 		if !foundAnonymous {
 			return fmt.Errorf("ANONYMOUS authentication is not an option and username and password were not specified")
+		} else {
+			mechanism = "ANONYMOUS"
 		}
 	} else {
 		// Even digest forms of authentication are unsafe if we do not know that the host
