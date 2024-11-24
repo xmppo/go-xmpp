@@ -495,6 +495,7 @@ func (c *Client) init(o *Options) error {
 		foundAnonymous := false
 		for _, m := range mechSlice {
 			if m == "ANONYMOUS" {
+				mechanism = m
 				if sasl2 {
 					fmt.Fprintf(c.stanzaWriter, "<authenticate xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL2)
 				} else {
@@ -506,8 +507,6 @@ func (c *Client) init(o *Options) error {
 		}
 		if !foundAnonymous {
 			return fmt.Errorf("ANONYMOUS authentication is not an option and username and password were not specified")
-		} else {
-			mechanism = "ANONYMOUS"
 		}
 	} else {
 		// Even digest forms of authentication are unsafe if we do not know that the host
