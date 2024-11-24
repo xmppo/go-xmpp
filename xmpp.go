@@ -1196,11 +1196,15 @@ func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error)
 		c.stanzaWriter = c.conn
 	}
 
+	var fromString string
+	if len(o.User) > 0 {
+		fromString = fmt.Sprintf("from='%s' ", xmlEscape(o.User))
+	}
 	if c.IsEncrypted() {
 		_, err := fmt.Fprintf(c.stanzaWriter, "<?xml version='1.0'?>"+
-			"<stream:stream from='%s' to='%s' xmlns='%s'"+
+			"<stream:stream %sto='%s' xmlns='%s'"+
 			" xmlns:stream='%s' version='1.0'>\n",
-			xmlEscape(o.User), xmlEscape(domain), nsClient, nsStream)
+			fromString, xmlEscape(domain), nsClient, nsStream)
 		if err != nil {
 			return nil, err
 		}
