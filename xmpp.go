@@ -497,7 +497,30 @@ func (c *Client) init(o *Options) error {
 			if m == "ANONYMOUS" {
 				mechanism = m
 				if sasl2 {
+					if bind2 {
+						if o.UserAgentSW != "" {
+							resource = o.UserAgentSW
+						} else {
+							resource = "go-xmpp"
+						}
+						bind2Data = fmt.Sprintf("<bind xmlns='%s'><tag>%s</tag></bind>",
+							nsBind2, resource)
+					}
+					if o.UserAgentSW != "" {
+						userAgentSW = fmt.Sprintf("<software>%s</software>", o.UserAgentSW)
+					} else {
+						userAgentSW = "<software>go-xmpp</software>"
+					}
+					if o.UserAgentDev != "" {
+						userAgentDev = fmt.Sprintf("<device>%s</device>", o.UserAgentDev)
+					}
+					if o.UserAgentID != "" {
+						userAgentID = fmt.Sprintf(" id='%s'", o.UserAgentID)
+					}
 					fmt.Fprintf(c.stanzaWriter, "<authenticate xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL2)
+					fmt.Fprintf(c.stanzaWriter,
+						"<authenticate xmlns='%s' mechanism='%s'><user-agent%s>%s%s</user-agent>%s%s</authenticate>\n",
+						nsSASL2, mechanism, userAgentID, userAgentSW, userAgentDev, bind2Data, fastAuth)
 				} else {
 					fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL)
 				}
@@ -1525,8 +1548,8 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 	}
 
 	chat.Text = validUTF8(chat.Text)
-	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+subtext+"<body>%s</body>"+oobtext+thdtext+"</message>\n",
-		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce(), xmlEscape(chat.Text))
+	stanza := fmt.Sprintf("<message from='%s' to='%s' type='%s' id='%s' xml:lang='en'>"+subtext+"<body>%s</body>"+oobtext+thdtext+"</message>\n",
+		c.jid, xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce(), xmlEscape(chat.Text))
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
