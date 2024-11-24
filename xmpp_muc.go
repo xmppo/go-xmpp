@@ -33,11 +33,11 @@ func (c *Client) JoinMUCNoHistory(jid, nick string) (n int, err error) {
 	if nick == "" {
 		nick = c.jid
 	}
-	return fmt.Fprintf(c.stanzaWriter, "<presence from='%s' to='%s/%s'>"+
+	return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 		"<x xmlns='%s'>"+
 		"<history maxchars='0'/></x>"+
 		"</presence>\n",
-		c.jid, xmlEscape(jid), xmlEscape(nick), nsMUC)
+		xmlEscape(jid), xmlEscape(nick), nsMUC)
 }
 
 // xep-0045 7.2
