@@ -517,7 +517,6 @@ func (c *Client) init(o *Options) error {
 					if o.UserAgentID != "" {
 						userAgentID = fmt.Sprintf(" id='%s'", o.UserAgentID)
 					}
-					fmt.Fprintf(c.stanzaWriter, "<authenticate xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL2)
 					fmt.Fprintf(c.stanzaWriter,
 						"<authenticate xmlns='%s' mechanism='%s'><user-agent%s>%s%s</user-agent>%s%s</authenticate>\n",
 						nsSASL2, mechanism, userAgentID, userAgentSW, userAgentDev, bind2Data, fastAuth)
