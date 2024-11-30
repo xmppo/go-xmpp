@@ -51,6 +51,7 @@ const (
 	nsTLS           = "urn:ietf:params:xml:ns:xmpp-tls"
 	nsSASL          = "urn:ietf:params:xml:ns:xmpp-sasl"
 	nsSASL2         = "urn:xmpp:sasl:2"
+	nsSASLUpgrade   = "urn:xmpp:sasl:upgrade:0"
 	nsBind          = "urn:ietf:params:xml:ns:xmpp-bind"
 	nsBind2         = "urn:xmpp:bind:0"
 	nsFast          = "urn:xmpp:fast:0"
@@ -64,6 +65,8 @@ const (
 	scramSHA256Plus = "SCRAM-SHA-256-PLUS"
 	scramSHA512     = "SCRAM-SHA-512"
 	scramSHA512Plus = "SCRAM-SHA-512-PLUS"
+	scramUpSHA256   = "UPGR-SCRAM-SHA-256"
+	scramUpSHA512   = "UPGR-SCRAM-SHA-256"
 	htSHA256Expr    = "HT-SHA-256-EXPR"
 	htSHA256Uniq    = "HT-SHA-256-UNIQ"
 	htSHA256Endp    = "HT-SHA-256-ENDP"
@@ -475,10 +478,11 @@ func (c *Client) init(o *Options) error {
 		return err
 	}
 	var mechanism, channelBinding, clientFirstMessage, clientFinalMessageBare, authMessage string
-	var bind2Data, resource, userAgentSW, userAgentDev, userAgentID, fastAuth string
+	var bind2Data, resource, userAgentSW, userAgentDev, userAgentID, fastAuth, scramUpgrade string
+	var scramUpgradeMech string
 	var serverSignature, keyingMaterial []byte
 	var scramPlus, ok, tlsConnOK, tls13, serverEndPoint, sasl2, bind2 bool
-	var cbsSlice, mechSlice []string
+	var cbsSlice, mechSlice, upgrSlice []string
 	var tlsConn *tls.Conn
 	// Use SASL2 if available
 	if f.Authentication.Mechanism != nil && c.IsEncrypted() {
@@ -497,6 +501,19 @@ func (c *Client) init(o *Options) error {
 			if m == "ANONYMOUS" {
 				mechanism = m
 				if sasl2 {
+					for _, um := range f.Authentication.Upgrade {
+						upgrSlice = append(upgrSlice, um.Text)
+					}
+					switch {
+					case slices.Contains(upgrSlice, scramUpSHA512):
+						scramUpgradeMech = scramUpSHA512
+					case slices.Contains(upgrSlice, scramUpSHA256):
+						scramUpgradeMech = scramUpSHA256
+					}
+					if scramUpgradeMech != "" {
+						scramUpgrade = fmt.Sprintf("<upgrade xmlns='%s'>%s</upgrade>",
+							nsSASLUpgrade, scramUpgradeMech)
+					}
 					if bind2 {
 						if o.UserAgentSW != "" {
 							resource = o.UserAgentSW
@@ -518,8 +535,8 @@ func (c *Client) init(o *Options) error {
 						userAgentID = fmt.Sprintf(" id='%s'", o.UserAgentID)
 					}
 					fmt.Fprintf(c.stanzaWriter,
-						"<authenticate xmlns='%s' mechanism='%s'><user-agent%s>%s%s</user-agent>%s%s</authenticate>\n",
-						nsSASL2, mechanism, userAgentID, userAgentSW, userAgentDev, bind2Data, fastAuth)
+						"<authenticate xmlns='%s' mechanism='%s'>%s<user-agent%s>%s%s</user-agent>%s%s</authenticate>\n",
+						nsSASL2, mechanism, scramUpgrade, userAgentID, userAgentSW, userAgentDev, bind2Data, fastAuth)
 				} else {
 					fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL)
 				}
@@ -752,6 +769,11 @@ func (c *Client) init(o *Options) error {
 				return err
 			}
 			switch v := val.(type) {
+			case *sasl2Continue:
+				fmt.Fprintf(c.stanzaWriter, "<next xmlns='%s' task='%s'/>",
+					nsSASL2, scramUpgradeMech)
+
+				// TODO: handle upgrade task.
 			case *sasl2Failure:
 				errorMessage := v.Text
 				if errorMessage == "" {
@@ -1718,6 +1740,10 @@ type sasl2Authentication struct {
 			Mechanism []string `xml:"mechanism"`
 		} `xml:"fast"`
 	} `xml:"inline"`
+	Upgrade []struct {
+		Text  string `xml:",chardata"`
+		Xmlns string `xml:"xmlns,attr"`
+	} `xml:"upgrade"`
 }
 
 // RFC 3920  C.4  SASL name space
@@ -1755,6 +1781,17 @@ type sasl2Success struct {
 		Expiry string `xml:"expiry,attr"`
 		Token  string `xml:"token,attr"`
 	} `xml:"token"`
+}
+
+type sasl2Continue struct {
+	XMLName        xml.Name `xml:"continue"`
+	Text           string   `xml:",chardata"`
+	Xmlns          string   `xml:"xmlns,attr"`
+	AdditionalData string   `xml:"additional-data"`
+	Tasks          struct {
+		Text string `xml:",chardata"`
+		Task string `xml:"task"`
+	} `xml:"tasks"`
 }
 
 type saslSuccess struct {
@@ -1995,6 +2032,8 @@ func (c *Client) next() (xml.Name, interface{}, error) {
 		nv = &saslAbort{}
 	case nsSASL2 + " success":
 		nv = &sasl2Success{}
+	case nsSASL2 + " continue":
+		nv = &sasl2Continue{}
 	case nsSASL + " success":
 		nv = &saslSuccess{}
 	case nsSASL2 + " failure":
