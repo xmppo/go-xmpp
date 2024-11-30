@@ -478,8 +478,8 @@ func (c *Client) init(o *Options) error {
 		return err
 	}
 	var mechanism, channelBinding, clientFirstMessage, clientFinalMessageBare, authMessage string
-	var bind2Data, resource, userAgentSW, userAgentDev, userAgentID, fastAuth, scramUpgrade string
-	var scramUpgradeMech string
+	var bind2Data, resource, userAgentSW, userAgentDev, userAgentID, fastAuth, saslUpgrade string
+	var saslUpgradeMech string
 	var serverSignature, keyingMaterial []byte
 	var scramPlus, ok, tlsConnOK, tls13, serverEndPoint, sasl2, bind2 bool
 	var cbsSlice, mechSlice, upgrSlice []string
@@ -501,19 +501,6 @@ func (c *Client) init(o *Options) error {
 			if m == "ANONYMOUS" {
 				mechanism = m
 				if sasl2 {
-					for _, um := range f.Authentication.Upgrade {
-						upgrSlice = append(upgrSlice, um.Text)
-					}
-					switch {
-					case slices.Contains(upgrSlice, scramUpSHA512):
-						scramUpgradeMech = scramUpSHA512
-					case slices.Contains(upgrSlice, scramUpSHA256):
-						scramUpgradeMech = scramUpSHA256
-					}
-					if scramUpgradeMech != "" {
-						scramUpgrade = fmt.Sprintf("<upgrade xmlns='%s'>%s</upgrade>",
-							nsSASLUpgrade, scramUpgradeMech)
-					}
 					if bind2 {
 						if o.UserAgentSW != "" {
 							resource = o.UserAgentSW
@@ -535,8 +522,8 @@ func (c *Client) init(o *Options) error {
 						userAgentID = fmt.Sprintf(" id='%s'", o.UserAgentID)
 					}
 					fmt.Fprintf(c.stanzaWriter,
-						"<authenticate xmlns='%s' mechanism='%s'>%s<user-agent%s>%s%s</user-agent>%s%s</authenticate>\n",
-						nsSASL2, mechanism, scramUpgrade, userAgentID, userAgentSW, userAgentDev, bind2Data, fastAuth)
+						"<authenticate xmlns='%s' mechanism='%s'><user-agent%s>%s%s</user-agent>%s%s</authenticate>\n",
+						nsSASL2, mechanism, userAgentID, userAgentSW, userAgentDev, bind2Data, fastAuth)
 				} else {
 					fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL)
 				}
@@ -673,6 +660,19 @@ func (c *Client) init(o *Options) error {
 				clientFirstMessage = "n,,n=" + user + ",r=" + clientNonce
 			}
 			if sasl2 {
+				for _, um := range f.Authentication.Upgrade {
+					upgrSlice = append(upgrSlice, um.Text)
+				}
+				switch {
+				case slices.Contains(upgrSlice, scramUpSHA512):
+					saslUpgradeMech = scramUpSHA512
+				case slices.Contains(upgrSlice, scramUpSHA256):
+					saslUpgradeMech = scramUpSHA256
+				}
+				if saslUpgradeMech != "" {
+					saslUpgrade = fmt.Sprintf("<upgrade xmlns='%s'>%s</upgrade>",
+						nsSASLUpgrade, saslUpgradeMech)
+				}
 				if bind2 {
 					if o.UserAgentSW != "" {
 						resource = o.UserAgentSW
@@ -757,8 +757,8 @@ func (c *Client) init(o *Options) error {
 					}
 				}
 				fmt.Fprintf(c.stanzaWriter,
-					"<authenticate xmlns='%s' mechanism='%s'><initial-response>%s</initial-response><user-agent%s>%s%s</user-agent>%s%s</authenticate>\n",
-					nsSASL2, mechanism, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)), userAgentID, userAgentSW, userAgentDev, bind2Data, fastAuth)
+					"<authenticate xmlns='%s' mechanism='%s'>%s<initial-response>%s</initial-response><user-agent%s>%s%s</user-agent>%s%s</authenticate>\n",
+					nsSASL2, mechanism, saslUpgrade, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)), userAgentID, userAgentSW, userAgentDev, bind2Data, fastAuth)
 			} else {
 				fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='%s'>%s</auth>\n",
 					nsSASL, mechanism, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)))
@@ -1018,15 +1018,16 @@ func (c *Client) init(o *Options) error {
 		}
 		switch v := val.(type) {
 		case *sasl2Continue:
-			fmt.Fprintf(c.stanzaWriter, "<next xmlns='%s' task='%s'/>",
-				nsSASL2, scramUpgradeMech)
+			fmt.Fprintf(c.stanzaWriter, "<next xmlns='%s' task='%s'/>\n",
+				nsSASL2, saslUpgradeMech)
+			name, val, err = c.next()
 			if err != nil {
 				return err
 			}
 			switch v := val.(type) {
 			case *sasl2TaskData:
 				var shaNewFn func() hash.Hash
-				switch scramUpgradeMech {
+				switch saslUpgradeMech {
 				case scramUpSHA512:
 					shaNewFn = sha512.New
 				case scramUpSHA256:
