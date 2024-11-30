@@ -2066,7 +2066,7 @@ func (c *Client) next() (xml.Name, interface{}, error) {
 		nv = &sasl2Success{}
 	case nsSASL2 + " continue":
 		nv = &sasl2Continue{}
-	case nsSASL2 + "task-data":
+	case nsSASL2 + " task-data":
 		nv = &sasl2TaskData{}
 	case nsSASL + " success":
 		nv = &saslSuccess{}
