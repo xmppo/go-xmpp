@@ -769,11 +769,6 @@ func (c *Client) init(o *Options) error {
 				return err
 			}
 			switch v := val.(type) {
-			case *sasl2Continue:
-				fmt.Fprintf(c.stanzaWriter, "<next xmlns='%s' task='%s'/>",
-					nsSASL2, scramUpgradeMech)
-
-				// TODO: handle upgrade task.
 			case *sasl2Failure:
 				errorMessage := v.Text
 				if errorMessage == "" {
@@ -1020,6 +1015,19 @@ func (c *Client) init(o *Options) error {
 		return err
 	}
 	switch v := val.(type) {
+	case *sasl2Continue:
+		fmt.Fprintf(c.stanzaWriter, "<next xmlns='%s' task='%s'/>",
+			nsSASL2, scramUpgradeMech)
+		if err != nil {
+			return err
+		}
+		switch v := val.(type) {
+		case *sasl2TaskData:
+			// TODO: handle upgrade task.
+		default:
+			return fmt.Errorf("sasl2 upgrade failure: expected *sasl2TaskData, got %v", v)
+		}
+
 	case *sasl2Success:
 		if strings.HasPrefix(mechanism, "SCRAM-SHA") {
 			successMsg, err := base64.StdEncoding.DecodeString(v.AdditionalData)
@@ -1794,6 +1802,17 @@ type sasl2Continue struct {
 	} `xml:"tasks"`
 }
 
+type sasl2TaskData struct {
+	XMLName xml.Name `xml:"task-data"`
+	Text    string   `xml:",chardata"`
+	Xmlns   string   `xml:"xmlns,attr"`
+	Salt    struct {
+		Text       string `xml:",chardata"`
+		Xmlns      string `xml:"xmlns,attr"`
+		Iterations string `xml:"iterations,attr"`
+	} `xml:"salt"`
+}
+
 type saslSuccess struct {
 	XMLName xml.Name `xml:"urn:ietf:params:xml:ns:xmpp-sasl success"`
 	Text    string   `xml:",chardata"`
@@ -2034,6 +2053,8 @@ func (c *Client) next() (xml.Name, interface{}, error) {
 		nv = &sasl2Success{}
 	case nsSASL2 + " continue":
 		nv = &sasl2Continue{}
+	case nsSASL2 + "task-data":
+		nv = &sasl2TaskData{}
 	case nsSASL + " success":
 		nv = &saslSuccess{}
 	case nsSASL2 + " failure":
