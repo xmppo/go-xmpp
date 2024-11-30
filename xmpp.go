@@ -66,7 +66,7 @@ const (
 	scramSHA512     = "SCRAM-SHA-512"
 	scramSHA512Plus = "SCRAM-SHA-512-PLUS"
 	scramUpSHA256   = "UPGR-SCRAM-SHA-256"
-	scramUpSHA512   = "UPGR-SCRAM-SHA-256"
+	scramUpSHA512   = "UPGR-SCRAM-SHA-512"
 	htSHA256Expr    = "HT-SHA-256-EXPR"
 	htSHA256Uniq    = "HT-SHA-256-UNIQ"
 	htSHA256Endp    = "HT-SHA-256-ENDP"
@@ -1009,164 +1009,177 @@ func (c *Client) init(o *Options) error {
 	if mechanism == "" {
 		return fmt.Errorf("no viable authentication method available: %v", f.Mechanisms.Mechanism)
 	}
-	// Next message should be either success or failure.
-	name, val, err := c.next()
-	if err != nil {
-		return err
-	}
-	switch v := val.(type) {
-	case *sasl2Continue:
-		fmt.Fprintf(c.stanzaWriter, "<next xmlns='%s' task='%s'/>",
-			nsSASL2, scramUpgradeMech)
+	var connected bool
+	for !connected {
+		// Next message should be either success or failure.
+		name, val, err := c.next()
 		if err != nil {
 			return err
 		}
 		switch v := val.(type) {
-		case *sasl2TaskData:
-			// TODO: handle upgrade task.
-		default:
-			return fmt.Errorf("sasl2 upgrade failure: expected *sasl2TaskData, got %v", v)
-		}
-
-	case *sasl2Success:
-		if strings.HasPrefix(mechanism, "SCRAM-SHA") {
-			successMsg, err := base64.StdEncoding.DecodeString(v.AdditionalData)
+		case *sasl2Continue:
+			fmt.Fprintf(c.stanzaWriter, "<next xmlns='%s' task='%s'/>",
+				nsSASL2, scramUpgradeMech)
 			if err != nil {
 				return err
 			}
-			if !strings.HasPrefix(string(successMsg), "v=") {
-				return errors.New("server sent unexpected content in SCRAM success message")
+			switch v := val.(type) {
+			case *sasl2TaskData:
+				var shaNewFn func() hash.Hash
+				switch scramUpgradeMech {
+				case scramUpSHA512:
+					shaNewFn = sha512.New
+				case scramUpSHA256:
+					shaNewFn = sha256.New
+				}
+				saltedPassword := pbkdf2.Key([]byte(o.Password), []byte(v.Salt.Text),
+					v.Salt.Iterations, shaNewFn().Size(), shaNewFn)
+				saltedPasswordB64 := base64.StdEncoding.EncodeToString(saltedPassword)
+				fmt.Fprintf(c.conn, "<task-data xmlns='%s'><hash xmlns='%s'>%s</hash></task-data>\n", nsSASL2, nsSASLUpgrade, saltedPasswordB64)
+			default:
+				return fmt.Errorf("sasl2 upgrade failure: expected *sasl2TaskData, got %s", name.Local)
 			}
-			serverSignatureReply := strings.SplitN(string(successMsg), "v=", 2)[1]
-			serverSignatureRemote, err := base64.StdEncoding.DecodeString(serverSignatureReply)
-			if err != nil {
-				return err
-			}
-			if string(serverSignature) != string(serverSignatureRemote) {
-				return errors.New("SCRAM: server signature mismatch")
-			}
-			c.Mechanism = mechanism
-		}
-		if bind2 {
-			c.jid = v.AuthorizationIdentifier
-		}
-		if v.Token.Token != "" {
-			m := f.Authentication.Inline.Fast.Mechanism
-			switch {
-			case slices.Contains(m, htSHA256Expr) && tls13:
-				c.Fast.Mechanism = htSHA256Expr
-			case slices.Contains(m, htSHA256Uniq) && !tls13:
-				c.Fast.Mechanism = htSHA256Uniq
-			case slices.Contains(m, htSHA256Endp):
-				c.Fast.Mechanism = htSHA256Endp
-			case slices.Contains(m, htSHA256None):
-				c.Fast.Mechanism = htSHA256None
-			}
-			c.Fast.Token = v.Token.Token
-			c.Fast.Expiry, _ = time.Parse(time.RFC3339, v.Token.Expiry)
-		}
-	case *saslSuccess:
-		if strings.HasPrefix(mechanism, "SCRAM-SHA") {
-			successMsg, err := base64.StdEncoding.DecodeString(v.Text)
-			if err != nil {
-				return err
-			}
-			if !strings.HasPrefix(string(successMsg), "v=") {
-				return errors.New("server sent unexpected content in SCRAM success message")
-			}
-			serverSignatureReply := strings.SplitN(string(successMsg), "v=", 2)[1]
-			serverSignatureRemote, err := base64.StdEncoding.DecodeString(serverSignatureReply)
-			if err != nil {
-				return err
-			}
-			if string(serverSignature) != string(serverSignatureRemote) {
-				return errors.New("SCRAM: server signature mismatch")
-			}
-			c.Mechanism = mechanism
-		}
-	case *sasl2Failure:
-		errorMessage := v.Text
-		if errorMessage == "" {
-			// v.Any is type of sub-element in failure,
-			// which gives a description of what failed if there was no text element
-			errorMessage = v.Any.Local
-		}
-		return errors.New("auth failure: " + errorMessage)
-	case *saslFailure:
-		errorMessage := v.Text
-		if errorMessage == "" {
-			// v.Any is type of sub-element in failure,
-			// which gives a description of what failed if there was no text element
-			errorMessage = v.Any.Local
-		}
-		return errors.New("auth failure: " + errorMessage)
-	default:
-		return errors.New("expected <success> or <failure>, got <" + name.Local + "> in " + name.Space)
-	}
 
-	if !sasl2 {
-		// Now that we're authenticated, we're supposed to start the stream over again.
-		// Declare intent to be a jabber client.
-		if f, err = c.startStream(o, domain); err != nil {
-			return err
-		}
-	}
-	// Make the max. stanza size limit available.
-	if f.Limits.MaxBytes != "" {
-		c.LimitMaxBytes, err = strconv.Atoi(f.Limits.MaxBytes)
-		if err != nil {
-			c.LimitMaxBytes = 0
-		}
-	}
-	// Make the servers time limit after which it might consider the stream idle available.
-	if f.Limits.IdleSeconds != "" {
-		c.LimitIdleSeconds, err = strconv.Atoi(f.Limits.IdleSeconds)
-		if err != nil {
-			c.LimitIdleSeconds = 0
-		}
-	}
-
-	if !bind2 {
-		// Generate a unique cookie
-		cookie := getCookie()
-
-		// Send IQ message asking to bind to the local user name.
-		if o.Resource == "" {
-			fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%x'><bind xmlns='%s'></bind></iq>\n", cookie, nsBind)
-		} else {
-			fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%x'><bind xmlns='%s'><resource>%s</resource></bind></iq>\n", cookie, nsBind, o.Resource)
-		}
-		_, val, err = c.next()
-		if err != nil {
-			return err
-		}
-		switch v := val.(type) {
-		case *streamError:
-			errorMessage := v.Text.Text
+		case *sasl2Success:
+			if strings.HasPrefix(mechanism, "SCRAM-SHA") {
+				successMsg, err := base64.StdEncoding.DecodeString(v.AdditionalData)
+				if err != nil {
+					return err
+				}
+				if !strings.HasPrefix(string(successMsg), "v=") {
+					return errors.New("server sent unexpected content in SCRAM success message")
+				}
+				serverSignatureReply := strings.SplitN(string(successMsg), "v=", 2)[1]
+				serverSignatureRemote, err := base64.StdEncoding.DecodeString(serverSignatureReply)
+				if err != nil {
+					return err
+				}
+				if string(serverSignature) != string(serverSignatureRemote) {
+					return errors.New("SCRAM: server signature mismatch")
+				}
+				c.Mechanism = mechanism
+			}
+			if bind2 {
+				c.jid = v.AuthorizationIdentifier
+			}
+			if v.Token.Token != "" {
+				m := f.Authentication.Inline.Fast.Mechanism
+				switch {
+				case slices.Contains(m, htSHA256Expr) && tls13:
+					c.Fast.Mechanism = htSHA256Expr
+				case slices.Contains(m, htSHA256Uniq) && !tls13:
+					c.Fast.Mechanism = htSHA256Uniq
+				case slices.Contains(m, htSHA256Endp):
+					c.Fast.Mechanism = htSHA256Endp
+				case slices.Contains(m, htSHA256None):
+					c.Fast.Mechanism = htSHA256None
+				}
+				c.Fast.Token = v.Token.Token
+				c.Fast.Expiry, _ = time.Parse(time.RFC3339, v.Token.Expiry)
+			}
+		case *saslSuccess:
+			if strings.HasPrefix(mechanism, "SCRAM-SHA") {
+				successMsg, err := base64.StdEncoding.DecodeString(v.Text)
+				if err != nil {
+					return err
+				}
+				if !strings.HasPrefix(string(successMsg), "v=") {
+					return errors.New("server sent unexpected content in SCRAM success message")
+				}
+				serverSignatureReply := strings.SplitN(string(successMsg), "v=", 2)[1]
+				serverSignatureRemote, err := base64.StdEncoding.DecodeString(serverSignatureReply)
+				if err != nil {
+					return err
+				}
+				if string(serverSignature) != string(serverSignatureRemote) {
+					return errors.New("SCRAM: server signature mismatch")
+				}
+				c.Mechanism = mechanism
+			}
+		case *sasl2Failure:
+			errorMessage := v.Text
 			if errorMessage == "" {
 				// v.Any is type of sub-element in failure,
 				// which gives a description of what failed if there was no text element
-				errorMessage = v.Any.Space
+				errorMessage = v.Any.Local
 			}
-			return errors.New("stream error: " + errorMessage)
-		case *clientIQ:
-			if v.Bind.XMLName.Space == nsBind {
-				c.jid = v.Bind.Jid // our local id
-				c.domain = domain
-			} else {
-				return errors.New("bind: unexpected reply to xmpp-bind IQ")
+			return errors.New("auth failure: " + errorMessage)
+		case *saslFailure:
+			errorMessage := v.Text
+			if errorMessage == "" {
+				// v.Any is type of sub-element in failure,
+				// which gives a description of what failed if there was no text element
+				errorMessage = v.Any.Local
+			}
+			return errors.New("auth failure: " + errorMessage)
+		default:
+			return errors.New("expected <success> or <failure>, got <" + name.Local + "> in " + name.Space)
+		}
+
+		if !sasl2 {
+			// Now that we're authenticated, we're supposed to start the stream over again.
+			// Declare intent to be a jabber client.
+			if f, err = c.startStream(o, domain); err != nil {
+				return err
 			}
 		}
-	}
-	if o.Session {
-		// if server support session, open it
-		cookie := getCookie() // generate new id value for session
-		fmt.Fprintf(c.stanzaWriter, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>\n", xmlEscape(domain), cookie, nsSession)
-	}
+		// Make the max. stanza size limit available.
+		if f.Limits.MaxBytes != "" {
+			c.LimitMaxBytes, err = strconv.Atoi(f.Limits.MaxBytes)
+			if err != nil {
+				c.LimitMaxBytes = 0
+			}
+		}
+		// Make the servers time limit after which it might consider the stream idle available.
+		if f.Limits.IdleSeconds != "" {
+			c.LimitIdleSeconds, err = strconv.Atoi(f.Limits.IdleSeconds)
+			if err != nil {
+				c.LimitIdleSeconds = 0
+			}
+		}
 
-	// We're connected and can now receive and send messages.
-	fmt.Fprintf(c.stanzaWriter, "<presence xml:lang='en'><show>%s</show><status>%s</status></presence>\n", o.Status, o.StatusMessage)
+		if !bind2 {
+			// Generate a unique cookie
+			cookie := getCookie()
 
+			// Send IQ message asking to bind to the local user name.
+			if o.Resource == "" {
+				fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%x'><bind xmlns='%s'></bind></iq>\n", cookie, nsBind)
+			} else {
+				fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%x'><bind xmlns='%s'><resource>%s</resource></bind></iq>\n", cookie, nsBind, o.Resource)
+			}
+			_, val, err = c.next()
+			if err != nil {
+				return err
+			}
+			switch v := val.(type) {
+			case *streamError:
+				errorMessage := v.Text.Text
+				if errorMessage == "" {
+					// v.Any is type of sub-element in failure,
+					// which gives a description of what failed if there was no text element
+					errorMessage = v.Any.Space
+				}
+				return errors.New("stream error: " + errorMessage)
+			case *clientIQ:
+				if v.Bind.XMLName.Space == nsBind {
+					c.jid = v.Bind.Jid // our local id
+					c.domain = domain
+				} else {
+					return errors.New("bind: unexpected reply to xmpp-bind IQ")
+				}
+			}
+		}
+		if o.Session {
+			// if server support session, open it
+			cookie := getCookie() // generate new id value for session
+			fmt.Fprintf(c.stanzaWriter, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>\n", xmlEscape(domain), cookie, nsSession)
+		}
+
+		// We're connected and can now receive and send messages.
+		fmt.Fprintf(c.stanzaWriter, "<presence xml:lang='en'><show>%s</show><status>%s</status></presence>\n", o.Status, o.StatusMessage)
+		connected = true
+	}
 	return nil
 }
 
@@ -1809,7 +1822,7 @@ type sasl2TaskData struct {
 	Salt    struct {
 		Text       string `xml:",chardata"`
 		Xmlns      string `xml:"xmlns,attr"`
-		Iterations string `xml:"iterations,attr"`
+		Iterations int    `xml:"iterations,attr"`
 	} `xml:"salt"`
 }
 
