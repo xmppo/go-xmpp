@@ -52,6 +52,7 @@ const (
 	nsSASL          = "urn:ietf:params:xml:ns:xmpp-sasl"
 	nsSASL2         = "urn:xmpp:sasl:2"
 	nsSASLUpgrade   = "urn:xmpp:sasl:upgrade:0"
+	nsSCRAMUpgrade  = "urn:xmpp:scram-upgrade:0"
 	nsBind          = "urn:ietf:params:xml:ns:xmpp-bind"
 	nsBind2         = "urn:xmpp:bind:0"
 	nsFast          = "urn:xmpp:fast:0"
@@ -480,7 +481,7 @@ func (c *Client) init(o *Options) error {
 	var mechanism, channelBinding, clientFirstMessage, clientFinalMessageBare, authMessage string
 	var bind2Data, resource, userAgentSW, userAgentDev, userAgentID, fastAuth, saslUpgrade string
 	var saslUpgradeMech string
-	var serverSignature, keyingMaterial []byte
+	var serverSignature, keyingMaterial, successMsg []byte
 	var scramPlus, ok, tlsConnOK, tls13, serverEndPoint, sasl2, bind2 bool
 	var cbsSlice, mechSlice, upgrSlice []string
 	var tlsConn *tls.Conn
@@ -1018,6 +1019,10 @@ func (c *Client) init(o *Options) error {
 		}
 		switch v := val.(type) {
 		case *sasl2Continue:
+			successMsg, err = base64.StdEncoding.DecodeString(v.AdditionalData)
+			if err != nil {
+				return err
+			}
 			fmt.Fprintf(c.stanzaWriter, "<next xmlns='%s' task='%s'/>\n",
 				nsSASL2, saslUpgradeMech)
 			name, val, err = c.next()
@@ -1040,16 +1045,19 @@ func (c *Client) init(o *Options) error {
 				saltedPassword := pbkdf2.Key([]byte(o.Password), salt,
 					v.Salt.Iterations, shaNewFn().Size(), shaNewFn)
 				saltedPasswordB64 := base64.StdEncoding.EncodeToString(saltedPassword)
-				fmt.Fprintf(c.conn, "<task-data xmlns='%s'><hash xmlns='%s'>%s</hash></task-data>\n", nsSASL2, nsSASLUpgrade, saltedPasswordB64)
+				fmt.Fprintf(c.stanzaWriter, "<task-data xmlns='%s'><hash xmlns='%s'>%s</hash></task-data>\n", nsSASL2, nsSCRAMUpgrade, saltedPasswordB64)
+				continue
 			default:
 				return fmt.Errorf("sasl2 upgrade failure: expected *sasl2TaskData, got %s", name.Local)
 			}
 
 		case *sasl2Success:
 			if strings.HasPrefix(mechanism, "SCRAM-SHA") {
-				successMsg, err := base64.StdEncoding.DecodeString(v.AdditionalData)
-				if err != nil {
-					return err
+				if len(successMsg) == 0 {
+					successMsg, err = base64.StdEncoding.DecodeString(v.AdditionalData)
+					if err != nil {
+						return err
+					}
 				}
 				if !strings.HasPrefix(string(successMsg), "v=") {
 					return errors.New("server sent unexpected content in SCRAM success message")
