@@ -1037,7 +1037,7 @@ func (c *Client) init(o *Options) error {
 				if err != nil {
 					return err
 				}
-				saltedPassword := pbkdf2.Key([]byte(o.Password), []byte(salt),
+				saltedPassword := pbkdf2.Key([]byte(o.Password), salt,
 					v.Salt.Iterations, shaNewFn().Size(), shaNewFn)
 				saltedPasswordB64 := base64.StdEncoding.EncodeToString(saltedPassword)
 				fmt.Fprintf(c.conn, "<task-data xmlns='%s'><hash xmlns='%s'>%s</hash></task-data>\n", nsSASL2, nsSASLUpgrade, saltedPasswordB64)
