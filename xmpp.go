@@ -294,6 +294,9 @@ type Options struct {
 
 	// NoPLAIN forbids authentication using plain passwords
 	NoPLAIN bool
+
+	// NoSASLUpgrade disables XEP-0480 upgrades.
+	NoSASLUpgrade bool
 }
 
 // NewClient establishes a new Client connection based on a set of Options.
@@ -661,18 +664,20 @@ func (c *Client) init(o *Options) error {
 				clientFirstMessage = "n,,n=" + user + ",r=" + clientNonce
 			}
 			if sasl2 {
-				for _, um := range f.Authentication.Upgrade {
-					upgrSlice = append(upgrSlice, um.Text)
-				}
-				switch {
-				case slices.Contains(upgrSlice, scramUpSHA512):
-					saslUpgradeMech = scramUpSHA512
-				case slices.Contains(upgrSlice, scramUpSHA256):
-					saslUpgradeMech = scramUpSHA256
-				}
-				if saslUpgradeMech != "" {
-					saslUpgrade = fmt.Sprintf("<upgrade xmlns='%s'>%s</upgrade>",
-						nsSASLUpgrade, saslUpgradeMech)
+				if !o.NoSASLUpgrade {
+					for _, um := range f.Authentication.Upgrade {
+						upgrSlice = append(upgrSlice, um.Text)
+					}
+					switch {
+					case slices.Contains(upgrSlice, scramUpSHA512):
+						saslUpgradeMech = scramUpSHA512
+					case slices.Contains(upgrSlice, scramUpSHA256):
+						saslUpgradeMech = scramUpSHA256
+					}
+					if saslUpgradeMech != "" {
+						saslUpgrade = fmt.Sprintf("<upgrade xmlns='%s'>%s</upgrade>",
+							nsSASLUpgrade, saslUpgradeMech)
+					}
 				}
 				if bind2 {
 					if o.UserAgentSW != "" {
