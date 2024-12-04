@@ -1300,7 +1300,6 @@ func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error)
 		return v, nil
 	case *streamError:
 		if c.IsEncrypted() && v.SeeOtherHost.Text != "" {
-			fmt.Println("otter host:", v.SeeOtherHost.Text)
 			c.conn.Close()
 			c.conn, err = connect(v.SeeOtherHost.Text, o.User, o.DialTimeout)
 			if err != nil {
