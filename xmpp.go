@@ -1291,10 +1291,37 @@ func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error)
 	// Next message should be <features> to tell us authentication options.
 	// See section 4.6 in RFC 3920.
 	f := new(streamFeatures)
-	if err = c.p.DecodeElement(f, nil); err != nil {
-		return f, errors.New("unmarshal <features>: " + err.Error())
+	name, val, err := c.next()
+	if err != nil {
+		return f, err
 	}
-	return f, nil
+	switch v := val.(type) {
+	case *streamFeatures:
+		return v, nil
+	case *streamError:
+		if c.IsEncrypted() && v.SeeOtherHost.Text != "" {
+			fmt.Println("otter host:", v.SeeOtherHost.Text)
+			c.conn.Close()
+			c.conn, err = connect(v.SeeOtherHost.Text, o.User, o.DialTimeout)
+			if err != nil {
+				return f, err
+			}
+			f, err = c.startStream(o, domain)
+			if err != nil {
+				return f, errors.New("unmarshal <features>: " + err.Error())
+			}
+			return f, nil
+		}
+		errorMessage := v.Text.Text
+		if errorMessage == "" {
+			// v.Any is type of sub-element in failure,
+			// which gives a description of what failed if there was no text element
+			errorMessage = v.Any.Space
+		}
+		return f, errors.New("stream error: " + errorMessage)
+	default:
+		return f, errors.New("expected <success> or <failure>, got <" + name.Local + "> in " + name.Space)
+	}
 }
 
 // IsEncrypted will return true if the client is connected using a TLS transport, either because it used.
@@ -1746,6 +1773,10 @@ type streamError struct {
 		Lang  string `xml:"lang,attr"`
 		Xmlns string `xml:"xmlns,attr"`
 	} `xml:"text"`
+	SeeOtherHost struct {
+		Text  string `xml:",chardata"`
+		Xmlns string `xml:"xmlns,attr"`
+	} `xml:"see-other-host"`
 }
 
 // RFC 3920  C.3  TLS name space
