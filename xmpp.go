@@ -107,11 +107,6 @@ func (d debugWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-var (
-	debugSend = &debugWriter{w: os.Stdout, prefix: "SEND: "}
-	debugRecv = &debugWriter{w: os.Stdout, prefix: "RECV: "}
-)
-
 // Cookie is a unique XMPP session identifier
 type Cookie uint64
 
@@ -280,6 +275,9 @@ type Options struct {
 
 	// Debug output
 	Debug bool
+
+	// DebugWriter specifies where the debug output is written to
+	DebugWriter io.Writer
 
 	// Use server sessions
 	Session bool
@@ -1288,7 +1286,12 @@ func (c *Client) startTLSIfRequired(f *streamFeatures, o *Options, domain string
 // will be returned.
 func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error) {
 	if o.Debug {
+		if o.DebugWriter == nil {
+			o.DebugWriter = os.Stderr
+		}
+		debugRecv := &debugWriter{w: o.DebugWriter, prefix: "RECV: "}
 		c.p = xml.NewDecoder(tee{c.conn, debugRecv})
+		debugSend := &debugWriter{w: o.DebugWriter, prefix: "SEND: "}
 		c.stanzaWriter = io.MultiWriter(c.conn, debugSend)
 	} else {
 		c.p = xml.NewDecoder(c.conn)
