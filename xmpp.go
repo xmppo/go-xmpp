@@ -78,7 +78,40 @@ const (
 var DefaultConfig = &tls.Config{}
 
 // DebugWriter is the writer used to write debugging output to.
-var DebugWriter io.Writer = os.Stdout
+type debugWriter struct {
+	w      io.Writer
+	prefix string
+}
+
+func (d debugWriter) Write(p []byte) (int, error) {
+	println("len of p:", len(p))
+	nl := []byte("\n")
+	switch {
+	case len(p) == 0:
+		return 0, nil
+	case string(p) == "":
+		return len(p), nil
+	case string(p) == "\n":
+		return len(p), nil
+	}
+	data := append([]byte(d.prefix), p...)
+	if !strings.HasSuffix(string(p), "\n") {
+		data = append(data, nl...)
+	}
+	n, err := d.w.Write(data)
+	if err != nil {
+		return n, err
+	}
+	if n != len(data) {
+		return n, io.ErrShortWrite
+	}
+	return len(p), nil
+}
+
+var (
+	debugSend = &debugWriter{w: os.Stdout, prefix: "SEND: "}
+	debugRecv = &debugWriter{w: os.Stdout, prefix: "RECV: "}
+)
 
 // Cookie is a unique XMPP session identifier
 type Cookie uint64
@@ -1256,8 +1289,8 @@ func (c *Client) startTLSIfRequired(f *streamFeatures, o *Options, domain string
 // will be returned.
 func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error) {
 	if o.Debug {
-		c.p = xml.NewDecoder(tee{c.conn, DebugWriter})
-		c.stanzaWriter = io.MultiWriter(c.conn, DebugWriter)
+		c.p = xml.NewDecoder(tee{c.conn, debugRecv})
+		c.stanzaWriter = io.MultiWriter(c.conn, debugSend)
 	} else {
 		c.p = xml.NewDecoder(c.conn)
 		c.stanzaWriter = c.conn
