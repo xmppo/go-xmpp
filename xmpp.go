@@ -726,11 +726,17 @@ func (c *Client) init(o *Options) error {
 						mechanism = o.FastMechanism
 						switch mechanism {
 						case htSHA256Expr:
+							if !tls13 {
+								return fmt.Errorf("fast: %s can only be used when using TLSv1.3", htSHA256Expr)
+							}
 							keyingMaterial, err = tlsState.ExportKeyingMaterial("EXPORTER-Channel-Binding", nil, 32)
 							if err != nil {
 								return err
 							}
 						case htSHA256Uniq:
+							if tls13 {
+								return fmt.Errorf("fast: %s can not be used when using TLSv1.3", htSHA256Uniq)
+							}
 							keyingMaterial = tlsState.TLSUnique
 						case htSHA256Endp:
 							var h hash.Hash
