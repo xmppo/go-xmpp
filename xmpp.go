@@ -84,7 +84,6 @@ type debugWriter struct {
 }
 
 func (d debugWriter) Write(p []byte) (int, error) {
-	println("len of p:", len(p))
 	nl := []byte("\n")
 	switch {
 	case len(p) == 0:
