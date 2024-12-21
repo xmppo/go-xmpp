@@ -927,6 +927,15 @@ func (c *Client) init(o *Options) error {
 							dgProtect = dgProtect + "," + mech
 						}
 					}
+					if f.Authentication.Inline.Fast.Mechanism != nil {
+						for _, mech := range f.Authentication.Inline.Fast.Mechanism {
+							if dgProtect == "" {
+								dgProtect = mech
+							} else {
+								dgProtect = dgProtect + "," + mech
+							}
+						}
+					}
 					slices.Sort(cbsSlice)
 					for i, cb := range cbsSlice {
 						if i == 0 {
