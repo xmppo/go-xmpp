@@ -940,7 +940,8 @@ func (c *Client) init(o *Options) error {
 					dHash := dgh.Sum(nil)
 					dHashb64 := base64.StdEncoding.EncodeToString(dHash)
 					if dHashb64 != serverDgProtectHash {
-						return errors.New("SCRAM: downgrade protection hash mismatch")
+						return fmt.Errorf("SCRAM: downgrade protection hash mismatch, expected: %s (hash of %s), received: %s",
+							dHashb64, dgProtect, serverDgProtectHash)
 					}
 					dgh.Reset()
 				case strings.HasPrefix(serverReply, "m="):
