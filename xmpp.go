@@ -893,7 +893,8 @@ func (c *Client) init(o *Options) error {
 			if err != nil {
 				return err
 			}
-			var serverNonce, dgProtect string
+			var serverNonce string
+			var dgProtect, dgProtectSep, dgProtectCBSep []byte
 			var salt []byte
 			var iterations int
 			for _, serverReply := range strings.Split(string(b), ",") {
@@ -918,25 +919,30 @@ func (c *Client) init(o *Options) error {
 						return err
 					}
 				case strings.HasPrefix(serverReply, "d=") && o.SSDP:
+					dgProtectSep = []byte(",")
+					dgProtectCBSep = []byte("|")
 					serverDgProtectHash := strings.SplitN(serverReply, "=", 2)[1]
 					slices.Sort(f.Mechanisms.Mechanism)
 					for _, mech := range f.Mechanisms.Mechanism {
-						if dgProtect == "" {
-							dgProtect = mech
+						if len(dgProtect[:]) == 0 {
+							dgProtect = []byte(mech)
 						} else {
-							dgProtect = dgProtect + "," + mech
+							dgProtect = append(dgProtect, dgProtectSep...)
+							dgProtect = append(dgProtect, []byte(mech)...)
 						}
 					}
 					slices.Sort(cbsSlice)
 					for i, cb := range cbsSlice {
 						if i == 0 {
-							dgProtect = dgProtect + "|" + cb
+							dgProtect = append(dgProtect, dgProtectCBSep...)
+							dgProtect = append(dgProtect, []byte(cb)...)
 						} else {
-							dgProtect = dgProtect + "," + cb
+							dgProtect = append(dgProtect, dgProtectSep...)
+							dgProtect = append(dgProtect, []byte(cb)...)
 						}
 					}
 					dgh := shaNewFn()
-					dgh.Write([]byte(dgProtect))
+					dgh.Write(dgProtect)
 					dHash := dgh.Sum(nil)
 					dHashb64 := base64.StdEncoding.EncodeToString(dHash)
 					if dHashb64 != serverDgProtectHash {
