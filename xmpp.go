@@ -1501,6 +1501,8 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				}
 				fallthrough
 			case v.Type == "error":
+				// TODO: Get rid of constant IDs as this might lead to duplicate IDs
+				// which shall be avoided.
 				switch v.ID {
 				case "sub1":
 					// Pubsub subscription failed
@@ -1530,6 +1532,32 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 					}, nil
 				}
 			case v.Type == "result":
+				switch {
+				case v.Query.XMLName.Space == XMPPNS_DISCO_ITEMS:
+					var itemsQuery clientDiscoItemsQuery
+					err := xml.Unmarshal(v.InnerXML, &itemsQuery)
+					if err != nil {
+						return []DiscoItem{}, err
+					}
+
+					return DiscoItems{
+						Jid:   v.From,
+						Items: clientDiscoItemsToReturn(itemsQuery.Items),
+					}, nil
+				case v.Query.XMLName.Space == XMPPNS_DISCO_INFO:
+					var disco clientDiscoQuery
+					err := xml.Unmarshal(v.InnerXML, &disco)
+					if err != nil {
+						return DiscoResult{}, err
+					}
+
+					return DiscoResult{
+						Features:   clientFeaturesToReturn(disco.Features),
+						Identities: clientIdentitiesToReturn(disco.Identities),
+					}, nil
+				}
+				// TODO: Get rid of constant IDs as this might lead to duplicate IDs
+				// which shall be avoided.
 				switch v.ID {
 				case "sub1":
 					if v.Query.XMLName.Local == "pubsub" {
@@ -1569,32 +1597,6 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 							JID:    v.From,
 							Node:   "",
 							Errors: nil,
-						}, nil
-					}
-				case "info1":
-					if v.Query.XMLName.Space == XMPPNS_DISCO_ITEMS {
-						var itemsQuery clientDiscoItemsQuery
-						err := xml.Unmarshal(v.InnerXML, &itemsQuery)
-						if err != nil {
-							return []DiscoItem{}, err
-						}
-
-						return DiscoItems{
-							Jid:   v.From,
-							Items: clientDiscoItemsToReturn(itemsQuery.Items),
-						}, nil
-					}
-				case "info3":
-					if v.Query.XMLName.Space == XMPPNS_DISCO_INFO {
-						var disco clientDiscoQuery
-						err := xml.Unmarshal(v.InnerXML, &disco)
-						if err != nil {
-							return DiscoResult{}, err
-						}
-
-						return DiscoResult{
-							Features:   clientFeaturesToReturn(disco.Features),
-							Identities: clientIdentitiesToReturn(disco.Identities),
 						}, nil
 					}
 				case "items1", "items3":

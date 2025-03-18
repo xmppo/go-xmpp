@@ -19,13 +19,13 @@ func (c *Client) Discovery() (string, error) {
 // Discover information about a node. Empty node queries info about server itself.
 func (c *Client) DiscoverNodeInfo(node string) (string, error) {
 	query := fmt.Sprintf("<query xmlns='%s' node='%s'/>", XMPPNS_DISCO_INFO, node)
-	return c.RawInformation(c.jid, c.domain, "info3", IQTypeGet, query)
+	return c.RawInformation(c.jid, c.domain, getUUIDv4(), IQTypeGet, query)
 }
 
 // Discover information about given item from given jid.
 func (c *Client) DiscoverInfo(to string) (string, error) {
 	query := fmt.Sprintf("<query xmlns='%s'/>", XMPPNS_DISCO_INFO)
-	return c.RawInformation(c.jid, to, "info3", IQTypeGet, query)
+	return c.RawInformation(c.jid, to, getUUIDv4(), IQTypeGet, query)
 }
 
 // Discover items that the server exposes
@@ -36,7 +36,7 @@ func (c *Client) DiscoverServerItems() (string, error) {
 // Discover items that an entity exposes
 func (c *Client) DiscoverEntityItems(jid string) (string, error) {
 	query := fmt.Sprintf("<query xmlns='%s'/>", XMPPNS_DISCO_ITEMS)
-	return c.RawInformation(c.jid, jid, "info1", IQTypeGet, query)
+	return c.RawInformation(c.jid, jid, getUUIDv4(), IQTypeGet, query)
 }
 
 // RawInformationQuery sends an information query request to the server.
