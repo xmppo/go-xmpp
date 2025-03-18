@@ -2,7 +2,6 @@ package xmpp
 
 import (
 	"fmt"
-	"strconv"
 )
 
 const (
@@ -13,7 +12,7 @@ const (
 
 func (c *Client) Discovery() (string, error) {
 	// use UUIDv4 for a pseudo random id.
-	reqID := strconv.FormatUint(uint64(getCookie()), 10)
+	reqID := getUUIDv4()
 	return c.RawInformationQuery(c.jid, c.domain, reqID, IQTypeGet, XMPPNS_DISCO_ITEMS, "")
 }
 

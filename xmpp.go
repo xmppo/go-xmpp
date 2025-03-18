@@ -118,6 +118,10 @@ func getCookie() Cookie {
 	return Cookie(binary.LittleEndian.Uint64(buf[:]))
 }
 
+func getUUIDv4() string {
+	return strconv.FormatUint(uint64(getCookie()), 10)
+}
+
 // Fast holds the XEP-0484 fast token, mechanism and expiry date
 type Fast struct {
 	Token     string
