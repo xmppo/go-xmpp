@@ -933,7 +933,7 @@ func (c *Client) init(o *Options) error {
 					serverDgProtectHash := strings.SplitN(serverReply, "=", 2)[1]
 					slices.Sort(f.Mechanisms.Mechanism)
 					for _, mech := range f.Mechanisms.Mechanism {
-						if len(dgProtect[:]) == 0 {
+						if len(dgProtect) == 0 {
 							dgProtect = []byte(mech)
 						} else {
 							dgProtect = append(dgProtect, dgProtectSep...)
