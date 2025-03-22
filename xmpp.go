@@ -1501,8 +1501,6 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				}
 				fallthrough
 			case v.Type == "error":
-				// TODO(mdosch): Get rid of constant IDs as this might lead to duplicate IDs
-				// which shall be avoided.
 				switch {
 				case slices.Contains(subIDs, v.ID):
 					index := slices.Index(subIDs, v.ID)
@@ -1558,8 +1556,6 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 						Identities: clientIdentitiesToReturn(disco.Identities),
 					}, nil
 				}
-				// TODO(mdosch): Get rid of constant IDs as this might lead to duplicate IDs
-				// which shall be avoided.
 				switch {
 				case slices.Contains(subIDs, v.ID):
 					index := slices.Index(subIDs, v.ID)
@@ -1605,7 +1601,9 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 							Errors: nil,
 						}, nil
 					}
-				case v.ID == "items1" || v.ID == "items3":
+				case slices.Contains(itemsIDs, v.ID):
+					index := slices.Index(itemsIDs, v.ID)
+					itemsIDs = slices.Delete(itemsIDs, index, index)
 					if v.Query.XMLName.Local == "pubsub" {
 						var p clientPubsubItems
 						err := xml.Unmarshal([]byte(v.Query.InnerXML), &p)

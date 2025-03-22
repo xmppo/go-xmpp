@@ -6,6 +6,7 @@ import (
 )
 
 var (
+	itemsIDs []string
 	subIDs   []string
 	unsubIDs []string
 )
@@ -129,13 +130,17 @@ func (c *Client) PubsubUnsubscribeNode(node, jid string) error {
 }
 
 func (c *Client) PubsubRequestLastItems(node, jid string) error {
+	id := getUUIDv4()
+	itemsIDs = append(itemsIDs, id)
 	body := fmt.Sprintf("<items node='%s'/>", node)
-	_, err := c.RawInformation(c.jid, jid, "items1", "get", pubsubStanza(body))
+	_, err := c.RawInformation(c.jid, jid, id, "get", pubsubStanza(body))
 	return err
 }
 
 func (c *Client) PubsubRequestItem(node, jid, id string) error {
+	stanzaID := getUUIDv4()
+	itemsIDs = append(itemsIDs, stanzaID)
 	body := fmt.Sprintf("<items node='%s'><item id='%s'/></items>", node, id)
-	_, err := c.RawInformation(c.jid, jid, "items3", "get", pubsubStanza(body))
+	_, err := c.RawInformation(c.jid, jid, stanzaID, "get", pubsubStanza(body))
 	return err
 }
