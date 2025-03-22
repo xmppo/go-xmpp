@@ -1555,8 +1555,6 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 						Features:   clientFeaturesToReturn(disco.Features),
 						Identities: clientIdentitiesToReturn(disco.Identities),
 					}, nil
-				}
-				switch {
 				case slices.Contains(subIDs, v.ID):
 					index := slices.Index(subIDs, v.ID)
 					subIDs = slices.Delete(subIDs, index, index)
