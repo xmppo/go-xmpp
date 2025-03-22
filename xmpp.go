@@ -1501,7 +1501,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				}
 				fallthrough
 			case v.Type == "error":
-				// TODO: Get rid of constant IDs as this might lead to duplicate IDs
+				// TODO(mdosch): Get rid of constant IDs as this might lead to duplicate IDs
 				// which shall be avoided.
 				switch v.ID {
 				case "sub1":
@@ -1556,7 +1556,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 						Identities: clientIdentitiesToReturn(disco.Identities),
 					}, nil
 				}
-				// TODO: Get rid of constant IDs as this might lead to duplicate IDs
+				// TODO(mdosch): Get rid of constant IDs as this might lead to duplicate IDs
 				// which shall be avoided.
 				switch v.ID {
 				case "sub1":
