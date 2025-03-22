@@ -5,6 +5,11 @@ import (
 	"fmt"
 )
 
+var (
+	subIDs   []string
+	unsubIDs []string
+)
+
 const (
 	XMPPNS_PUBSUB       = "http://jabber.org/protocol/pubsub"
 	XMPPNS_PUBSUB_EVENT = "http://jabber.org/protocol/pubsub#event"
@@ -102,18 +107,22 @@ func pubsubUnsubscriptionStanza(node, jid string) string {
 }
 
 func (c *Client) PubsubSubscribeNode(node, jid string) error {
+	id := getUUIDv4()
+	subIDs = append(subIDs, id)
 	_, err := c.RawInformation(c.jid,
 		jid,
-		"sub1",
+		id,
 		"set",
 		pubsubSubscriptionStanza(node, c.jid))
 	return err
 }
 
 func (c *Client) PubsubUnsubscribeNode(node, jid string) error {
+	id := getUUIDv4()
+	unsubIDs = append(unsubIDs, id)
 	_, err := c.RawInformation(c.jid,
 		jid,
-		"unsub1",
+		id,
 		"set",
 		pubsubUnsubscriptionStanza(node, c.jid))
 	return err

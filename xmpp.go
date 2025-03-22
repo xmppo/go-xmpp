@@ -1503,8 +1503,10 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 			case v.Type == "error":
 				// TODO(mdosch): Get rid of constant IDs as this might lead to duplicate IDs
 				// which shall be avoided.
-				switch v.ID {
-				case "sub1":
+				switch {
+				case slices.Contains(subIDs, v.ID):
+					index := slices.Index(subIDs, v.ID)
+					subIDs = slices.Delete(subIDs, index, index)
 					// Pubsub subscription failed
 					var errs []clientPubsubError
 					err := xml.Unmarshal([]byte(v.Error.InnerXML), &errs)
@@ -1558,8 +1560,10 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				}
 				// TODO(mdosch): Get rid of constant IDs as this might lead to duplicate IDs
 				// which shall be avoided.
-				switch v.ID {
-				case "sub1":
+				switch {
+				case slices.Contains(subIDs, v.ID):
+					index := slices.Index(subIDs, v.ID)
+					subIDs = slices.Delete(subIDs, index, index)
 					if v.Query.XMLName.Local == "pubsub" {
 						// Subscription or unsubscription was successful
 						var sub clientPubsubSubscription
@@ -1575,7 +1579,9 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 							Errors: nil,
 						}, nil
 					}
-				case "unsub1":
+				case slices.Contains(unsubIDs, v.ID):
+					index := slices.Index(unsubIDs, v.ID)
+					unsubIDs = slices.Delete(unsubIDs, index, index)
 					if v.Query.XMLName.Local == "pubsub" {
 						var sub clientPubsubSubscription
 						err := xml.Unmarshal([]byte(v.Query.InnerXML), &sub)
@@ -1599,7 +1605,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 							Errors: nil,
 						}, nil
 					}
-				case "items1", "items3":
+				case v.ID == "items1" || v.ID == "items3":
 					if v.Query.XMLName.Local == "pubsub" {
 						var p clientPubsubItems
 						err := xml.Unmarshal([]byte(v.Query.InnerXML), &p)
