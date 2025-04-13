@@ -126,8 +126,8 @@ var emptyPubSub = strings.TrimSpace(`
 `)
 
 func TestEmptyPubsub(t *testing.T) {
-	itemsIDs = append(itemsIDs, "items3")
 	var c Client
+	c.itemsIDs = append(c.itemsIDs, "items3")
 	c.conn = tConnect(emptyPubSub)
 	c.p = xml.NewDecoder(c.conn)
 	m, err := c.Recv()

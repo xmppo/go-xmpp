@@ -5,12 +5,6 @@ import (
 	"fmt"
 )
 
-var (
-	itemsIDs []string
-	subIDs   []string
-	unsubIDs []string
-)
-
 const (
 	XMPPNS_PUBSUB       = "http://jabber.org/protocol/pubsub"
 	XMPPNS_PUBSUB_EVENT = "http://jabber.org/protocol/pubsub#event"
@@ -109,7 +103,7 @@ func pubsubUnsubscriptionStanza(node, jid string) string {
 
 func (c *Client) PubsubSubscribeNode(node, jid string) error {
 	id := getUUIDv4()
-	subIDs = append(subIDs, id)
+	c.subIDs = append(c.subIDs, id)
 	_, err := c.RawInformation(c.jid,
 		jid,
 		id,
@@ -120,7 +114,7 @@ func (c *Client) PubsubSubscribeNode(node, jid string) error {
 
 func (c *Client) PubsubUnsubscribeNode(node, jid string) error {
 	id := getUUIDv4()
-	unsubIDs = append(unsubIDs, id)
+	c.unsubIDs = append(c.unsubIDs, id)
 	_, err := c.RawInformation(c.jid,
 		jid,
 		id,
@@ -131,7 +125,7 @@ func (c *Client) PubsubUnsubscribeNode(node, jid string) error {
 
 func (c *Client) PubsubRequestLastItems(node, jid string) error {
 	id := getUUIDv4()
-	itemsIDs = append(itemsIDs, id)
+	c.itemsIDs = append(c.itemsIDs, id)
 	body := fmt.Sprintf("<items node='%s'/>", node)
 	_, err := c.RawInformation(c.jid, jid, id, "get", pubsubStanza(body))
 	return err
@@ -139,7 +133,7 @@ func (c *Client) PubsubRequestLastItems(node, jid string) error {
 
 func (c *Client) PubsubRequestItem(node, jid, id string) error {
 	stanzaID := getUUIDv4()
-	itemsIDs = append(itemsIDs, stanzaID)
+	c.itemsIDs = append(c.itemsIDs, stanzaID)
 	body := fmt.Sprintf("<items node='%s'><item id='%s'/></items>", node, id)
 	_, err := c.RawInformation(c.jid, jid, stanzaID, "get", pubsubStanza(body))
 	return err

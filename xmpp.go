@@ -138,10 +138,13 @@ type Client struct {
 	shutdown         bool       // Variable signalling that the stream will be closed
 	p                *xml.Decoder
 	stanzaWriter     io.Writer
-	LimitMaxBytes    int    // Maximum stanza size (XEP-0478: Stream Limits Advertisement)
-	LimitIdleSeconds int    // Maximum idle seconds (XEP-0478: Stream Limits Advertisement)
-	Mechanism        string // SCRAM mechanism used.
-	Fast             Fast   // XEP-0484 FAST Token, mechanism and expiry.
+	subIDs           []string // IDs of subscription stanzas
+	unsubIDs         []string // IDs of unsubscription stanzas
+	itemsIDs         []string // IDs of item requests
+	LimitMaxBytes    int      // Maximum stanza size (XEP-0478: Stream Limits Advertisement)
+	LimitIdleSeconds int      // Maximum idle seconds (XEP-0478: Stream Limits Advertisement)
+	Mechanism        string   // SCRAM mechanism used.
+	Fast             Fast     // XEP-0484 FAST Token, mechanism and expiry.
 }
 
 func (c *Client) JID() string {
@@ -1502,9 +1505,9 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				fallthrough
 			case v.Type == "error":
 				switch {
-				case slices.Contains(subIDs, v.ID):
-					index := slices.Index(subIDs, v.ID)
-					subIDs = slices.Delete(subIDs, index, index)
+				case slices.Contains(c.subIDs, v.ID):
+					index := slices.Index(c.subIDs, v.ID)
+					c.subIDs = slices.Delete(c.subIDs, index, index)
 					// Pubsub subscription failed
 					var errs []clientPubsubError
 					err := xml.Unmarshal([]byte(v.Error.InnerXML), &errs)
@@ -1555,9 +1558,9 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 						Features:   clientFeaturesToReturn(disco.Features),
 						Identities: clientIdentitiesToReturn(disco.Identities),
 					}, nil
-				case slices.Contains(subIDs, v.ID):
-					index := slices.Index(subIDs, v.ID)
-					subIDs = slices.Delete(subIDs, index, index)
+				case slices.Contains(c.subIDs, v.ID):
+					index := slices.Index(c.subIDs, v.ID)
+					c.subIDs = slices.Delete(c.subIDs, index, index)
 					if v.Query.XMLName.Local == "pubsub" {
 						// Subscription or unsubscription was successful
 						var sub clientPubsubSubscription
@@ -1573,9 +1576,9 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 							Errors: nil,
 						}, nil
 					}
-				case slices.Contains(unsubIDs, v.ID):
-					index := slices.Index(unsubIDs, v.ID)
-					unsubIDs = slices.Delete(unsubIDs, index, index)
+				case slices.Contains(c.unsubIDs, v.ID):
+					index := slices.Index(c.unsubIDs, v.ID)
+					c.unsubIDs = slices.Delete(c.unsubIDs, index, index)
 					if v.Query.XMLName.Local == "pubsub" {
 						var sub clientPubsubSubscription
 						err := xml.Unmarshal([]byte(v.Query.InnerXML), &sub)
@@ -1599,9 +1602,9 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 							Errors: nil,
 						}, nil
 					}
-				case slices.Contains(itemsIDs, v.ID):
-					index := slices.Index(itemsIDs, v.ID)
-					itemsIDs = slices.Delete(itemsIDs, index, index)
+				case slices.Contains(c.itemsIDs, v.ID):
+					index := slices.Index(c.itemsIDs, v.ID)
+					c.itemsIDs = slices.Delete(c.itemsIDs, index, index)
 					if v.Query.XMLName.Local == "pubsub" {
 						var p clientPubsubItems
 						err := xml.Unmarshal([]byte(v.Query.InnerXML), &p)
