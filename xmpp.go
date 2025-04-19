@@ -46,7 +46,7 @@ import (
 )
 
 const (
-	Version         = "0.2.13-dev"
+	Version         = "0.2.14-dev"
 	nsStream        = "http://etherx.jabber.org/streams"
 	nsTLS           = "urn:ietf:params:xml:ns:xmpp-tls"
 	nsSASL          = "urn:ietf:params:xml:ns:xmpp-sasl"
@@ -1557,6 +1557,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 					return DiscoResult{
 						Features:   clientFeaturesToReturn(disco.Features),
 						Identities: clientIdentitiesToReturn(disco.Identities),
+						X:          disco.X,
 					}, nil
 				case slices.Contains(c.subIDs, v.ID):
 					index := slices.Index(c.subIDs, v.ID)

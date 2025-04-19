@@ -25,6 +25,7 @@ type clientDiscoQuery struct {
 	XMLName    xml.Name              `xml:"query"`
 	Features   []clientDiscoFeature  `xml:"feature"`
 	Identities []clientDiscoIdentity `xml:"identity"`
+	X          []DiscoX              `xml:"x"`
 }
 
 type clientDiscoItem struct {
@@ -54,6 +55,16 @@ type DiscoItem struct {
 type DiscoResult struct {
 	Features   []string
 	Identities []DiscoIdentity
+	X          []DiscoX
+}
+
+type DiscoX struct {
+	XMLName xml.Name `xml:"x"`
+	Field   []struct {
+		Type  string   `xml:"type,attr"`
+		Var   string   `xml:"var,attr"`
+		Value []string `xml:"value"`
+	} `xml:"field"`
 }
 
 type DiscoItems struct {
