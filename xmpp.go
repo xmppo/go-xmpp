@@ -926,13 +926,8 @@ func (c *Client) init(o *Options) error {
 						return err
 					}
 				case (strings.HasPrefix(serverReply, "d=") || strings.HasPrefix(serverReply, "h=")) && o.SSDP:
-					if strings.HasPrefix(serverReply, "d=") {
-						dgProtectSep = []byte(",")
-						dgProtectCBSep = []byte("|")
-					} else {
-						dgProtectSep = []byte{0x1e}
-						dgProtectCBSep = []byte{0x1f}
-					}
+					dgProtectSep = []byte{0x1e}
+					dgProtectCBSep = []byte{0x1f}
 					serverDgProtectHash := strings.SplitN(serverReply, "=", 2)[1]
 					slices.Sort(f.Mechanisms.Mechanism)
 					for _, mech := range f.Mechanisms.Mechanism {
