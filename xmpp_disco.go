@@ -63,7 +63,7 @@ type DiscoX struct {
 	Field   []DiscoXField
 }
 
-type DiscoXField []struct {
+type DiscoXField struct {
 	Type  string   `xml:"type,attr"`
 	Var   string   `xml:"var,attr"`
 	Value []string `xml:"value"`
