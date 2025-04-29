@@ -64,9 +64,10 @@ type DiscoX struct {
 }
 
 type DiscoXField struct {
-	Type  string   `xml:"type,attr"`
-	Var   string   `xml:"var,attr"`
-	Value []string `xml:"value"`
+	XMLName xml.Name `xml:"field"`
+	Type    string   `xml:"type,attr"`
+	Var     string   `xml:"var,attr"`
+	Value   []string `xml:"value"`
 }
 
 type DiscoItems struct {
