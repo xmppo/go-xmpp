@@ -60,11 +60,10 @@ type DiscoResult struct {
 
 type DiscoX struct {
 	XMLName xml.Name `xml:"x"`
-	Field   []DiscoXField
+	Field   []DiscoXField `xml:"field"`
 }
 
 type DiscoXField struct {
-	XMLName xml.Name `xml:"field"`
 	Type    string   `xml:"type,attr"`
 	Var     string   `xml:"var,attr"`
 	Value   []string `xml:"value"`
