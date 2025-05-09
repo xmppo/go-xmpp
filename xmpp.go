@@ -1303,9 +1303,9 @@ func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error)
 		if o.DebugWriter == nil {
 			o.DebugWriter = os.Stderr
 		}
-		debugRecv := &debugWriter{w: o.DebugWriter, prefix: "RECV: "}
+		debugRecv := &debugWriter{w: o.DebugWriter, prefix: "RECV "}
 		c.p = xml.NewDecoder(tee{c.conn, debugRecv})
-		debugSend := &debugWriter{w: o.DebugWriter, prefix: "SEND: "}
+		debugSend := &debugWriter{w: o.DebugWriter, prefix: "SEND "}
 		c.stanzaWriter = io.MultiWriter(c.conn, debugSend)
 	} else {
 		c.p = xml.NewDecoder(c.conn)
