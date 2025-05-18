@@ -45,8 +45,7 @@ func (c *Client) SendResultPing(id, toServer string) error {
 }
 
 func (c *Client) sendPeriodicPings() {
-	for t := range c.periodicPingTicker.C {
-		fmt.Println("Tick at", t)
+	for range c.periodicPingTicker.C {
 		_ = c.PingC2S(c.jid, c.domain)
 	}
 }
