@@ -342,7 +342,7 @@ type Options struct {
 	PeriodicServerPings bool
 
 	// Period of inactivity after which the client sends a XEP-0199 ping
-	// to the server. Specified in milliseconds.
+	// to the server. Specified in milliseconds, defaults to 20.000 (20 seconds).
 	PeriodicServerPingsPeriod int
 }
 
@@ -416,7 +416,7 @@ func (o Options) NewClient() (*Client, error) {
 		client.periodicPings = true
 		// Set periodic pings period to 2 seconds if not specified.
 		if o.PeriodicServerPingsPeriod == 0 {
-			client.periodicPingPeriod = time.Duration(2000 * time.Millisecond)
+			client.periodicPingPeriod = time.Duration(20000 * time.Millisecond)
 		} else {
 			client.periodicPingPeriod = time.Duration(o.PeriodicServerPingsPeriod) * time.Millisecond
 		}
