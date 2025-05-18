@@ -138,15 +138,16 @@ type Client struct {
 	shutdown           bool       // Variable signalling that the stream will be closed
 	p                  *xml.Decoder
 	stanzaWriter       io.Writer
-	subIDs             []string    // IDs of subscription stanzas
-	unsubIDs           []string    // IDs of unsubscription stanzas
-	itemsIDs           []string    // IDs of item requests
-	peridicPings       bool        // Send periodic server pings.
-	periodicPingTicker time.Ticker // Ticker for periodic pings.
-	LimitMaxBytes      int         // Maximum stanza size (XEP-0478: Stream Limits Advertisement)
-	LimitIdleSeconds   int         // Maximum idle seconds (XEP-0478: Stream Limits Advertisement)
-	Mechanism          string      // SCRAM mechanism used.
-	Fast               Fast        // XEP-0484 FAST Token, mechanism and expiry.
+	subIDs             []string      // IDs of subscription stanzas
+	unsubIDs           []string      // IDs of unsubscription stanzas
+	itemsIDs           []string      // IDs of item requests
+	periodicPings      bool          // Send periodic server pings.
+	periodicPingTicker *time.Ticker  // Ticker for periodic pings.
+	periodicPingPeriod time.Duration // Period for periodic ping ticker.
+	LimitMaxBytes      int           // Maximum stanza size (XEP-0478: Stream Limits Advertisement)
+	LimitIdleSeconds   int           // Maximum idle seconds (XEP-0478: Stream Limits Advertisement)
+	Mechanism          string        // SCRAM mechanism used.
+	Fast               Fast          // XEP-0484 FAST Token, mechanism and expiry.
 }
 
 func (c *Client) JID() string {
@@ -412,15 +413,16 @@ func (o Options) NewClient() (*Client, error) {
 	}
 
 	if o.PeriodicServerPings {
-		c.periodicPings = true
+		client.periodicPings = true
 		// Set periodic pings period to 2 seconds if not specified.
 		if o.PeriodicServerPingsPeriod == 0 {
-			o.pingTicker = time.NewTicker(2000 * time.Millisecond)
+			client.periodicPingPeriod = time.Duration(2000 * time.Millisecond)
 		} else {
-			o.pingTicker = time.NewTicker(o.PeriodicServerPingsPeriod * time.Millisecond)
+			client.periodicPingPeriod = time.Duration(o.PeriodicServerPingsPeriod) * time.Millisecond
 		}
+		client.periodicPingTicker = time.NewTicker(client.periodicPingPeriod)
 		// Start sending periodic pings
-		go c.sendPeriodicPings()
+		go client.sendPeriodicPings()
 	}
 
 	return client, nil
@@ -457,7 +459,7 @@ func NewClientNoTLS(host, user, passwd string, debug bool) (*Client, error) {
 func (c *Client) Close() error {
 	c.shutdown = true
 	if c.periodicPings {
-		c.pingTicker.Stop()
+		c.periodicPingTicker.Stop()
 	}
 	if c.conn != (*tls.Conn)(nil) {
 		fmt.Fprintf(c.stanzaWriter, "</stream:stream>\n")
@@ -1731,7 +1733,7 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
@@ -1757,7 +1759,7 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 	}
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
@@ -1771,7 +1773,7 @@ func (c *Client) SendOrg(org string) (n int, err error) {
 	}
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
@@ -1824,7 +1826,7 @@ func (c *Client) SendPresence(presence Presence) (n int, err error) {
 	}
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
@@ -1845,7 +1847,7 @@ func (c *Client) SendHtml(chat Chat) (n int, err error) {
 	}
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
@@ -1854,7 +1856,7 @@ func (c *Client) SendHtml(chat Chat) (n int, err error) {
 func (c *Client) Roster() error {
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	fmt.Fprintf(c.stanzaWriter, "<iq from='%s' type='get' id='roster1'><query xmlns='jabber:iq:roster'/></iq>\n", xmlEscape(c.jid))
 	return nil

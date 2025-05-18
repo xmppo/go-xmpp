@@ -13,7 +13,7 @@ func (c *Client) PingC2S(jid, server string) error {
 	}
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	_, err := fmt.Fprintf(c.stanzaWriter, "<iq from='%s' to='%s' id='%s' type='get'>"+
 		"<ping xmlns='urn:xmpp:ping'/>"+
@@ -25,7 +25,7 @@ func (c *Client) PingC2S(jid, server string) error {
 func (c *Client) PingS2S(fromServer, toServer string) error {
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	_, err := fmt.Fprintf(c.stanzaWriter, "<iq from='%s' to='%s' id='%s' type='get'>"+
 		"<ping xmlns='urn:xmpp:ping'/>"+
@@ -37,7 +37,7 @@ func (c *Client) PingS2S(fromServer, toServer string) error {
 func (c *Client) SendResultPing(id, toServer string) error {
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	_, err := fmt.Fprintf(c.stanzaWriter, "<iq type='result' to='%s' id='%s'/>\n",
 		xmlEscape(toServer), xmlEscape(id))
@@ -45,7 +45,7 @@ func (c *Client) SendResultPing(id, toServer string) error {
 }
 
 func (c *Client) sendPeriodicPings() {
-	for t := range c.pingTicker.C {
+	for range c.periodicPingTicker.C {
 		_ = c.PingC2S(c.jid, c.domain)
 	}
 }

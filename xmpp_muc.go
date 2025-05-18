@@ -27,7 +27,7 @@ const (
 func (c *Client) SendTopic(chat Chat) (n int, err error) {
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	return fmt.Fprintf(c.stanzaWriter, "<message to='%s' type='%s' xml:lang='en'>"+"<subject>%s</subject></message>\n",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text))
@@ -39,7 +39,7 @@ func (c *Client) JoinMUCNoHistory(jid, nick string) (n int, err error) {
 	}
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 		"<x xmlns='%s'>"+
@@ -57,7 +57,7 @@ func (c *Client) JoinMUC(jid, nick string, history_type, history int, history_da
 	case NoHistory:
 		// Reset ticker for periodic pings if configured.
 		if c.periodicPings {
-			c.pingTicker.Reset()
+			c.periodicPingTicker.Reset(c.periodicPingPeriod)
 		}
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s' />"+
@@ -66,7 +66,7 @@ func (c *Client) JoinMUC(jid, nick string, history_type, history int, history_da
 	case CharHistory:
 		// Reset ticker for periodic pings if configured.
 		if c.periodicPings {
-			c.pingTicker.Reset()
+			c.periodicPingTicker.Reset(c.periodicPingPeriod)
 		}
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
@@ -76,7 +76,7 @@ func (c *Client) JoinMUC(jid, nick string, history_type, history int, history_da
 	case StanzaHistory:
 		// Reset ticker for periodic pings if configured.
 		if c.periodicPings {
-			c.pingTicker.Reset()
+			c.periodicPingTicker.Reset(c.periodicPingPeriod)
 		}
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
@@ -86,7 +86,7 @@ func (c *Client) JoinMUC(jid, nick string, history_type, history int, history_da
 	case SecondsHistory:
 		// Reset ticker for periodic pings if configured.
 		if c.periodicPings {
-			c.pingTicker.Reset()
+			c.periodicPingTicker.Reset(c.periodicPingPeriod)
 		}
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
@@ -97,7 +97,7 @@ func (c *Client) JoinMUC(jid, nick string, history_type, history int, history_da
 		if history_date != nil {
 			// Reset ticker for periodic pings if configured.
 			if c.periodicPings {
-				c.pingTicker.Reset()
+				c.periodicPingTicker.Reset(c.periodicPingPeriod)
 			}
 			return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 				"<x xmlns='%s'>"+
@@ -118,7 +118,7 @@ func (c *Client) JoinProtectedMUC(jid, nick string, password string, history_typ
 	case NoHistory:
 		// Reset ticker for periodic pings if configured.
 		if c.periodicPings {
-			c.pingTicker.Reset()
+			c.periodicPingTicker.Reset(c.periodicPingPeriod)
 		}
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
@@ -129,7 +129,7 @@ func (c *Client) JoinProtectedMUC(jid, nick string, password string, history_typ
 	case CharHistory:
 		// Reset ticker for periodic pings if configured.
 		if c.periodicPings {
-			c.pingTicker.Reset()
+			c.periodicPingTicker.Reset(c.periodicPingPeriod)
 		}
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
@@ -140,7 +140,7 @@ func (c *Client) JoinProtectedMUC(jid, nick string, password string, history_typ
 	case StanzaHistory:
 		// Reset ticker for periodic pings if configured.
 		if c.periodicPings {
-			c.pingTicker.Reset()
+			c.periodicPingTicker.Reset(c.periodicPingPeriod)
 		}
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
@@ -151,7 +151,7 @@ func (c *Client) JoinProtectedMUC(jid, nick string, password string, history_typ
 	case SecondsHistory:
 		// Reset ticker for periodic pings if configured.
 		if c.periodicPings {
-			c.pingTicker.Reset()
+			c.periodicPingTicker.Reset(c.periodicPingPeriod)
 		}
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
@@ -163,7 +163,7 @@ func (c *Client) JoinProtectedMUC(jid, nick string, password string, history_typ
 		if history_date != nil {
 			// Reset ticker for periodic pings if configured.
 			if c.periodicPings {
-				c.pingTicker.Reset()
+				c.periodicPingTicker.Reset(c.periodicPingPeriod)
 			}
 			return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 				"<x xmlns='%s'>"+
@@ -180,7 +180,7 @@ func (c *Client) JoinProtectedMUC(jid, nick string, password string, history_typ
 func (c *Client) LeaveMUC(jid string) (n int, err error) {
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	return fmt.Fprintf(c.stanzaWriter, "<presence from='%s' to='%s' type='unavailable' />\n",
 		c.jid, xmlEscape(jid))

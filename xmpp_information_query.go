@@ -15,7 +15,7 @@ func (c *Client) Discovery() (string, error) {
 	reqID := getUUIDv4()
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	return c.RawInformationQuery(c.jid, c.domain, reqID, IQTypeGet, XMPPNS_DISCO_ITEMS, "")
 }
@@ -25,7 +25,7 @@ func (c *Client) DiscoverNodeInfo(node string) (string, error) {
 	query := fmt.Sprintf("<query xmlns='%s' node='%s'/>", XMPPNS_DISCO_INFO, node)
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	return c.RawInformation(c.jid, c.domain, getUUIDv4(), IQTypeGet, query)
 }
@@ -35,7 +35,7 @@ func (c *Client) DiscoverInfo(to string) (string, error) {
 	query := fmt.Sprintf("<query xmlns='%s'/>", XMPPNS_DISCO_INFO)
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	return c.RawInformation(c.jid, to, getUUIDv4(), IQTypeGet, query)
 }
@@ -44,7 +44,7 @@ func (c *Client) DiscoverInfo(to string) (string, error) {
 func (c *Client) DiscoverServerItems() (string, error) {
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	return c.DiscoverEntityItems(c.domain)
 }
@@ -54,7 +54,7 @@ func (c *Client) DiscoverEntityItems(jid string) (string, error) {
 	query := fmt.Sprintf("<query xmlns='%s'/>", XMPPNS_DISCO_ITEMS)
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	return c.RawInformation(c.jid, jid, getUUIDv4(), IQTypeGet, query)
 }
@@ -64,7 +64,7 @@ func (c *Client) RawInformationQuery(from, to, id, iqType, requestNamespace, bod
 	const xmlIQ = "<iq from='%s' to='%s' id='%s' type='%s'><query xmlns='%s'>%s</query></iq>\n"
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	_, err := fmt.Fprintf(c.stanzaWriter, xmlIQ, xmlEscape(from), xmlEscape(to), id, iqType, requestNamespace, body)
 	return id, err
@@ -75,7 +75,7 @@ func (c *Client) RawInformation(from, to, id, iqType, body string) (string, erro
 	const xmlIQ = "<iq from='%s' to='%s' id='%s' type='%s'>%s</iq>\n"
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
-		c.pingTicker.Reset()
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	_, err := fmt.Fprintf(c.stanzaWriter, xmlIQ, xmlEscape(from), xmlEscape(to), id, iqType, body)
 	return id, err
