@@ -414,7 +414,7 @@ func (o Options) NewClient() (*Client, error) {
 
 	if o.PeriodicServerPings {
 		client.periodicPings = true
-		// Set periodic pings period to 2 seconds if not specified.
+		// Set periodic pings period to 20 seconds if not specified.
 		if o.PeriodicServerPingsPeriod == 0 {
 			client.periodicPingPeriod = time.Duration(20000 * time.Millisecond)
 		} else {
