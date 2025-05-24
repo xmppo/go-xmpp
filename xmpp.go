@@ -16,6 +16,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/hmac"
+	"crypto/pbkdf2"
 	"crypto/rand"
 	"crypto/sha1"
 	"crypto/sha256"
@@ -41,7 +42,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/net/proxy"
 )
 
@@ -992,8 +992,11 @@ func (c *Client) init(o *Options) error {
 			} else {
 				clientFinalMessageBare = "c=biws,r=" + serverNonce
 			}
-			saltedPassword := pbkdf2.Key([]byte(o.Password), salt,
-				iterations, shaNewFn().Size(), shaNewFn)
+			saltedPassword, err := pbkdf2.Key(shaNewFn, o.Password, salt,
+				iterations, shaNewFn().Size())
+			if err != nil {
+				return err
+			}
 			h := hmac.New(shaNewFn, saltedPassword)
 			_, err = h.Write([]byte("Client Key"))
 			if err != nil {
@@ -1123,8 +1126,11 @@ func (c *Client) init(o *Options) error {
 				if err != nil {
 					return err
 				}
-				saltedPassword := pbkdf2.Key([]byte(o.Password), salt,
-					v.Salt.Iterations, shaNewFn().Size(), shaNewFn)
+				saltedPassword, err := pbkdf2.Key(shaNewFn, o.Password, salt,
+					v.Salt.Iterations, shaNewFn().Size())
+				if err != nil {
+					return err
+				}
 				saltedPasswordB64 := base64.StdEncoding.EncodeToString(saltedPassword)
 				fmt.Fprintf(c.stanzaWriter, "<task-data xmlns='%s'><hash xmlns='%s'>%s</hash></task-data>\n", nsSASL2, nsSCRAMUpgrade, saltedPasswordB64)
 				continue
