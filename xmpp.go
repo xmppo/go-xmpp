@@ -131,20 +131,23 @@ type Fast struct {
 
 // Client holds XMPP connection options
 type Client struct {
-	conn             net.Conn // connection to server
-	jid              string   // Jabber ID for our connection
-	domain           string
-	nextMutex        sync.Mutex // Mutex to prevent multiple access to xml.Decoder
-	shutdown         bool       // Variable signalling that the stream will be closed
-	p                *xml.Decoder
-	stanzaWriter     io.Writer
-	subIDs           []string // IDs of subscription stanzas
-	unsubIDs         []string // IDs of unsubscription stanzas
-	itemsIDs         []string // IDs of item requests
-	LimitMaxBytes    int      // Maximum stanza size (XEP-0478: Stream Limits Advertisement)
-	LimitIdleSeconds int      // Maximum idle seconds (XEP-0478: Stream Limits Advertisement)
-	Mechanism        string   // SCRAM mechanism used.
-	Fast             Fast     // XEP-0484 FAST Token, mechanism and expiry.
+	conn               net.Conn // connection to server
+	jid                string   // Jabber ID for our connection
+	domain             string
+	nextMutex          sync.Mutex // Mutex to prevent multiple access to xml.Decoder
+	shutdown           bool       // Variable signalling that the stream will be closed
+	p                  *xml.Decoder
+	stanzaWriter       io.Writer
+	subIDs             []string      // IDs of subscription stanzas
+	unsubIDs           []string      // IDs of unsubscription stanzas
+	itemsIDs           []string      // IDs of item requests
+	periodicPings      bool          // Send periodic server pings.
+	periodicPingTicker *time.Ticker  // Ticker for periodic pings.
+	periodicPingPeriod time.Duration // Period for periodic ping ticker.
+	LimitMaxBytes      int           // Maximum stanza size (XEP-0478: Stream Limits Advertisement)
+	LimitIdleSeconds   int           // Maximum idle seconds (XEP-0478: Stream Limits Advertisement)
+	Mechanism          string        // SCRAM mechanism used.
+	Fast               Fast          // XEP-0484 FAST Token, mechanism and expiry.
 }
 
 func (c *Client) JID() string {
@@ -334,6 +337,13 @@ type Options struct {
 
 	// NoSASLUpgrade disables XEP-0480 upgrades.
 	NoSASLUpgrade bool
+
+	// Send periodic XEP-0199 pings to the server.
+	PeriodicServerPings bool
+
+	// Period of inactivity after which the client sends a XEP-0199 ping
+	// to the server. Specified in milliseconds, defaults to 20.000 (20 seconds).
+	PeriodicServerPingsPeriod int
 }
 
 // NewClient establishes a new Client connection based on a set of Options.
@@ -402,6 +412,19 @@ func (o Options) NewClient() (*Client, error) {
 		return nil, err
 	}
 
+	if o.PeriodicServerPings {
+		client.periodicPings = true
+		// Set periodic pings period to 20 seconds if not specified.
+		if o.PeriodicServerPingsPeriod == 0 {
+			client.periodicPingPeriod = time.Duration(20000 * time.Millisecond)
+		} else {
+			client.periodicPingPeriod = time.Duration(o.PeriodicServerPingsPeriod) * time.Millisecond
+		}
+		client.periodicPingTicker = time.NewTicker(client.periodicPingPeriod)
+		// Start sending periodic pings
+		go client.sendPeriodicPings()
+	}
+
 	return client, nil
 }
 
@@ -435,6 +458,9 @@ func NewClientNoTLS(host, user, passwd string, debug bool) (*Client, error) {
 // Close closes the XMPP connection
 func (c *Client) Close() error {
 	c.shutdown = true
+	if c.periodicPings {
+		c.periodicPingTicker.Stop()
+	}
 	if c.conn != (*tls.Conn)(nil) {
 		fmt.Fprintf(c.stanzaWriter, "</stream:stream>\n")
 		go func() {
@@ -1711,6 +1737,10 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 			len(stanza), c.LimitMaxBytes)
 	}
 
+	// Reset ticker for periodic pings if configured.
+	if c.periodicPings {
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
+	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
 
@@ -1733,6 +1763,10 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
 	}
+	// Reset ticker for periodic pings if configured.
+	if c.periodicPings {
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
+	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
 
@@ -1742,6 +1776,10 @@ func (c *Client) SendOrg(org string) (n int, err error) {
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
+	}
+	// Reset ticker for periodic pings if configured.
+	if c.periodicPings {
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
@@ -1792,6 +1830,10 @@ func (c *Client) SendPresence(presence Presence) (n int, err error) {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
 	}
+	// Reset ticker for periodic pings if configured.
+	if c.periodicPings {
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
+	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
 
@@ -1809,11 +1851,19 @@ func (c *Client) SendHtml(chat Chat) (n int, err error) {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
 	}
+	// Reset ticker for periodic pings if configured.
+	if c.periodicPings {
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
+	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
 
 // Roster asks for the chat roster.
 func (c *Client) Roster() error {
+	// Reset ticker for periodic pings if configured.
+	if c.periodicPings {
+		c.periodicPingTicker.Reset(c.periodicPingPeriod)
+	}
 	fmt.Fprintf(c.stanzaWriter, "<iq from='%s' type='get' id='roster1'><query xmlns='jabber:iq:roster'/></iq>\n", xmlEscape(c.jid))
 	return nil
 }
