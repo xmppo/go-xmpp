@@ -8,6 +8,7 @@ const (
 	IQTypeGet    = "get"
 	IQTypeSet    = "set"
 	IQTypeResult = "result"
+	IQTypeError  = "error"
 )
 
 func (c *Client) Discovery() (string, error) {
