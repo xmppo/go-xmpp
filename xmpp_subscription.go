@@ -22,7 +22,12 @@ func (c *Client) RevokeSubscription(jid string) {
 		xmlEscape(jid))
 }
 
+//  DEPRECATED: Use RevertSubscription instead.
 func (c *Client) RetrieveSubscription(jid string) {
+	c.RevertSubscription(jid)
+}
+
+func (c *Client) RevertSubscription(jid string) {
 	// Reset ticker for periodic pings if configured.
 	if c.periodicPings {
 		c.periodicPingTicker.Reset(c.periodicPingPeriod)
