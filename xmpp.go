@@ -893,6 +893,7 @@ func (c *Client) init(o *Options) error {
 				}
 				if bind2 {
 					c.jid = v.AuthorizationIdentifier
+					c.domain = domain
 				}
 				if v.Token.Token != "" && v.Token.Token != o.FastToken {
 					m := f.Authentication.Inline.Fast.Mechanism
