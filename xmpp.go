@@ -514,10 +514,11 @@ func (c *Client) init(o *Options) error {
 			user = a[0]
 			domain = a[1]
 		}
-	case strings.Contains(o.Host, ":"):
-		domain = strings.SplitN(o.Host, ":", 2)[0]
 	default:
 		domain = o.Host
+	}
+	if strings.Contains(o.Host, ":") {
+		domain = strings.SplitN(o.Host, ":", 2)[0]
 	}
 
 	// Declare intent to be a jabber client and gather stream features.
