@@ -1026,8 +1026,11 @@ func (c *Client) init(o *Options) error {
 			if err != nil {
 				return err
 			}
-			authMessage = strings.SplitAfter(clientFirstMessage, ",,")[1] + "," +
-				string(serverFirstMessage) + "," + clientFinalMessageBare
+			split := strings.SplitAfter(clientFirstMessage, ",,")
+			if len(split) < 2 {
+				return errors.New("SCRAM: clientFirstMessage didn't contain ',,'")
+			}
+			authMessage = split[1] + "," + string(serverFirstMessage) + "," + clientFinalMessageBare
 			h = hmac.New(shaNewFn, storedKey)
 			_, err = h.Write([]byte(authMessage))
 			if err != nil {
