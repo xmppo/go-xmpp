@@ -728,7 +728,8 @@ func (c *Client) init(o *Options) error {
 				clientFirstMessage = "n,,n=" + user + ",r=" + clientNonce
 			}
 			if sasl2 {
-				if !o.NoSASLUpgrade {
+				if !o.NoSASLUpgrade &&
+					!(o.Fast && f.Authentication.Inline.Fast.Mechanism != nil) {
 					for _, um := range f.Authentication.Upgrade {
 						upgrSlice = append(upgrSlice, um.Text)
 					}
