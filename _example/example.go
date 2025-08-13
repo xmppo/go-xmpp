@@ -43,7 +43,7 @@ func main() {
 	}
 
 	if !*notls {
-		xmpp.DefaultConfig = tls.Config{
+		xmpp.DefaultConfig = &tls.Config{
 			ServerName:         serverName(*server),
 			InsecureSkipVerify: false,
 		}
