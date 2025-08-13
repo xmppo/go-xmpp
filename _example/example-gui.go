@@ -69,7 +69,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	xmpp.DefaultConfig = tls.Config{
+	xmpp.DefaultConfig = &tls.Config{
 		ServerName:         "talk.google.com",
 		InsecureSkipVerify: false,
 	}
