@@ -114,3 +114,27 @@ func TestEOFError(t *testing.T) {
 		t.Errorf("Recv() did not return io.EOF on end of input stream")
 	}
 }
+
+var emptyPubSub = strings.TrimSpace(`
+<iq xmlns="jabber:client" type='result' from='juliet@capulet.lit' id='items3'>
+  <pubsub xmlns='http://jabber.org/protocol/pubsub'>
+    <items node='urn:xmpp:avatar:data'></items>
+  </pubsub>
+</iq>
+`)
+func TestEmptyPubsub(t *testing.T) {
+	var c Client
+	c.conn = tConnect(emptyPubSub)
+	c.p = xml.NewDecoder(c.conn)
+	m, err := c.Recv()
+	
+	switch m.(type) {
+	case AvatarData:
+		if err == nil {
+			t.Errorf("Expected an error to be returned")
+		}
+	default:
+		t.Errorf("Recv() = %v", m)
+		t.Errorf("Expected a return value of AvatarData")
+	}
+}
