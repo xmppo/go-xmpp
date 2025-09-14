@@ -42,6 +42,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/net/proxy"
 )
 
@@ -120,6 +121,16 @@ func getCookie() Cookie {
 
 func getUUIDv4() string {
 	return strconv.FormatUint(uint64(getCookie()), 10)
+}
+
+func getUUID() string {
+	// Use github.com/google/uuid as XEP-0359 requires an UUID according to
+	// RFC 4122.
+	uuid, err := uuid.NewUUID()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return uuid.String()
 }
 
 // Fast holds the XEP-0484 fast token, mechanism and expiry date

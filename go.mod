@@ -4,4 +4,7 @@ go 1.24.0
 
 toolchain go1.24.4
 
-require golang.org/x/net v0.46.0
+require (
+	github.com/google/uuid v1.6.0
+	golang.org/x/net v0.46.0
+)
