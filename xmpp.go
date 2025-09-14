@@ -127,8 +127,7 @@ func getUUIDv4() string {
 func getUUID() string {
 	// Use github.com/google/uuid as XEP-0359 requires an UUID according to
 	// RFC 4122.
-	uuid := uuid.New()
-	return uuid.String()
+	return uuid.New().String()
 }
 
 // Fast holds the XEP-0484 fast token, mechanism and expiry date
