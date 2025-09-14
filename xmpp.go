@@ -8,6 +8,8 @@
 // TODO(mattn):
 //  Add proxy authentication.
 
+// This is just a test whether PRs work.
+
 // Package xmpp implements a simple Google Talk client
 // using the XMPP protocol described in RFC 3920 and RFC 3921.
 package xmpp
