@@ -2170,6 +2170,10 @@ func (c *Client) nextStart() (xml.StartElement, error) {
 		case xml.StartElement:
 			c.nextMutex.Unlock()
 			return t, nil
+		case xml.EndElement:
+			if t.Name.Space == nsStream || t.Name.Local == "stream" {
+				return xml.StartElement{}, fmt.Errorf("server closed stream")
+			}
 		}
 		c.nextMutex.Unlock()
 	}
@@ -2289,11 +2293,11 @@ func (t tee) Read(p []byte) (n int, err error) {
 	if n > 0 {
 		_, err = t.w.Write(p[0:n])
 		if err != nil {
-			return
+			return n, err
 		}
 		_, err = t.w.Write([]byte("\n"))
 	}
-	return
+	return n, err
 }
 
 func validUTF8(s string) string {
