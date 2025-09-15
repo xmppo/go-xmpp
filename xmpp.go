@@ -233,6 +233,9 @@ func connect(host string, user string, timeout time.Duration) (net.Conn, error) 
 			return nil, errors.New(f[1])
 		}
 	}
+	// Disable Nagles Algorithm
+	// https://goperf.dev/02-networking/low-level-optimizations/
+	c.(*net.TCPConn).SetNoDelay(true)
 	return c, nil
 }
 
