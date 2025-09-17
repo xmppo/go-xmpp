@@ -131,23 +131,26 @@ type Fast struct {
 
 // Client holds XMPP connection options
 type Client struct {
-	conn               net.Conn // connection to server
-	jid                string   // Jabber ID for our connection
-	domain             string
-	nextMutex          sync.Mutex // Mutex to prevent multiple access to xml.Decoder
-	shutdown           bool       // Variable signalling that the stream will be closed
-	p                  *xml.Decoder
-	stanzaWriter       io.Writer
-	subIDs             []string      // IDs of subscription stanzas
-	unsubIDs           []string      // IDs of unsubscription stanzas
-	itemsIDs           []string      // IDs of item requests
-	periodicPings      bool          // Send periodic server pings.
-	periodicPingTicker *time.Ticker  // Ticker for periodic pings.
-	periodicPingPeriod time.Duration // Period for periodic ping ticker.
-	LimitMaxBytes      int           // Maximum stanza size (XEP-0478: Stream Limits Advertisement)
-	LimitIdleSeconds   int           // Maximum idle seconds (XEP-0478: Stream Limits Advertisement)
-	Mechanism          string        // SCRAM mechanism used.
-	Fast               Fast          // XEP-0484 FAST Token, mechanism and expiry.
+	conn                net.Conn // connection to server
+	jid                 string   // Jabber ID for our connection
+	domain              string
+	nextMutex           sync.Mutex // Mutex to prevent multiple access to xml.Decoder
+	shutdown            bool       // Variable signalling that the stream will be closed
+	p                   *xml.Decoder
+	stanzaWriter        io.Writer
+	subIDs              []string      // IDs of subscription stanzas
+	unsubIDs            []string      // IDs of unsubscription stanzas
+	itemsIDs            []string      // IDs of item requests
+	periodicPings       bool          // Send periodic server pings.
+	periodicPingTicker  *time.Ticker  // Ticker for periodic pings.
+	periodicPingPeriod  time.Duration // Period for periodic ping ticker.
+	periodicPingTimeout time.Duration // Timeout for periodic pings.
+	periodicPingID      string        // ID of the current periodic ping request.
+	periodicPingReply   bool          // True if a reply for the current ping request was received.
+	LimitMaxBytes       int           // Maximum stanza size (XEP-0478: Stream Limits Advertisement)
+	LimitIdleSeconds    int           // Maximum idle seconds (XEP-0478: Stream Limits Advertisement)
+	Mechanism           string        // SCRAM mechanism used.
+	Fast                Fast          // XEP-0484 FAST Token, mechanism and expiry.
 }
 
 func (c *Client) JID() string {
@@ -344,6 +347,11 @@ type Options struct {
 	// Period of inactivity after which the client sends a XEP-0199 ping
 	// to the server. Specified in milliseconds, defaults to 20.000 (20 seconds).
 	PeriodicServerPingsPeriod int
+
+	// Timeout for ping replies. If no reply is received in this time period, the
+	// conneciton is considered broken and gets closed. Specified in milliseconds,
+	// defaults to 5.000 (5 seconds).
+	PeriodicServerPingsTimeout int
 }
 
 // NewClient establishes a new Client connection based on a set of Options.
@@ -419,6 +427,12 @@ func (o Options) NewClient() (*Client, error) {
 			client.periodicPingPeriod = time.Duration(20000 * time.Millisecond)
 		} else {
 			client.periodicPingPeriod = time.Duration(o.PeriodicServerPingsPeriod) * time.Millisecond
+		}
+		// Set periodic pings timeout to 5 seconds if not specified.
+		if o.PeriodicServerPingsTimeout == 0 {
+			client.periodicPingTimeout = time.Duration(5000 * time.Millisecond)
+		} else {
+			client.periodicPingTimeout = time.Duration(o.PeriodicServerPingsTimeout) * time.Millisecond
 		}
 		client.periodicPingTicker = time.NewTicker(client.periodicPingPeriod)
 		// Start sending periodic pings
@@ -1530,7 +1544,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 			return Presence{v.From, v.To, v.Type, v.Show, v.Status}, nil
 		case *clientIQ:
 			switch {
-			case v.Query.XMLName.Space == "urn:xmpp:ping":
+			case v.Query.XMLName.Space == "urn:xmpp:ping" && v.Type == "get":
 				// TODO check more strictly
 				err := c.SendResultPing(v.ID, v.From)
 				if err != nil {
@@ -1570,6 +1584,10 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				}
 			case v.Type == "result":
 				switch {
+				case c.periodicPings && v.ID == c.periodicPingID:
+					if v.ID == c.periodicPingID {
+						c.periodicPingReply = true
+					}
 				case v.Query.XMLName.Space == XMPPNS_DISCO_ITEMS:
 					var itemsQuery clientDiscoItemsQuery
 					err := xml.Unmarshal(v.InnerXML, &itemsQuery)
