@@ -28,10 +28,6 @@ func (c *Client) PingS2S(fromServer, toServer string) error {
 }
 
 func (c *Client) SendResultPing(id, toServer string) error {
-	// Reset ticker for periodic pings if configured.
-	if c.periodicPings {
-		c.periodicPingTicker.Reset(c.periodicPingPeriod)
-	}
 	_, err := fmt.Fprintf(c.stanzaWriter, "<iq type='result' to='%s' id='%s'/>\n",
 		xmlEscape(toServer), xmlEscape(id))
 	return err
