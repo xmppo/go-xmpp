@@ -25,10 +25,6 @@ const (
 
 // Send sends room topic wrapped inside an XMPP message stanza body.
 func (c *Client) SendTopic(chat Chat) (n int, err error) {
-	// Reset ticker for periodic pings if configured.
-	if c.periodicPings {
-		c.periodicPingTicker.Reset(c.periodicPingPeriod)
-	}
 	return fmt.Fprintf(c.stanzaWriter, "<message to='%s' type='%s' xml:lang='en'>"+"<subject>%s</subject></message>\n",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text))
 }
@@ -36,10 +32,6 @@ func (c *Client) SendTopic(chat Chat) (n int, err error) {
 func (c *Client) JoinMUCNoHistory(jid, nick string) (n int, err error) {
 	if nick == "" {
 		nick = c.jid
-	}
-	// Reset ticker for periodic pings if configured.
-	if c.periodicPings {
-		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 		"<x xmlns='%s'>"+
@@ -55,39 +47,23 @@ func (c *Client) JoinMUC(jid, nick string, history_type, history int, history_da
 	}
 	switch history_type {
 	case NoHistory:
-		// Reset ticker for periodic pings if configured.
-		if c.periodicPings {
-			c.periodicPingTicker.Reset(c.periodicPingPeriod)
-		}
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s' />"+
 			"</presence>\n",
 			xmlEscape(jid), xmlEscape(nick), nsMUC)
 	case CharHistory:
-		// Reset ticker for periodic pings if configured.
-		if c.periodicPings {
-			c.periodicPingTicker.Reset(c.periodicPingPeriod)
-		}
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
 			"<history maxchars='%d'/></x>"+
 			"</presence>\n",
 			xmlEscape(jid), xmlEscape(nick), nsMUC, history)
 	case StanzaHistory:
-		// Reset ticker for periodic pings if configured.
-		if c.periodicPings {
-			c.periodicPingTicker.Reset(c.periodicPingPeriod)
-		}
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
 			"<history maxstanzas='%d'/></x>"+
 			"</presence>\n",
 			xmlEscape(jid), xmlEscape(nick), nsMUC, history)
 	case SecondsHistory:
-		// Reset ticker for periodic pings if configured.
-		if c.periodicPings {
-			c.periodicPingTicker.Reset(c.periodicPingPeriod)
-		}
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
 			"<history seconds='%d'/></x>"+
@@ -95,10 +71,6 @@ func (c *Client) JoinMUC(jid, nick string, history_type, history int, history_da
 			xmlEscape(jid), xmlEscape(nick), nsMUC, history)
 	case SinceHistory:
 		if history_date != nil {
-			// Reset ticker for periodic pings if configured.
-			if c.periodicPings {
-				c.periodicPingTicker.Reset(c.periodicPingPeriod)
-			}
 			return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 				"<x xmlns='%s'>"+
 				"<history since='%s'/></x>"+
@@ -116,10 +88,6 @@ func (c *Client) JoinProtectedMUC(jid, nick string, password string, history_typ
 	}
 	switch history_type {
 	case NoHistory:
-		// Reset ticker for periodic pings if configured.
-		if c.periodicPings {
-			c.periodicPingTicker.Reset(c.periodicPingPeriod)
-		}
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
 			"<password>%s</password>"+
@@ -127,10 +95,6 @@ func (c *Client) JoinProtectedMUC(jid, nick string, password string, history_typ
 			"</presence>\n",
 			xmlEscape(jid), xmlEscape(nick), nsMUC, xmlEscape(password))
 	case CharHistory:
-		// Reset ticker for periodic pings if configured.
-		if c.periodicPings {
-			c.periodicPingTicker.Reset(c.periodicPingPeriod)
-		}
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
 			"<password>%s</password>"+
@@ -138,10 +102,6 @@ func (c *Client) JoinProtectedMUC(jid, nick string, password string, history_typ
 			"</presence>\n",
 			xmlEscape(jid), xmlEscape(nick), nsMUC, xmlEscape(password), history)
 	case StanzaHistory:
-		// Reset ticker for periodic pings if configured.
-		if c.periodicPings {
-			c.periodicPingTicker.Reset(c.periodicPingPeriod)
-		}
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
 			"<password>%s</password>"+
@@ -149,10 +109,6 @@ func (c *Client) JoinProtectedMUC(jid, nick string, password string, history_typ
 			"</presence>\n",
 			xmlEscape(jid), xmlEscape(nick), nsMUC, xmlEscape(password), history)
 	case SecondsHistory:
-		// Reset ticker for periodic pings if configured.
-		if c.periodicPings {
-			c.periodicPingTicker.Reset(c.periodicPingPeriod)
-		}
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
 			"<password>%s</password>"+
@@ -161,10 +117,6 @@ func (c *Client) JoinProtectedMUC(jid, nick string, password string, history_typ
 			xmlEscape(jid), xmlEscape(nick), nsMUC, xmlEscape(password), history)
 	case SinceHistory:
 		if history_date != nil {
-			// Reset ticker for periodic pings if configured.
-			if c.periodicPings {
-				c.periodicPingTicker.Reset(c.periodicPingPeriod)
-			}
 			return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 				"<x xmlns='%s'>"+
 				"<password>%s</password>"+
@@ -178,10 +130,6 @@ func (c *Client) JoinProtectedMUC(jid, nick string, password string, history_typ
 
 // xep-0045 7.14
 func (c *Client) LeaveMUC(jid string) (n int, err error) {
-	// Reset ticker for periodic pings if configured.
-	if c.periodicPings {
-		c.periodicPingTicker.Reset(c.periodicPingPeriod)
-	}
 	return fmt.Fprintf(c.stanzaWriter, "<presence from='%s' to='%s' type='unavailable' />\n",
 		c.jid, xmlEscape(jid))
 }
