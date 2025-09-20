@@ -1486,6 +1486,10 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 		if err != nil {
 			return Chat{}, err
 		}
+		// Reset ticker for periodic pings if configured.
+		if c.periodicPings {
+			c.periodicPingTicker.Reset(c.periodicPingPeriod)
+		}
 		switch v := val.(type) {
 		case *streamError:
 			errorMessage := v.Text.Text
@@ -1762,10 +1766,6 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 			len(stanza), c.LimitMaxBytes)
 	}
 
-	// Reset ticker for periodic pings if configured.
-	if c.periodicPings {
-		c.periodicPingTicker.Reset(c.periodicPingPeriod)
-	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
 
@@ -1788,10 +1788,6 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
 	}
-	// Reset ticker for periodic pings if configured.
-	if c.periodicPings {
-		c.periodicPingTicker.Reset(c.periodicPingPeriod)
-	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
 
@@ -1801,10 +1797,6 @@ func (c *Client) SendOrg(org string) (n int, err error) {
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
-	}
-	// Reset ticker for periodic pings if configured.
-	if c.periodicPings {
-		c.periodicPingTicker.Reset(c.periodicPingPeriod)
 	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
@@ -1855,10 +1847,6 @@ func (c *Client) SendPresence(presence Presence) (n int, err error) {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
 	}
-	// Reset ticker for periodic pings if configured.
-	if c.periodicPings {
-		c.periodicPingTicker.Reset(c.periodicPingPeriod)
-	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
 
@@ -1876,19 +1864,11 @@ func (c *Client) SendHtml(chat Chat) (n int, err error) {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
 	}
-	// Reset ticker for periodic pings if configured.
-	if c.periodicPings {
-		c.periodicPingTicker.Reset(c.periodicPingPeriod)
-	}
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
 
 // Roster asks for the chat roster.
 func (c *Client) Roster() error {
-	// Reset ticker for periodic pings if configured.
-	if c.periodicPings {
-		c.periodicPingTicker.Reset(c.periodicPingPeriod)
-	}
 	fmt.Fprintf(c.stanzaWriter, "<iq from='%s' type='get' id='roster1'><query xmlns='jabber:iq:roster'/></iq>\n", xmlEscape(c.jid))
 	return nil
 }
