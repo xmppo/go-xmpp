@@ -42,7 +42,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"golang.org/x/net/proxy"
 )
 
@@ -122,12 +121,6 @@ func getCookie() Cookie {
 
 func getUUIDv4() string {
 	return strconv.FormatUint(uint64(getCookie()), 10)
-}
-
-func getUUID() string {
-	// Use github.com/google/uuid as XEP-0359 requires an UUID according to
-	// RFC 4122.
-	return uuid.New().String()
 }
 
 // Fast holds the XEP-0484 fast token, mechanism and expiry date
@@ -1773,7 +1766,7 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 	}
 
 	chat.Text = validUTF8(chat.Text)
-	id := getUUID()
+	id := getUUIDv4()
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>%s<body>%s</body>"+
 		"<origin-id xmlns='%s' id='%s'/>%s%s</message>\n",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), id, subtext, xmlEscape(chat.Text),
@@ -1799,7 +1792,7 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 		}
 		oobtext += `</x>`
 	}
-	id := getUUID()
+	id := getUUIDv4()
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+
 		"<origin-id xmlns='%s' id='%s'/>%s%s</message>\n",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), id, nsStanzaID, id, oobtext, thdtext)
@@ -1876,7 +1869,7 @@ func (c *Client) SendKeepAlive() (n int, err error) {
 
 // SendHtml sends the message as HTML as defined by XEP-0071
 func (c *Client) SendHtml(chat Chat) (n int, err error) {
-	id := getUUID()
+	id := getUUIDv4()
 	stanza := fmt.Sprintf("<message to='%s' type='%s' xml:lang='en'><body>%s</body><origin-id xmlns='%s' id='%s'/>"+
 		"<html xmlns='http://jabber.org/protocol/xhtml-im'><body xmlns='http://www.w3.org/1999/xhtml'>%s</body>"+
 		"</html></message>\n",
