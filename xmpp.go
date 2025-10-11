@@ -349,7 +349,7 @@ type Options struct {
 	PeriodicServerPingsPeriod int
 
 	// Timeout for ping replies. If no reply is received in this time period, the
-	// conneciton is considered broken and gets closed. Specified in milliseconds,
+	// connection is considered broken and gets closed. Specified in milliseconds,
 	// defaults to 5.000 (5 seconds).
 	PeriodicServerPingsTimeout int
 }
