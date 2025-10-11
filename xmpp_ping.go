@@ -47,11 +47,14 @@ func (c *Client) sendPeriodicPings() {
 		if err != nil {
 			c.Close()
 		}
-		time.Sleep(c.periodicPingTimeout)
-		if !c.periodicPingReply {
-			c.shutdown = true
-			fmt.Fprintf(c.stanzaWriter, "</stream:stream>\n")
-			c.conn.Close()
+		timout := time.Now().Add(c.periodicPingTimeout * time.Millisecond)
+		for time.Now().Before(timout) {
+			if c.periodicPingReply || c.shutdown {
+				return
+			}
 		}
+		c.shutdown = true
+		fmt.Fprintf(c.stanzaWriter, "</stream:stream>\n")
+		c.conn.Close()
 	}
 }
