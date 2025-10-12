@@ -2067,7 +2067,7 @@ type originID struct {
 	ID      string   `xml:"id,attr"`
 }
 
-// XEP-0369 Stanza ID
+// XEP-0359 Stanza ID
 type StanzaID struct {
 	XMLName xml.Name `xml:"stanza-id"`
 	Text    string   `xml:",chardata"`
