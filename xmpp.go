@@ -2170,6 +2170,7 @@ func (c *Client) nextStart() (xml.StartElement, error) {
 			return t, nil
 		case xml.EndElement:
 			if t.Name.Space == nsStream || t.Name.Local == "stream" {
+				c.nextMutex.Unlock()
 				return xml.StartElement{}, fmt.Errorf("server closed stream")
 			}
 		}
@@ -2192,7 +2193,7 @@ func (c *Client) nextEnd() (xml.EndElement, error) {
 		case xml.EndElement:
 			// Do not unlock mutex if the stream is closed to
 			// prevent further reading on the stream.
-			if t.Name.Local == "stream" {
+			if t.Name.Space == nsStream || t.Name.Local == "stream" {
 				return t, nil
 			}
 			c.nextMutex.Unlock()
