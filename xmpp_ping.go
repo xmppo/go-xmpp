@@ -15,7 +15,7 @@ func (c *Client) PingC2S(jid, server string) error {
 	_, err := fmt.Fprintf(c.stanzaWriter, "<iq from='%s' to='%s' id='%s' type='get'>"+
 		"<ping xmlns='urn:xmpp:ping'/>"+
 		"</iq>\n",
-		xmlEscape(jid), xmlEscape(server), getUUIDv4())
+		xmlEscape(jid), xmlEscape(server), getUUID())
 	return err
 }
 
@@ -23,7 +23,7 @@ func (c *Client) PingS2S(fromServer, toServer string) error {
 	_, err := fmt.Fprintf(c.stanzaWriter, "<iq from='%s' to='%s' id='%s' type='get'>"+
 		"<ping xmlns='urn:xmpp:ping'/>"+
 		"</iq>\n",
-		xmlEscape(fromServer), xmlEscape(toServer), getUUIDv4())
+		xmlEscape(fromServer), xmlEscape(toServer), getUUID())
 	return err
 }
 
@@ -39,7 +39,7 @@ func (c *Client) sendPeriodicPings() {
 		if c.periodicPings {
 			c.periodicPingTicker.Reset(c.periodicPingPeriod)
 		}
-		c.periodicPingID = getUUIDv4()
+		c.periodicPingID = getUUID()
 		c.periodicPingReply = false
 		_, err := fmt.Fprintf(c.stanzaWriter, "<iq from='%s' to='%s' id='%s' type='get'>"+
 			"<ping xmlns='urn:xmpp:ping'/></iq>\n",
@@ -47,11 +47,14 @@ func (c *Client) sendPeriodicPings() {
 		if err != nil {
 			c.Close()
 		}
-		time.Sleep(c.periodicPingTimeout)
-		if !c.periodicPingReply {
-			c.shutdown = true
-			fmt.Fprintf(c.stanzaWriter, "</stream:stream>\n")
-			c.conn.Close()
+		timeout := time.Now().Add(c.periodicPingTimeout * time.Millisecond)
+		for time.Now().Before(timeout) {
+			if c.periodicPingReply || c.shutdown {
+				return
+			}
 		}
+		c.shutdown = true
+		fmt.Fprintf(c.stanzaWriter, "</stream:stream>\n")
+		c.conn.Close()
 	}
 }

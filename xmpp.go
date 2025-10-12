@@ -30,6 +30,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"log"
 	"math/big"
 	"net"
 	"net/http"
@@ -42,6 +43,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/net/proxy"
 )
 
@@ -119,8 +121,14 @@ func getCookie() Cookie {
 	return Cookie(binary.LittleEndian.Uint64(buf[:]))
 }
 
-func getUUIDv4() string {
-	return strconv.FormatUint(uint64(getCookie()), 10)
+func getUUID() string {
+	// Use github.com/google/uuid as XEP-0359 requires an UUID according to
+	// RFC 4122.
+	uuid, err := uuid.NewUUID()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return uuid.String()
 }
 
 // Fast holds the XEP-0484 fast token, mechanism and expiry date
@@ -350,7 +358,7 @@ type Options struct {
 	PeriodicServerPingsPeriod int
 
 	// Timeout for ping replies. If no reply is received in this time period, the
-	// conneciton is considered broken and gets closed. Specified in milliseconds,
+	// connection is considered broken and gets closed. Specified in milliseconds,
 	// defaults to 5.000 (5 seconds).
 	PeriodicServerPingsTimeout int
 }
@@ -2205,6 +2213,7 @@ func (c *Client) nextStart() (xml.StartElement, error) {
 			return t, nil
 		case xml.EndElement:
 			if t.Name.Space == nsStream || t.Name.Local == "stream" {
+				c.nextMutex.Unlock()
 				return xml.StartElement{}, fmt.Errorf("server closed stream")
 			}
 		}
@@ -2227,7 +2236,7 @@ func (c *Client) nextEnd() (xml.EndElement, error) {
 		case xml.EndElement:
 			// Do not unlock mutex if the stream is closed to
 			// prevent further reading on the stream.
-			if t.Name.Local == "stream" {
+			if t.Name.Space == nsStream || t.Name.Local == "stream" {
 				return t, nil
 			}
 			c.nextMutex.Unlock()
