@@ -30,6 +30,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"log"
 	"math/big"
 	"net"
 	"net/http"
@@ -117,10 +118,6 @@ func getCookie() Cookie {
 		panic("Failed to read random bytes: " + err.Error())
 	}
 	return Cookie(binary.LittleEndian.Uint64(buf[:]))
-}
-
-func getUUIDv4() string {
-	return strconv.FormatUint(uint64(getCookie()), 10)
 }
 
 func getUUID() string {
