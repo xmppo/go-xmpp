@@ -497,11 +497,16 @@ func (c *Client) Close() error {
 			// likely to receive an error when trying to parse
 			// the stream. Therefore the connection is also closed
 			// if an error is received.
-			if err != nil {
+			switch err {
+			case io.EOF:
 				return c.conn.Close()
-			}
-			if ee.Name.Local == "stream" {
-				return c.conn.Close()
+			case nil:
+				if ee.Name.Local == "stream" {
+					return c.conn.Close()
+				}
+			default:
+				c.conn.Close()
+				return err
 			}
 		}
 	}
@@ -2212,7 +2217,7 @@ func (c *Client) nextStart() (xml.StartElement, error) {
 			c.nextMutex.Unlock()
 			return t, nil
 		case xml.EndElement:
-			if t.Name.Space == nsStream || t.Name.Local == "stream" {
+			if t.Name.Space == nsStream && t.Name.Local == "stream" {
 				c.nextMutex.Unlock()
 				return xml.StartElement{}, fmt.Errorf("server closed stream")
 			}
@@ -2236,7 +2241,10 @@ func (c *Client) nextEnd() (xml.EndElement, error) {
 		case xml.EndElement:
 			// Do not unlock mutex if the stream is closed to
 			// prevent further reading on the stream.
-			if t.Name.Space == nsStream || t.Name.Local == "stream" {
+			if t.Name.Space == nsStream && t.Name.Local == "error" {
+				return t, fmt.Errorf("server closed stream with error")
+			}
+			if t.Name.Space == nsStream && t.Name.Local == "stream" {
 				return t, nil
 			}
 			c.nextMutex.Unlock()
