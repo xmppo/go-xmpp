@@ -121,7 +121,7 @@ func getCookie() Cookie {
 	return Cookie(binary.LittleEndian.Uint64(buf[:]))
 }
 
-func getUUID() string {
+func getUUIDv4() string {
 	// Use github.com/google/uuid as XEP-0359 requires an UUID according to
 	// RFC 4122.
 	uuid, err := uuid.NewUUID()
