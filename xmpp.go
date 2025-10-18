@@ -62,6 +62,7 @@ const (
 	nsClient        = "jabber:client"
 	nsSession       = "urn:ietf:params:xml:ns:xmpp-session"
 	nsStreamLimits  = "urn:xmpp:stream-limits:0"
+	nsStanzaID      = "urn:xmpp:sid:0"
 	scramSHA1       = "SCRAM-SHA-1"
 	scramSHA1Plus   = "SCRAM-SHA-1-PLUS"
 	scramSHA256     = "SCRAM-SHA-256"
@@ -120,7 +121,7 @@ func getCookie() Cookie {
 	return Cookie(binary.LittleEndian.Uint64(buf[:]))
 }
 
-func getUUID() string {
+func getUUIDv4() string {
 	// Use github.com/google/uuid as XEP-0359 requires an UUID according to
 	// RFC 4122.
 	uuid, err := uuid.NewUUID()
@@ -1453,14 +1454,18 @@ func (c *Client) IsEncrypted() bool {
 
 // Chat is an incoming or outgoing XMPP chat message.
 type Chat struct {
-	Remote    string
-	Type      string
-	Text      string
-	Subject   string
-	Thread    string
-	Ooburl    string
-	Oobdesc   string
-	Lang      string
+	Remote  string
+	Type    string
+	Text    string
+	Subject string
+	Thread  string
+	Ooburl  string
+	Oobdesc string
+	Lang    string
+	// Only for incoming messages, ID for outgoing messages will be generated.
+	OriginID string
+	// Only for incoming messages, ID for outgoing messages will be generated.
+	StanzaID  StanzaID
 	Roster    Roster
 	Other     []string
 	OtherElem []XMLElement
@@ -1549,6 +1554,8 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				OtherElem: v.Other,
 				Stamp:     stamp,
 				Lang:      v.Lang,
+				OriginID:  v.OriginID.ID,
+				StanzaID:  v.StanzaID,
 			}
 			return chat, nil
 		case *clientQuery:
@@ -1772,8 +1779,11 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 	}
 
 	chat.Text = validUTF8(chat.Text)
-	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+subtext+"<body>%s</body>"+oobtext+thdtext+"</message>\n",
-		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce(), xmlEscape(chat.Text))
+	id := getUUIDv4()
+	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>%s<body>%s</body>"+
+		"<origin-id xmlns='%s' id='%s'/>%s%s</message>\n",
+		xmlEscape(chat.Remote), xmlEscape(chat.Type), id, subtext, xmlEscape(chat.Text),
+		nsStanzaID, id, oobtext, thdtext)
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
@@ -1795,8 +1805,10 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 		}
 		oobtext += `</x>`
 	}
-	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+oobtext+thdtext+"</message>\n",
-		xmlEscape(chat.Remote), xmlEscape(chat.Type), cnonce())
+	id := getUUIDv4()
+	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+
+		"<origin-id xmlns='%s' id='%s'/>%s%s</message>\n",
+		xmlEscape(chat.Remote), xmlEscape(chat.Type), id, nsStanzaID, id, oobtext, thdtext)
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
@@ -1870,9 +1882,11 @@ func (c *Client) SendKeepAlive() (n int, err error) {
 
 // SendHtml sends the message as HTML as defined by XEP-0071
 func (c *Client) SendHtml(chat Chat) (n int, err error) {
-	stanza := fmt.Sprintf("<message to='%s' type='%s' xml:lang='en'><body>%s</body>"+
-		"<html xmlns='http://jabber.org/protocol/xhtml-im'><body xmlns='http://www.w3.org/1999/xhtml'>%s</body></html></message>\n",
-		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text), chat.Text)
+	id := getUUIDv4()
+	stanza := fmt.Sprintf("<message to='%s' type='%s' xml:lang='en'><body>%s</body><origin-id xmlns='%s' id='%s'/>"+
+		"<html xmlns='http://jabber.org/protocol/xhtml-im'><body xmlns='http://www.w3.org/1999/xhtml'>%s</body>"+
+		"</html></message>\n",
+		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text), nsStanzaID, id, chat.Text)
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
@@ -2050,6 +2064,23 @@ type bindBind struct {
 	Jid      string `xml:"jid"`
 }
 
+// XEP-0359 Origin ID
+type originID struct {
+	XMLName xml.Name `xml:"origin-id"`
+	Text    string   `xml:",chardata"`
+	Xmlns   string   `xml:"xmlns,attr"`
+	ID      string   `xml:"id,attr"`
+}
+
+// XEP-0359 Stanza ID
+type StanzaID struct {
+	XMLName xml.Name `xml:"stanza-id"`
+	Text    string   `xml:",chardata"`
+	Xmlns   string   `xml:"xmlns,attr"`
+	ID      string   `xml:"id,attr"`
+	By      string   `xml:"by,attr"`
+}
+
 // RFC 3921  B.1  jabber:client
 type clientMessage struct {
 	XMLName xml.Name `xml:"jabber:client message"`
@@ -2063,6 +2094,10 @@ type clientMessage struct {
 	Subject string `xml:"subject"`
 	Body    string `xml:"body"`
 	Thread  string `xml:"thread"`
+
+	// XEP-0359
+	OriginID originID `xml:"origin-id"`
+	StanzaID StanzaID `xml:"stanza-id"`
 
 	// Pubsub
 	Event clientPubsubEvent `xml:"event"`

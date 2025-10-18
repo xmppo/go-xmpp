@@ -102,7 +102,7 @@ func pubsubUnsubscriptionStanza(node, jid string) string {
 }
 
 func (c *Client) PubsubSubscribeNode(node, jid string) error {
-	id := getUUID()
+	id := getUUIDv4()
 	c.subIDs = append(c.subIDs, id)
 	_, err := c.RawInformation(c.jid,
 		jid,
@@ -113,7 +113,7 @@ func (c *Client) PubsubSubscribeNode(node, jid string) error {
 }
 
 func (c *Client) PubsubUnsubscribeNode(node, jid string) error {
-	id := getUUID()
+	id := getUUIDv4()
 	c.unsubIDs = append(c.unsubIDs, id)
 	_, err := c.RawInformation(c.jid,
 		jid,
@@ -124,7 +124,7 @@ func (c *Client) PubsubUnsubscribeNode(node, jid string) error {
 }
 
 func (c *Client) PubsubRequestLastItems(node, jid string) error {
-	id := getUUID()
+	id := getUUIDv4()
 	c.itemsIDs = append(c.itemsIDs, id)
 	body := fmt.Sprintf("<items node='%s'/>", node)
 	_, err := c.RawInformation(c.jid, jid, id, "get", pubsubStanza(body))
@@ -132,7 +132,7 @@ func (c *Client) PubsubRequestLastItems(node, jid string) error {
 }
 
 func (c *Client) PubsubRequestItem(node, jid, id string) error {
-	stanzaID := getUUID()
+	stanzaID := getUUIDv4()
 	c.itemsIDs = append(c.itemsIDs, stanzaID)
 	body := fmt.Sprintf("<items node='%s'><item id='%s'/></items>", node, id)
 	_, err := c.RawInformation(c.jid, jid, stanzaID, "get", pubsubStanza(body))

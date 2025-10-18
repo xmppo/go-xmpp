@@ -13,20 +13,20 @@ const (
 
 func (c *Client) Discovery() (string, error) {
 	// use UUIDv4 for a pseudo random id.
-	reqID := getUUID()
+	reqID := getUUIDv4()
 	return c.RawInformationQuery(c.jid, c.domain, reqID, IQTypeGet, XMPPNS_DISCO_ITEMS, "")
 }
 
 // Discover information about a node. Empty node queries info about server itself.
 func (c *Client) DiscoverNodeInfo(node string) (string, error) {
 	query := fmt.Sprintf("<query xmlns='%s' node='%s'/>", XMPPNS_DISCO_INFO, node)
-	return c.RawInformation(c.jid, c.domain, getUUID(), IQTypeGet, query)
+	return c.RawInformation(c.jid, c.domain, getUUIDv4(), IQTypeGet, query)
 }
 
 // Discover information about given item from given jid.
 func (c *Client) DiscoverInfo(to string) (string, error) {
 	query := fmt.Sprintf("<query xmlns='%s'/>", XMPPNS_DISCO_INFO)
-	return c.RawInformation(c.jid, to, getUUID(), IQTypeGet, query)
+	return c.RawInformation(c.jid, to, getUUIDv4(), IQTypeGet, query)
 }
 
 // Discover items that the server exposes
@@ -37,7 +37,7 @@ func (c *Client) DiscoverServerItems() (string, error) {
 // Discover items that an entity exposes
 func (c *Client) DiscoverEntityItems(jid string) (string, error) {
 	query := fmt.Sprintf("<query xmlns='%s'/>", XMPPNS_DISCO_ITEMS)
-	return c.RawInformation(c.jid, jid, getUUID(), IQTypeGet, query)
+	return c.RawInformation(c.jid, jid, getUUIDv4(), IQTypeGet, query)
 }
 
 // RawInformationQuery sends an information query request to the server.
