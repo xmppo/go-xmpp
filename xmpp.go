@@ -1331,6 +1331,14 @@ func (c *Client) startTLSIfRequired(f *streamFeatures, o *Options, domain string
 	case f.StartTLS == nil && o.StartTLS:
 		// the server does not support StartTLS but the user requires it.
 		return f, fmt.Errorf("StartTLS is required but the server doesn't support it")
+	case f.StartTLS == nil:
+		// the server does not support StartTLS but InsecureAllowUnencryptedAuth is not set.
+		return f, fmt.Errorf("StartTLS is not supported by the server but InsecureAllowUnencryptedAuth is not set")
+	case f.StartTLS != nil:
+		// the server does not require StartTLS and user does not require it.
+		if f.StartTLS.Required == nil && o.InsecureAllowUnencryptedAuth && !o.StartTLS {
+			return f, nil
+		}
 	}
 	var err error
 
