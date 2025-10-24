@@ -570,8 +570,11 @@ func (c *Client) init(o *Options) error {
 	}
 
 	// If the server requires STARTTLS, attempt to do so.
-	if f, err = c.startTLSIfRequired(f, o, domain); err != nil {
-		return err
+	// unless the client has specified NoTLS
+	if !o.NoTLS {
+		if f, err = c.startTLSIfRequired(f, o, domain); err != nil {
+			return err
+		}
 	}
 	var mechanism, channelBinding, clientFirstMessage, clientFinalMessageBare, authMessage string
 	var bind2Data, resource, userAgentSW, userAgentDev, userAgentID, fastAuth, saslUpgrade string
@@ -664,7 +667,7 @@ func (c *Client) init(o *Options) error {
 			case slices.Contains(mechSlice, "X-OAUTH2"):
 				mechanism = "X-OAUTH2"
 				// Do not use PLAIN auth if NoPlain is set.
-			case slices.Contains(mechSlice, "PLAIN") && tlsConnOK && !o.NoPLAIN:
+			case slices.Contains(mechSlice, "PLAIN") && (tlsConnOK || o.NoTLS) && !o.NoPLAIN:
 				mechanism = "PLAIN"
 			}
 		}
