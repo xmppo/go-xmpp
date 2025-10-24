@@ -569,9 +569,11 @@ func (c *Client) init(o *Options) error {
 		}
 	}
 
-	// If the server requires STARTTLS, attempt to do so.
-	if f, err = c.startTLSIfRequired(f, o, domain); err != nil {
-		return err
+	// If the connection is not yet encrypted attempt StartTLS.
+	if !c.IsEncrypted() {
+		if f, err = c.startTLSIfRequired(f, o, domain); err != nil {
+			return err
+		}
 	}
 	var mechanism, channelBinding, clientFirstMessage, clientFinalMessageBare, authMessage string
 	var bind2Data, resource, userAgentSW, userAgentDev, userAgentID, fastAuth, saslUpgrade string
