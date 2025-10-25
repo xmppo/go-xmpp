@@ -124,11 +124,11 @@ func getCookie() Cookie {
 func getUUID() string {
 	// Use github.com/google/uuid as XEP-0359 requires an UUID according to
 	// RFC 4122.
-	uuid, err := uuid.NewV7()
+	id, err := uuid.NewV7()
 	if err != nil {
 		log.Fatal(err)
 	}
-	return uuid.String()
+	return id.String()
 }
 
 // Fast holds the XEP-0484 fast token, mechanism and expiry date
