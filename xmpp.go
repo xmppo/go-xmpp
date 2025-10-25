@@ -121,10 +121,10 @@ func getCookie() Cookie {
 	return Cookie(binary.LittleEndian.Uint64(buf[:]))
 }
 
-func getUUIDv4() string {
+func getUUID() string {
 	// Use github.com/google/uuid as XEP-0359 requires an UUID according to
 	// RFC 4122.
-	uuid, err := uuid.NewUUID()
+	uuid, err := uuid.NewV7()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -1786,7 +1786,7 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 	}
 
 	chat.Text = validUTF8(chat.Text)
-	id := getUUIDv4()
+	id := getUUID()
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>%s<body>%s</body>"+
 		"<origin-id xmlns='%s' id='%s'/>%s%s</message>\n",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), id, subtext, xmlEscape(chat.Text),
@@ -1812,7 +1812,7 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 		}
 		oobtext += `</x>`
 	}
-	id := getUUIDv4()
+	id := getUUID()
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+
 		"<origin-id xmlns='%s' id='%s'/>%s%s</message>\n",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), id, nsStanzaID, id, oobtext, thdtext)
@@ -1889,7 +1889,7 @@ func (c *Client) SendKeepAlive() (n int, err error) {
 
 // SendHtml sends the message as HTML as defined by XEP-0071
 func (c *Client) SendHtml(chat Chat) (n int, err error) {
-	id := getUUIDv4()
+	id := getUUID()
 	stanza := fmt.Sprintf("<message to='%s' type='%s' xml:lang='en'><body>%s</body><origin-id xmlns='%s' id='%s'/>"+
 		"<html xmlns='http://jabber.org/protocol/xhtml-im'><body xmlns='http://www.w3.org/1999/xhtml'>%s</body>"+
 		"</html></message>\n",
