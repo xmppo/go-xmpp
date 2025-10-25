@@ -569,9 +569,11 @@ func (c *Client) init(o *Options) error {
 		}
 	}
 
-	// If the server requires STARTTLS, attempt to do so.
-	if f, err = c.startTLSIfRequired(f, o, domain); err != nil {
-		return err
+	// If the connection is not yet encrypted attempt StartTLS.
+	if !c.IsEncrypted() {
+		if f, err = c.startTLSIfRequired(f, o, domain); err != nil {
+			return err
+		}
 	}
 	var mechanism, channelBinding, clientFirstMessage, clientFinalMessageBare, authMessage string
 	var bind2Data, resource, userAgentSW, userAgentDev, userAgentID, fastAuth, saslUpgrade string
@@ -1323,15 +1325,20 @@ func (c *Client) init(o *Options) error {
 func (c *Client) startTLSIfRequired(f *streamFeatures, o *Options, domain string) (*streamFeatures, error) {
 	// whether we start tls is a matter of opinion: the server's and the user's.
 	switch {
+	case f.StartTLS == nil && o.InsecureAllowUnencryptedAuth && !o.StartTLS:
+		// the server does not support StartTLS and the user doesn't require it.
+		return f, nil
+	case f.StartTLS == nil && o.StartTLS:
+		// the server does not support StartTLS but the user requires it.
+		return f, fmt.Errorf("StartTLS is required but the server doesn't support it")
 	case f.StartTLS == nil:
-		// the server does not support STARTTLS
-		return f, nil
-	case !o.StartTLS && f.StartTLS.Required == nil:
-		return f, nil
-	case f.StartTLS.Required != nil:
-		// the server requires STARTTLS.
-	case !o.StartTLS:
-		// the user wants STARTTLS and the server supports it.
+		// the server does not support StartTLS but InsecureAllowUnencryptedAuth is not set.
+		return f, fmt.Errorf("StartTLS is not supported by the server but InsecureAllowUnencryptedAuth is not set")
+	case f.StartTLS != nil:
+		// the server does not require StartTLS and user does not require it.
+		if f.StartTLS.Required == nil && o.InsecureAllowUnencryptedAuth && !o.StartTLS {
+			return f, nil
+		}
 	}
 	var err error
 
