@@ -666,7 +666,7 @@ func (c *Client) init(o *Options) error {
 			case slices.Contains(mechSlice, "X-OAUTH2"):
 				mechanism = "X-OAUTH2"
 				// Do not use PLAIN auth if NoPlain is set.
-			case slices.Contains(mechSlice, "PLAIN") && tlsConnOK && !o.NoPLAIN:
+			case slices.Contains(mechSlice, "PLAIN") && !o.NoPLAIN && (tlsConnOK || o.InsecureAllowUnencryptedAuth):
 				mechanism = "PLAIN"
 			}
 		}
