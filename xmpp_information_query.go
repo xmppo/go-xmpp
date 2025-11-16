@@ -72,3 +72,33 @@ func (c *Client) UrnXMPPTimeResponse(v IQ, timezoneOffset string) (string, error
 		query,
 	)
 }
+
+// IqVersionResponse responding with software version, according to xep-0092.
+func (c *Client) IqVersionResponse(v IQ, name string, version string, os string) (string, error) {
+	if name == "" {
+		name = "go-xmpp"
+		version = Version
+	}
+
+	if version == "" {
+		version = "undefined"
+	}
+
+	query := fmt.Sprintf("<query xmlns=\"%s\">", nsVersion)
+	query += fmt.Sprintf("<name>%s</name>", name)
+	query += fmt.Sprintf("<version>%s</version>", version)
+
+	if os != "" {
+		query += fmt.Sprintf("<os>%s</os>", os)
+	}
+
+	query += "</query>"
+
+	return c.RawInformation(
+		v.To,
+		v.From,
+		v.ID,
+		IQTypeResult,
+		query,
+	)
+}
