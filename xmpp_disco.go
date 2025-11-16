@@ -53,6 +53,9 @@ type DiscoItem struct {
 }
 
 type DiscoResult struct {
+	ID         string
+	From       string
+	To         string
 	Features   []string
 	Identities []DiscoIdentity
 	X          []DiscoX
