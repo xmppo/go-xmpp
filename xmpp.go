@@ -37,6 +37,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -64,6 +65,7 @@ const (
 	nsStreamLimits  = "urn:xmpp:stream-limits:0"
 	nsStanzaID      = "urn:xmpp:sid:0"
 	nsTime          = "urn:xmpp:time"
+	nsVersion       = "jabber:iq:version"
 	scramSHA1       = "SCRAM-SHA-1"
 	scramSHA1Plus   = "SCRAM-SHA-1-PLUS"
 	scramSHA256     = "SCRAM-SHA-256"
@@ -161,6 +163,28 @@ type Client struct {
 	LimitIdleSeconds    int           // Maximum idle seconds (XEP-0478: Stream Limits Advertisement)
 	Mechanism           string        // SCRAM mechanism used.
 	Fast                Fast          // XEP-0484 FAST Token, mechanism and expiry.
+
+	// ReportSoftwareVersion if set to true iq response will be generated
+	// according to xep-0092. If set to false all iq version queries will be
+	// silently ignored. By default set to false.
+	ReportSoftwareVersion bool
+
+	// SoftwareName is client software name (UserAgent in web browsers terms),
+	// reported in response to information query as described in xep-0092.
+	// By default it is "go-xmpp" (no quotes), and can be overridden here.
+	// Responses can be enbled via ReportSoftwareVersion.
+	SoftwareName string
+
+	// SoftwareVersion reported in response to iq version as described in
+	// xep-0092. If SoftwareName is not overridden in SoftwareName option go-xmpp
+	// version will be reported. Otherwise set as "undefined" if not overridden
+	// here.
+	SoftwareVersion string
+
+	// ReportSoftwareOS if set to true information about os go-xmpp being built
+	// for will be reported. It considered not safe (secure) enough in xep-0092
+	// for some unknown reasons, so by defult this option set to false.
+	ReportSoftwareOS bool
 }
 
 func (c *Client) JID() string {
@@ -1599,6 +1623,49 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 					return Chat{}, err
 				}
 				fallthrough
+
+			case v.Query.XMLName.Space == nsVersion && v.Type == "get":
+				if c.ReportSoftwareVersion {
+					var osName string
+
+					if c.ReportSoftwareOS {
+						osName = (strings.SplitN(runtime.GOOS, "/", 2))[0]
+					}
+
+					id, err := c.IqVersionResponse(
+						IQ{ID: v.ID, From: v.From, To: v.To},
+						c.SoftwareName,
+						c.SoftwareVersion,
+						osName,
+					)
+
+					if err != nil {
+						err := fmt.Errorf(
+							"unable to send version info to jabber server: id=%s, err=%w",
+							id,
+							err,
+						)
+
+						return Chat{}, err
+					}
+				} else {
+					id, err := c.ErrorServiceUnavailable(
+						IQ{ID: v.ID, From: v.From, To: v.To},
+						nsVersion,
+						"",
+					)
+
+					if err != nil {
+						err = fmt.Errorf(
+							"unable to send service unavailable message stanza to jabber server: id=%s, err=%w",
+							id,
+							err,
+						)
+
+						return Chat{}, err
+					}
+				}
+
 			case v.Type == "error":
 				switch {
 				case slices.Contains(c.subIDs, v.ID):
