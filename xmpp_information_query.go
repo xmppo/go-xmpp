@@ -2,6 +2,7 @@ package xmpp
 
 import (
 	"fmt"
+	"time"
 )
 
 const (
@@ -52,4 +53,21 @@ func (c *Client) RawInformation(from, to, id, iqType, body string) (string, erro
 	const xmlIQ = "<iq from='%s' to='%s' id='%s' type='%s'>%s</iq>\n"
 	_, err := fmt.Fprintf(c.stanzaWriter, xmlIQ, xmlEscape(from), xmlEscape(to), id, iqType, body)
 	return id, err
+}
+
+// UrnXMPPTimeResponse implements response to query entity's current time (xep-0202).
+func (c *Client) UrnXMPPTimeResponse(v IQ, timezoneOffset string) (string, error) {
+	query := fmt.Sprintf(
+		"<time xmlns=\"urn:xmpp:time\"><tzo>%s</tzo><utc>%s</utc></time>",
+		timezoneOffset,
+		time.Now().UTC().Format(time.RFC3339),
+	)
+
+	return c.RawInformation(
+		v.To,
+		v.From,
+		v.ID,
+		IQTypeResult,
+		query,
+	)
 }
