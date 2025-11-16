@@ -14,7 +14,7 @@ func (c *Client) RevokeSubscription(jid string) {
 		xmlEscape(jid))
 }
 
-// DEPRECATED: Use RevertSubscription instead.
+// Deprecated: Use RevertSubscription instead.
 func (c *Client) RetrieveSubscription(jid string) {
 	c.RevertSubscription(jid)
 }
