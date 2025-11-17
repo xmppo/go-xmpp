@@ -58,7 +58,8 @@ func (c *Client) RawInformation(from, to, id, iqType, body string) (string, erro
 // UrnXMPPTimeResponse implements response to query entity's current time (xep-0202).
 func (c *Client) UrnXMPPTimeResponse(v IQ, timezoneOffset string) (string, error) {
 	query := fmt.Sprintf(
-		"<time xmlns=\"urn:xmpp:time\"><tzo>%s</tzo><utc>%s</utc></time>",
+		"<time xmlns=\"%s\"><tzo>%s</tzo><utc>%s</utc></time>",
+		nsTime,
 		timezoneOffset,
 		time.Now().UTC().Format(time.RFC3339),
 	)
