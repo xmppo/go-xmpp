@@ -63,6 +63,7 @@ const (
 	nsSession       = "urn:ietf:params:xml:ns:xmpp-session"
 	nsStreamLimits  = "urn:xmpp:stream-limits:0"
 	nsStanzaID      = "urn:xmpp:sid:0"
+	nsTime          = "urn:xmpp:time"
 	scramSHA1       = "SCRAM-SHA-1"
 	scramSHA1Plus   = "SCRAM-SHA-1-PLUS"
 	scramSHA256     = "SCRAM-SHA-256"
