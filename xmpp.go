@@ -60,6 +60,7 @@ const (
 	nsFast          = "urn:xmpp:fast:0"
 	nsSASLCB        = "urn:xmpp:sasl-cb:0"
 	nsClient        = "jabber:client"
+	nsClientPing    = "urn:xmpp:ping"
 	nsSession       = "urn:ietf:params:xml:ns:xmpp-session"
 	nsStreamLimits  = "urn:xmpp:stream-limits:0"
 	nsStanzaID      = "urn:xmpp:sid:0"
@@ -1592,7 +1593,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 			}, nil
 		case *clientIQ:
 			switch {
-			case v.Query.XMLName.Space == "urn:xmpp:ping" && v.Type == "get":
+			case v.Query.XMLName.Space == nsClientPing && v.Type == "get":
 				// TODO check more strictly
 				err := c.SendResultPing(v.ID, v.From)
 				if err != nil {
