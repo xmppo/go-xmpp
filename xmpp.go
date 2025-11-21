@@ -164,28 +164,6 @@ type Client struct {
 	LimitIdleSeconds    int           // Maximum idle seconds (XEP-0478: Stream Limits Advertisement)
 	Mechanism           string        // SCRAM mechanism used.
 	Fast                Fast          // XEP-0484 FAST Token, mechanism and expiry.
-
-	// ReportSoftwareVersion if set to true iq response will be generated
-	// according to xep-0092. If set to false all iq version queries will be
-	// silently ignored. By default set to false.
-	ReportSoftwareVersion bool
-
-	// SoftwareName is client software name (UserAgent in web browsers terms),
-	// reported in response to information query as described in xep-0092.
-	// By default it is "go-xmpp" (no quotes), and can be overridden here.
-	// Responses can be enbled via ReportSoftwareVersion.
-	SoftwareName string
-
-	// SoftwareVersion reported in response to iq version as described in
-	// xep-0092. If SoftwareName is not overridden in SoftwareName option go-xmpp
-	// version will be reported. Otherwise set as "undefined" if not overridden
-	// here.
-	SoftwareVersion string
-
-	// ReportSoftwareOS if set to true information about os go-xmpp being built
-	// for will be reported. It considered not safe (secure) enough in xep-0092
-	// for some unknown reasons, so by defult this option set to false.
-	ReportSoftwareOS bool
 }
 
 func (c *Client) JID() string {
@@ -387,6 +365,27 @@ type Options struct {
 	// connection is considered broken and gets closed. Specified in milliseconds,
 	// defaults to 5.000 (5 seconds).
 	PeriodicServerPingsTimeout int
+
+	// ReportSoftwareVersion if set to true iq response will be generated
+	// according to xep-0092. If set to false all iq version queries will be
+	// silently ignored. By default set to false.
+	ReportSoftwareVersion bool
+
+	// SoftwareName is client software name (UserAgent in web browsers terms),
+	// reported in response to information query as described in xep-0092.
+	// By default it is "go-xmpp" (no quotes), and can be overridden here.
+	// Responses can be enbled via ReportSoftwareVersion.
+	SoftwareName string
+
+	// SoftwareVersion reported in response to iq version as described in
+	// xep-0092. If SoftwareName is not overridden in SoftwareName option go-xmpp
+	// version will be reported. Otherwise set as "undefined" if not overridden
+	// here.
+	SoftwareVersion string
+
+	// ReportSoftwareOS if set to true information about os go-xmpp being built
+	// for will be reported. It considered not safe (secure) enough in xep-0092
+	// for some unknown reasons, so by defult this option set to false.
 }
 
 // NewClient establishes a new Client connection based on a set of Options.
