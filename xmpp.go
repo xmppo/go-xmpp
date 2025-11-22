@@ -1748,6 +1748,12 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 						Identities: clientIdentitiesToReturn(disco.Identities),
 						X:          disco.X,
 					}, nil
+				case v.Query.XMLName.Space == XMPPNS_HTTP_UPLOAD:
+					var uploadSlot Slot
+					err := xml.Unmarshal([]byte(v.InnerXML), &uploadSlot)
+					uploadSlot.ID = v.ID
+					// TODO: Validate that the URLs contain HTTPS
+					return uploadSlot, err
 				case slices.Contains(c.subIDs, v.ID):
 					index := slices.Index(c.subIDs, v.ID)
 					c.subIDs = slices.Delete(c.subIDs, index, index)
