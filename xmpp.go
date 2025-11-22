@@ -164,6 +164,7 @@ type Client struct {
 	LimitIdleSeconds    int           // Maximum idle seconds (XEP-0478: Stream Limits Advertisement)
 	Mechanism           string        // SCRAM mechanism used.
 	Fast                Fast          // XEP-0484 FAST Token, mechanism and expiry.
+	Options             *Options      // Connection Options, including reported software versions
 }
 
 func (c *Client) JID() string {
@@ -386,6 +387,7 @@ type Options struct {
 	// ReportSoftwareOS if set to true information about os go-xmpp being built
 	// for will be reported. It considered not safe (secure) enough in xep-0092
 	// for some unknown reasons, so by defult this option set to false.
+	ReportSoftwareOS bool
 }
 
 // NewClient establishes a new Client connection based on a set of Options.
@@ -423,6 +425,8 @@ func (o Options) NewClient() (*Client, error) {
 	}
 
 	client := new(Client)
+	client.Options = &o
+
 	if o.NoTLS {
 		client.conn = c
 	} else {
@@ -1625,17 +1629,17 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				fallthrough
 
 			case v.Query.XMLName.Space == nsVersion && v.Type == "get":
-				if c.ReportSoftwareVersion {
+				if c.Options.ReportSoftwareVersion {
 					var osName string
 
-					if c.ReportSoftwareOS {
+					if c.Options.ReportSoftwareOS {
 						osName = (strings.SplitN(runtime.GOOS, "/", 2))[0]
 					}
 
 					id, err := c.IqVersionResponse(
 						IQ{ID: v.ID, From: v.From, To: v.To},
-						c.SoftwareName,
-						c.SoftwareVersion,
+						c.Options.SoftwareName,
+						c.Options.SoftwareVersion,
 						osName,
 					)
 
