@@ -142,3 +142,74 @@ func TestEmptyPubsub(t *testing.T) {
 		t.Errorf("Expected a return value of AvatarData")
 	}
 }
+
+// https://xmpp.org/extensions/xep-0363.html#example-6
+var exampleSlot = strings.TrimSpace(`
+<iq from='upload.montague.tld'
+    xmlns="jabber:client"
+    id='abcdef'
+    to='romeo@montague.tld/garden'
+    type='result'>
+  <slot xmlns='urn:xmpp:http:upload:0'>
+    <put url='https://upload.montague.tld/4a771ac1-f0b2-4a4a-9700-f2a26fa2bb67/tr%C3%A8s%20cool.jpg'>
+      <header name='Authorization'>Basic Base64String==</header>
+      <header name='Cookie'>foo=bar; user=romeo</header>
+    </put>
+    <get url='https://download.montague.tld/4a771ac1-f0b2-4a4a-9700-f2a26fa2bb67/tr%C3%A8s%20cool.jpg' />
+  </slot>
+</iq>
+`)
+
+func TestUploadSlot(t *testing.T) {
+	var c Client
+	// c.itemsIDs = append(c.itemsIDs, "step_03")
+	c.conn = tConnect(exampleSlot)
+	c.p = xml.NewDecoder(c.conn)
+	m, err := c.Recv()
+	if err != nil {
+		panic(err)
+	}
+	t.Logf("Recv() = %v", m)
+
+	switch m.(type) {
+	case Slot:
+		v, _ := m.(Slot)
+
+		if v.ID != "abcdef" {
+			t.Errorf("Invalid ID: %s", v.ID)
+		}
+
+		if v.Put.Url != "https://upload.montague.tld/4a771ac1-f0b2-4a4a-9700-f2a26fa2bb67/tr%C3%A8s%20cool.jpg" {
+			t.Errorf("Invalid PUT URL: %s", v.Put.Url)
+		}
+		if v.Get.Url != "https://download.montague.tld/4a771ac1-f0b2-4a4a-9700-f2a26fa2bb67/tr%C3%A8s%20cool.jpg" {
+			t.Errorf("Invalid GET URL: %s", v.Get.Url)
+		}
+
+		foundAuthorization := false
+		foundCookie := false
+		for _, header := range v.Put.Headers {
+			if header.Name == "Authorization" && header.Value == "Basic Base64String==" {
+				foundAuthorization = true
+				continue
+			}
+
+			if header.Name == "Cookie" && header.Value == "foo=bar; user=romeo" {
+				foundCookie = true
+				continue
+			}
+
+			t.Errorf("Unknown header: %s: %s", header.Name, header.Value)
+		}
+
+		if !foundAuthorization {
+			t.Errorf("Authorization header not found")
+		}
+		if !foundCookie {
+			t.Errorf("Cookie header not found")
+		}
+	default:
+		t.Errorf("Recv() = %V", m)
+		t.Errorf("Expected a return value of Slot")
+	}
+}
