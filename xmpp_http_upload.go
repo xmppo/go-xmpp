@@ -6,6 +6,7 @@ import (
 
 const (
 	XMPPNS_HTTP_UPLOAD = "urn:xmpp:http:upload:0"
+	XMPPNS_X_OOB       = "jabber:x:oob"
 )
 
 type Slot struct {
@@ -31,4 +32,12 @@ type Header struct {
 	XMLName xml.Name `xml:"header"`
 	Name    string   `xml:"name,attr"`
 	Value   string   `xml:",innerxml"`
+}
+
+// Oob is an out-of-band url/description, used in file uploads.
+// See https://xmpp.org/extensions/xep-0066.html
+type Oob struct {
+	XMLName xml.Name `xml:"x,xmlns:jabber:x:oob"`
+	Url     string   `xml:"url"`
+	Desc    string   `xml:"desc"`
 }

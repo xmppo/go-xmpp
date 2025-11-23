@@ -213,3 +213,96 @@ func TestUploadSlot(t *testing.T) {
 		t.Errorf("Expected a return value of Slot")
 	}
 }
+
+// https://xmpp.org/extensions/xep-0066.html#example-5
+var exampleOOB = strings.TrimSpace(`
+<message from='stpeter@jabber.org/work'
+         to='MaineBoy@jabber.org/home'
+		 xmlns='jabber:client'>
+  <body>Yeah, but do you have a license to Jabber?</body>
+  <x xmlns='jabber:x:oob'>
+    <url>http://www.jabber.org/images/psa-license.jpg</url>
+  </x>
+</message>
+`)
+
+func TestChatOOB(t *testing.T) {
+	var c Client
+	c.conn = tConnect(exampleOOB)
+	c.p = xml.NewDecoder(c.conn)
+	m, err := c.Recv()
+	if err != nil {
+		panic(err)
+	}
+	t.Logf("Recv() = %v", m)
+
+	switch m.(type) {
+	case Chat:
+		v, _ := m.(Chat)
+
+		if v.Oob.Url != "http://www.jabber.org/images/psa-license.jpg" {
+			t.Errorf("Wrong URL, found: `%s`", v.Oob.Url)
+		}
+
+		if v.Oob.Desc != "" {
+			t.Errorf("Should not find Desc: `%s`", v.Oob.Desc)
+		}
+	default:
+		t.Errorf("Recv() = %v", m)
+		t.Errorf("Expected a return value of AvatarData")
+	}
+}
+
+var exampleNoOOB = strings.TrimSpace(`
+<message from='stpeter@jabber.org/work'
+         to='MaineBoy@jabber.org/home'
+		 xmlns='jabber:client'>
+  <body>Yeah, but do you have a license to Jabber?</body>
+</message>
+`)
+
+func TestChatNoOOB(t *testing.T) {
+	var c Client
+	c.conn = tConnect(exampleNoOOB)
+	c.p = xml.NewDecoder(c.conn)
+	m, err := c.Recv()
+	if err != nil {
+		panic(err)
+	}
+	t.Logf("Recv() = %v", m)
+
+	switch m.(type) {
+	case Chat:
+		v, _ := m.(Chat)
+
+		if v.Oob.Url != "" {
+			t.Errorf("Should not find URL: `%s`", v.Oob.Url)
+		}
+
+		if v.Oob.Desc != "" {
+			t.Errorf("Should not find Desc: `%s`", v.Oob.Desc)
+		}
+	default:
+		t.Errorf("Recv() = %v", m)
+		t.Errorf("Expected a return value of AvatarData")
+	}
+}
+
+var rawOob = strings.TrimSpace(`
+<x xmlns='jabber:x:oob'>
+<url>http://www.jabber.org/images/psa-license.jpg</url>
+</x>
+`)
+
+func TestRawOob(t *testing.T) {
+	var s Oob
+	err := xml.Unmarshal([]byte(rawOob), &s)
+
+	if err != nil {
+		t.Errorf("%v", err)
+	}
+
+	if s.Url != "http://www.jabber.org/images/psa-license.jpg" {
+		t.Errorf("Wrong URL: %s", s.Url)
+	}
+}

@@ -1510,9 +1510,9 @@ type Chat struct {
 	Text    string
 	Subject string
 	Thread  string
-	Ooburl  string
-	Oobdesc string
-	Lang    string
+	// XEP-0066 Out-Of-Band url/desc
+	Oob  Oob
+	Lang string
 	// Only for incoming messages, ID for outgoing messages will be generated.
 	OriginID string
 	// Only for incoming messages, ID for outgoing messages will be generated.
@@ -1612,6 +1612,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				Lang:      v.Lang,
 				OriginID:  v.OriginID.ID,
 				StanzaID:  v.StanzaID,
+				Oob:       v.Oob,
 			}
 			return chat, nil
 		case *clientQuery:
@@ -1889,10 +1890,10 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 	if chat.Thread != `` {
 		thdtext = `<thread>` + xmlEscape(chat.Thread) + `</thread>`
 	}
-	if chat.Ooburl != `` {
-		oobtext = `<x xmlns="jabber:x:oob"><url>` + xmlEscape(chat.Ooburl) + `</url>`
-		if chat.Oobdesc != `` {
-			oobtext += `<desc>` + xmlEscape(chat.Oobdesc) + `</desc>`
+	if chat.Oob.Url != `` {
+		oobtext = `<x xmlns="jabber:x:oob"><url>` + xmlEscape(chat.Oob.Url) + `</url>`
+		if chat.Oob.Desc != `` {
+			oobtext += `<desc>` + xmlEscape(chat.Oob.Desc) + `</desc>`
 		}
 		oobtext += `</x>`
 	}
@@ -1917,10 +1918,10 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 	if chat.Thread != `` {
 		thdtext = `<thread>` + xmlEscape(chat.Thread) + `</thread>`
 	}
-	if chat.Ooburl != `` {
-		oobtext = `<x xmlns="jabber:x:oob"><url>` + xmlEscape(chat.Ooburl) + `</url>`
-		if chat.Oobdesc != `` {
-			oobtext += `<desc>` + xmlEscape(chat.Oobdesc) + `</desc>`
+	if chat.Oob.Url != `` {
+		oobtext = `<x xmlns="jabber:x:oob"><url>` + xmlEscape(chat.Oob.Url) + `</url>`
+		if chat.Oob.Desc != `` {
+			oobtext += `<desc>` + xmlEscape(chat.Oob.Desc) + `</desc>`
 		}
 		oobtext += `</x>`
 	}
@@ -2220,6 +2221,9 @@ type clientMessage struct {
 
 	// Pubsub
 	Event clientPubsubEvent `xml:"event"`
+
+	// XEP-0060 OOB
+	Oob Oob
 
 	// Any hasn't matched element
 	Other []XMLElement `xml:",any"`
