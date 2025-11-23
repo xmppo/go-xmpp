@@ -164,28 +164,7 @@ type Client struct {
 	LimitIdleSeconds    int           // Maximum idle seconds (XEP-0478: Stream Limits Advertisement)
 	Mechanism           string        // SCRAM mechanism used.
 	Fast                Fast          // XEP-0484 FAST Token, mechanism and expiry.
-
-	// ReportSoftwareVersion if set to true iq response will be generated
-	// according to xep-0092. If set to false all iq version queries will be
-	// silently ignored. By default set to false.
-	ReportSoftwareVersion bool
-
-	// SoftwareName is client software name (UserAgent in web browsers terms),
-	// reported in response to information query as described in xep-0092.
-	// By default it is "go-xmpp" (no quotes), and can be overridden here.
-	// Responses can be enbled via ReportSoftwareVersion.
-	SoftwareName string
-
-	// SoftwareVersion reported in response to iq version as described in
-	// xep-0092. If SoftwareName is not overridden in SoftwareName option go-xmpp
-	// version will be reported. Otherwise set as "undefined" if not overridden
-	// here.
-	SoftwareVersion string
-
-	// ReportSoftwareOS if set to true information about os go-xmpp being built
-	// for will be reported. It considered not safe (secure) enough in xep-0092
-	// for some unknown reasons, so by defult this option set to false.
-	ReportSoftwareOS bool
+	Options             *Options      // Connection Options, including reported software versions
 }
 
 func (c *Client) JID() string {
@@ -387,6 +366,28 @@ type Options struct {
 	// connection is considered broken and gets closed. Specified in milliseconds,
 	// defaults to 5.000 (5 seconds).
 	PeriodicServerPingsTimeout int
+
+	// ReportSoftwareVersion if set to true iq response will be generated
+	// according to xep-0092. If set to false all iq version queries will be
+	// silently ignored. By default set to false.
+	ReportSoftwareVersion bool
+
+	// SoftwareName is client software name (UserAgent in web browsers terms),
+	// reported in response to information query as described in xep-0092.
+	// By default it is "go-xmpp" (no quotes), and can be overridden here.
+	// Responses can be enbled via ReportSoftwareVersion.
+	SoftwareName string
+
+	// SoftwareVersion reported in response to iq version as described in
+	// xep-0092. If SoftwareName is not overridden in SoftwareName option go-xmpp
+	// version will be reported. Otherwise set as "undefined" if not overridden
+	// here.
+	SoftwareVersion string
+
+	// ReportSoftwareOS if set to true information about os go-xmpp being built
+	// for will be reported. It considered not safe (secure) enough in xep-0092
+	// for some unknown reasons, so by defult this option set to false.
+	ReportSoftwareOS bool
 }
 
 // NewClient establishes a new Client connection based on a set of Options.
@@ -424,6 +425,8 @@ func (o Options) NewClient() (*Client, error) {
 	}
 
 	client := new(Client)
+	client.Options = &o
+
 	if o.NoTLS {
 		client.conn = c
 	} else {
@@ -1641,17 +1644,17 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				fallthrough
 
 			case v.Query.XMLName.Space == nsVersion && v.Type == "get":
-				if c.ReportSoftwareVersion {
+				if c.Options.ReportSoftwareVersion {
 					var osName string
 
-					if c.ReportSoftwareOS {
+					if c.Options.ReportSoftwareOS {
 						osName = (strings.SplitN(runtime.GOOS, "/", 2))[0]
 					}
 
 					id, err := c.IqVersionResponse(
 						IQ{ID: v.ID, From: v.From, To: v.To},
-						c.SoftwareName,
-						c.SoftwareVersion,
+						c.Options.SoftwareName,
+						c.Options.SoftwareVersion,
 						osName,
 					)
 
@@ -1738,6 +1741,9 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 					}
 
 					return DiscoResult{
+						ID:         v.ID,
+						From:       v.From,
+						To:         v.To,
 						Features:   clientFeaturesToReturn(disco.Features),
 						Identities: clientIdentitiesToReturn(disco.Identities),
 						X:          disco.X,
