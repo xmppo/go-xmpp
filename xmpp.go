@@ -1655,7 +1655,6 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 						c.Options.SoftwareVersion,
 						osName,
 					)
-
 					if err != nil {
 						err := fmt.Errorf(
 							"unable to send version info to jabber server: id=%s, err=%w",
@@ -1671,7 +1670,6 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 						nsVersion,
 						"",
 					)
-
 					if err != nil {
 						err = fmt.Errorf(
 							"unable to send service unavailable message stanza to jabber server: id=%s, err=%w",
@@ -1918,8 +1916,9 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 	}
 	id := getUUID()
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+
-		"<origin-id xmlns='%s' id='%s'/>%s%s</message>\n",
-		xmlEscape(chat.Remote), xmlEscape(chat.Type), id, nsStanzaID, id, oobtext, thdtext)
+		"<origin-id xmlns='%s' id='%s'/>%s%s<body>%s</body></message>\n",
+		xmlEscape(chat.Remote), xmlEscape(chat.Type), id, nsStanzaID, id,
+		oobtext, thdtext, xmlEscape(chat.Ooburl))
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
