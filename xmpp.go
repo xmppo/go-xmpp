@@ -494,11 +494,13 @@ func (o Options) NewClient() (*Client, error) {
 // Default the port to 5222.
 func NewClient(host, user, passwd string, debug bool) (*Client, error) {
 	opts := Options{
-		Host:     host,
-		User:     user,
-		Password: passwd,
-		Debug:    debug,
-		Session:  false,
+		Host:            host,
+		User:            user,
+		Password:        passwd,
+		Debug:           debug,
+		Session:         false,
+		SoftwareName:    "go-xmpp",
+		SoftwareVersion: Version,
 	}
 	return opts.NewClient()
 }
@@ -506,12 +508,14 @@ func NewClient(host, user, passwd string, debug bool) (*Client, error) {
 // NewClientNoTLS creates a new client without TLS
 func NewClientNoTLS(host, user, passwd string, debug bool) (*Client, error) {
 	opts := Options{
-		Host:     host,
-		User:     user,
-		Password: passwd,
-		NoTLS:    true,
-		Debug:    debug,
-		Session:  false,
+		Host:            host,
+		User:            user,
+		Password:        passwd,
+		NoTLS:           true,
+		Debug:           debug,
+		Session:         false,
+		SoftwareName:    "go-xmpp",
+		SoftwareVersion: Version,
 	}
 	return opts.NewClient()
 }
