@@ -1908,13 +1908,14 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 	if chat.Thread != `` {
 		thdtext = `<thread>` + xmlEscape(chat.Thread) + `</thread>`
 	}
-	if chat.Ooburl != `` {
-		oobtext = `<x xmlns="jabber:x:oob"><url>` + xmlEscape(chat.Ooburl) + `</url>`
-		if chat.Oobdesc != `` {
-			oobtext += `<desc>` + xmlEscape(chat.Oobdesc) + `</desc>`
-		}
-		oobtext += `</x>`
+	if chat.Ooburl == `` {
+		return 0, fmt.Errorf("SendOOB requires chat.Ooburl to be set")
 	}
+	oobtext = `<x xmlns="jabber:x:oob"><url>` + xmlEscape(chat.Ooburl) + `</url>`
+	if chat.Oobdesc != `` {
+		oobtext += `<desc>` + xmlEscape(chat.Oobdesc) + `</desc>`
+	}
+	oobtext += `</x>`
 	id := getUUID()
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+
 		"<origin-id xmlns='%s' id='%s'/>%s%s<body>%s</body></message>\n",
