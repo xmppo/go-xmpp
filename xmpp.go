@@ -477,18 +477,12 @@ func (o Options) NewClient() (*Client, error) {
 		go client.sendPeriodicPings()
 	}
 
-	client.ReportSoftwareVersion = o.ReportSoftwareVersion
-	client.ReportSoftwareOS = o.ReportSoftwareOS
-
-	if o.SoftwareName == "" {
-		client.SoftwareName = "go-xmpp"
-		client.SoftwareVersion = Version
+	if client.Options.SoftwareName == "" {
+		client.Options.SoftwareName = "go-xmpp"
+		client.Options.SoftwareVersion = Version
 	} else {
-		client.SoftwareName = o.SoftwareName
-		if o.SoftwareVersion == "" {
-			client.SoftwareVersion = "undefined"
-		} else {
-			client.SoftwareVersion = o.SoftwareVersion
+		if client.Options.SoftwareVersion == "" {
+			client.Options.SoftwareVersion = "undefined"
 		}
 	}
 
