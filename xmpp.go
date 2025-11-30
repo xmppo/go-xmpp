@@ -1901,7 +1901,8 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 	return fmt.Fprint(c.stanzaWriter, stanza)
 }
 
-// SendOOB sends OOB data wrapped inside an XMPP message stanza, without actual body.
+// SendOOB sends OOB data wrapped inside an XMPP message stanza. Any message body will be discarded
+// and replaced by the OOB URL..
 func (c *Client) SendOOB(chat Chat) (n int, err error) {
 	var thdtext, oobtext string
 	if chat.Thread != `` {
