@@ -1916,7 +1916,7 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 		thdtext = `<thread>` + xmlEscape(chat.Thread) + `</thread>`
 	}
 	if chat.Oob.Url == `` {
-		return 0, fmt.Errorf("SendOOB requires chat.Ooburl to be set")
+		return 0, fmt.Errorf("SendOOB requires chat.Oob.Url to be set")
 	}
 	oobtext = `<x xmlns="jabber:x:oob"><url>` + xmlEscape(chat.Oob.Url) + `</url>`
 	if chat.Oob.Desc != `` {
@@ -1927,7 +1927,7 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+
 		"<origin-id xmlns='%s' id='%s'/>%s%s<body>%s</body></message>\n",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), id, nsStanzaID, id,
-		oobtext, thdtext, xmlEscape(chat.Ooburl))
+		oobtext, thdtext, xmlEscape(chat.Oob.Url))
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
