@@ -14,8 +14,6 @@ import (
 )
 
 const (
-	nsMUC          = "http://jabber.org/protocol/muc"
-	nsMUCUser      = "http://jabber.org/protocol/muc#user"
 	NoHistory      = 0
 	CharHistory    = 1
 	StanzaHistory  = 2
@@ -37,7 +35,7 @@ func (c *Client) JoinMUCNoHistory(jid, nick string) (n int, err error) {
 		"<x xmlns='%s'>"+
 		"<history maxchars='0'/></x>"+
 		"</presence>\n",
-		xmlEscape(jid), xmlEscape(nick), nsMUC)
+		xmlEscape(jid), xmlEscape(nick), XMPPNS_MUC)
 }
 
 // xep-0045 7.2
@@ -50,32 +48,32 @@ func (c *Client) JoinMUC(jid, nick string, history_type, history int, history_da
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s' />"+
 			"</presence>\n",
-			xmlEscape(jid), xmlEscape(nick), nsMUC)
+			xmlEscape(jid), xmlEscape(nick), XMPPNS_MUC)
 	case CharHistory:
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
 			"<history maxchars='%d'/></x>"+
 			"</presence>\n",
-			xmlEscape(jid), xmlEscape(nick), nsMUC, history)
+			xmlEscape(jid), xmlEscape(nick), XMPPNS_MUC, history)
 	case StanzaHistory:
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
 			"<history maxstanzas='%d'/></x>"+
 			"</presence>\n",
-			xmlEscape(jid), xmlEscape(nick), nsMUC, history)
+			xmlEscape(jid), xmlEscape(nick), XMPPNS_MUC, history)
 	case SecondsHistory:
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
 			"<history seconds='%d'/></x>"+
 			"</presence>\n",
-			xmlEscape(jid), xmlEscape(nick), nsMUC, history)
+			xmlEscape(jid), xmlEscape(nick), XMPPNS_MUC, history)
 	case SinceHistory:
 		if history_date != nil {
 			return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 				"<x xmlns='%s'>"+
 				"<history since='%s'/></x>"+
 				"</presence>\n",
-				xmlEscape(jid), xmlEscape(nick), nsMUC, history_date.Format(time.RFC3339))
+				xmlEscape(jid), xmlEscape(nick), XMPPNS_MUC, history_date.Format(time.RFC3339))
 		}
 	}
 	return 0, errors.New("unknown history option")
@@ -93,28 +91,28 @@ func (c *Client) JoinProtectedMUC(jid, nick string, password string, history_typ
 			"<password>%s</password>"+
 			"</x>"+
 			"</presence>\n",
-			xmlEscape(jid), xmlEscape(nick), nsMUC, xmlEscape(password))
+			xmlEscape(jid), xmlEscape(nick), XMPPNS_MUC, xmlEscape(password))
 	case CharHistory:
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
 			"<password>%s</password>"+
 			"<history maxchars='%d'/></x>"+
 			"</presence>\n",
-			xmlEscape(jid), xmlEscape(nick), nsMUC, xmlEscape(password), history)
+			xmlEscape(jid), xmlEscape(nick), XMPPNS_MUC, xmlEscape(password), history)
 	case StanzaHistory:
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
 			"<password>%s</password>"+
 			"<history maxstanzas='%d'/></x>"+
 			"</presence>\n",
-			xmlEscape(jid), xmlEscape(nick), nsMUC, xmlEscape(password), history)
+			xmlEscape(jid), xmlEscape(nick), XMPPNS_MUC, xmlEscape(password), history)
 	case SecondsHistory:
 		return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
 			"<x xmlns='%s'>"+
 			"<password>%s</password>"+
 			"<history seconds='%d'/></x>"+
 			"</presence>\n",
-			xmlEscape(jid), xmlEscape(nick), nsMUC, xmlEscape(password), history)
+			xmlEscape(jid), xmlEscape(nick), XMPPNS_MUC, xmlEscape(password), history)
 	case SinceHistory:
 		if history_date != nil {
 			return fmt.Fprintf(c.stanzaWriter, "<presence to='%s/%s'>"+
@@ -122,7 +120,7 @@ func (c *Client) JoinProtectedMUC(jid, nick string, password string, history_typ
 				"<password>%s</password>"+
 				"<history since='%s'/></x>"+
 				"</presence>\n",
-				xmlEscape(jid), xmlEscape(nick), nsMUC, xmlEscape(password), history_date.Format(time.RFC3339))
+				xmlEscape(jid), xmlEscape(nick), XMPPNS_MUC, xmlEscape(password), history_date.Format(time.RFC3339))
 		}
 	}
 	return 0, errors.New("unknown history option")

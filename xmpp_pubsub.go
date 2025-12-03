@@ -5,11 +5,6 @@ import (
 	"fmt"
 )
 
-const (
-	XMPPNS_PUBSUB       = "http://jabber.org/protocol/pubsub"
-	XMPPNS_PUBSUB_EVENT = "http://jabber.org/protocol/pubsub#event"
-)
-
 type clientPubsubItem struct {
 	XMLName xml.Name `xml:"item"`
 	ID      string   `xml:"id,attr"`

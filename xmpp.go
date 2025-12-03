@@ -48,39 +48,6 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-const (
-	Version         = "0.2.19-dev"
-	nsStream        = "http://etherx.jabber.org/streams"
-	nsTLS           = "urn:ietf:params:xml:ns:xmpp-tls"
-	nsSASL          = "urn:ietf:params:xml:ns:xmpp-sasl"
-	nsSASL2         = "urn:xmpp:sasl:2"
-	nsSASLUpgrade   = "urn:xmpp:sasl:upgrade:0"
-	nsSCRAMUpgrade  = "urn:xmpp:scram-upgrade:0"
-	nsBind          = "urn:ietf:params:xml:ns:xmpp-bind"
-	nsBind2         = "urn:xmpp:bind:0"
-	nsFast          = "urn:xmpp:fast:0"
-	nsSASLCB        = "urn:xmpp:sasl-cb:0"
-	nsClient        = "jabber:client"
-	nsClientPing    = "urn:xmpp:ping"
-	nsSession       = "urn:ietf:params:xml:ns:xmpp-session"
-	nsStreamLimits  = "urn:xmpp:stream-limits:0"
-	nsStanzaID      = "urn:xmpp:sid:0"
-	nsTime          = "urn:xmpp:time"
-	nsVersion       = "jabber:iq:version"
-	scramSHA1       = "SCRAM-SHA-1"
-	scramSHA1Plus   = "SCRAM-SHA-1-PLUS"
-	scramSHA256     = "SCRAM-SHA-256"
-	scramSHA256Plus = "SCRAM-SHA-256-PLUS"
-	scramSHA512     = "SCRAM-SHA-512"
-	scramSHA512Plus = "SCRAM-SHA-512-PLUS"
-	scramUpSHA256   = "UPGR-SCRAM-SHA-256"
-	scramUpSHA512   = "UPGR-SCRAM-SHA-512"
-	htSHA256Expr    = "HT-SHA-256-EXPR"
-	htSHA256Uniq    = "HT-SHA-256-UNIQ"
-	htSHA256Endp    = "HT-SHA-256-ENDP"
-	htSHA256None    = "HT-SHA-256-NONE"
-)
-
 // Default TLS configuration options
 var DefaultConfig = &tls.Config{}
 
@@ -621,7 +588,7 @@ func (c *Client) init(o *Options) error {
 	var bind2Data, resource, userAgentSW, userAgentDev, userAgentID, fastAuth, saslUpgrade string
 	var saslUpgradeMech string
 	var serverSignature, keyingMaterial, successMsg []byte
-	var scramPlus, ok, tlsConnOK, tls13, serverEndPoint, sasl2, bind2 bool
+	var scramPLUS, ok, tlsConnOK, tls13, serverEndPoint, sasl2, bind2 bool
 	var cbsSlice, mechSlice, upgrSlice []string
 	var tlsConn *tls.Conn
 	// Use SASL2 if available
@@ -648,7 +615,7 @@ func (c *Client) init(o *Options) error {
 							resource = "go-xmpp"
 						}
 						bind2Data = fmt.Sprintf("<bind xmlns='%s'><tag>%s</tag></bind>",
-							nsBind2, resource)
+							XMPPNS_BIND_0, resource)
 					}
 					if o.UserAgentSW != "" {
 						userAgentSW = fmt.Sprintf("<software>%s</software>", o.UserAgentSW)
@@ -663,9 +630,9 @@ func (c *Client) init(o *Options) error {
 					}
 					fmt.Fprintf(c.stanzaWriter,
 						"<authenticate xmlns='%s' mechanism='%s'><user-agent%s>%s%s</user-agent>%s%s</authenticate>\n",
-						nsSASL2, mechanism, userAgentID, userAgentSW, userAgentDev, bind2Data, fastAuth)
+						XMPPNS_SASL_2, mechanism, userAgentID, userAgentSW, userAgentDev, bind2Data, fastAuth)
 				} else {
-					fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='ANONYMOUS' />\n", nsSASL)
+					fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='ANONYMOUS' />\n", XMPPNS_XMPP_SASL)
 				}
 				foundAnonymous = true
 				break
@@ -693,18 +660,18 @@ func (c *Client) init(o *Options) error {
 			}
 		} else {
 			switch {
-			case slices.Contains(mechSlice, scramSHA512Plus) && tlsConnOK:
-				mechanism = scramSHA512Plus
-			case slices.Contains(mechSlice, scramSHA256Plus) && tlsConnOK:
-				mechanism = scramSHA256Plus
-			case slices.Contains(mechSlice, scramSHA1Plus) && tlsConnOK:
-				mechanism = scramSHA1Plus
-			case slices.Contains(mechSlice, scramSHA512):
-				mechanism = scramSHA512
-			case slices.Contains(mechSlice, scramSHA256):
-				mechanism = scramSHA256
-			case slices.Contains(mechSlice, scramSHA1):
-				mechanism = scramSHA1
+			case slices.Contains(mechSlice, SCRAM_SHA_512_PLUS) && tlsConnOK:
+				mechanism = SCRAM_SHA_512_PLUS
+			case slices.Contains(mechSlice, SCRAM_SHA_256_PLUS) && tlsConnOK:
+				mechanism = SCRAM_SHA_256_PLUS
+			case slices.Contains(mechSlice, SCRAM_SHA_1_PLUS) && tlsConnOK:
+				mechanism = SCRAM_SHA_1_PLUS
+			case slices.Contains(mechSlice, SCRAM_SHA_512):
+				mechanism = SCRAM_SHA_512
+			case slices.Contains(mechSlice, SCRAM_SHA_256):
+				mechanism = SCRAM_SHA_256
+			case slices.Contains(mechSlice, SCRAM_SHA_1):
+				mechanism = SCRAM_SHA_1
 			case slices.Contains(mechSlice, "X-OAUTH2"):
 				mechanism = "X-OAUTH2"
 				// Do not use PLAIN auth if NoPlain is set.
@@ -714,12 +681,12 @@ func (c *Client) init(o *Options) error {
 		}
 		if strings.HasPrefix(mechanism, "SCRAM-SHA") {
 			if strings.HasSuffix(mechanism, "PLUS") {
-				scramPlus = true
+				scramPLUS = true
 			}
 			for _, cbs := range f.ChannelBindings.ChannelBinding {
 				cbsSlice = append(cbsSlice, cbs.Type)
 			}
-			if scramPlus {
+			if scramPLUS {
 				tlsState := tlsConn.ConnectionState()
 				switch tlsState.Version {
 				case tls.VersionTLS13:
@@ -777,17 +744,17 @@ func (c *Client) init(o *Options) error {
 			}
 			var shaNewFn func() hash.Hash
 			switch mechanism {
-			case scramSHA512, scramSHA512Plus:
+			case SCRAM_SHA_512, SCRAM_SHA_512_PLUS:
 				shaNewFn = sha512.New
-			case scramSHA256, scramSHA256Plus:
+			case SCRAM_SHA_256, SCRAM_SHA_256_PLUS:
 				shaNewFn = sha256.New
-			case scramSHA1, scramSHA1Plus:
+			case SCRAM_SHA_1, SCRAM_SHA_1_PLUS:
 				shaNewFn = sha1.New
 			default:
 				return errors.New("unsupported auth mechanism")
 			}
 			clientNonce := cnonce()
-			if scramPlus {
+			if scramPLUS {
 				switch {
 				case tls13 && !serverEndPoint:
 					clientFirstMessage = "p=tls-exporter,,n=" + user + ",r=" + clientNonce
@@ -806,14 +773,14 @@ func (c *Client) init(o *Options) error {
 						upgrSlice = append(upgrSlice, um.Text)
 					}
 					switch {
-					case slices.Contains(upgrSlice, scramUpSHA512):
-						saslUpgradeMech = scramUpSHA512
-					case slices.Contains(upgrSlice, scramUpSHA256):
-						saslUpgradeMech = scramUpSHA256
+					case slices.Contains(upgrSlice, UPGR_SCRAM_SHA_512):
+						saslUpgradeMech = UPGR_SCRAM_SHA_512
+					case slices.Contains(upgrSlice, UPGR_SCRAM_SHA_256):
+						saslUpgradeMech = UPGR_SCRAM_SHA_256
 					}
 					if saslUpgradeMech != "" {
 						saslUpgrade = fmt.Sprintf("<upgrade xmlns='%s'>%s</upgrade>",
-							nsSASLUpgrade, saslUpgradeMech)
+							XMPPNS_SASL_UPGRADE_0, saslUpgradeMech)
 					}
 				}
 				if bind2 {
@@ -823,7 +790,7 @@ func (c *Client) init(o *Options) error {
 						resource = "go-xmpp"
 					}
 					bind2Data = fmt.Sprintf("<bind xmlns='%s'><tag>%s</tag></bind>",
-						nsBind2, resource)
+						XMPPNS_BIND_0, resource)
 				}
 				if o.UserAgentSW != "" {
 					userAgentSW = fmt.Sprintf("<software>%s</software>", o.UserAgentSW)
@@ -841,41 +808,41 @@ func (c *Client) init(o *Options) error {
 					if o.FastToken == "" {
 						m := f.Authentication.Inline.Fast.Mechanism
 						switch {
-						case slices.Contains(m, htSHA256Expr) && tls13:
-							mech = htSHA256Expr
-						case slices.Contains(m, htSHA256Uniq) && !tls13:
-							mech = htSHA256Uniq
-						case slices.Contains(m, htSHA256Endp):
-							mech = htSHA256Endp
-						case slices.Contains(m, htSHA256None):
-							mech = htSHA256None
+						case slices.Contains(m, HT_SHA_256_EXPR) && tls13:
+							mech = HT_SHA_256_EXPR
+						case slices.Contains(m, HT_SHA_256_UNIQ) && !tls13:
+							mech = HT_SHA_256_UNIQ
+						case slices.Contains(m, HT_SHA_256_ENDP):
+							mech = HT_SHA_256_ENDP
+						case slices.Contains(m, HT_SHA_256_NONE):
+							mech = HT_SHA_256_NONE
 						default:
 							return fmt.Errorf("fast: unsupported auth mechanism %s", m)
 						}
-						fastAuth = fmt.Sprintf("<request-token xmlns='%s' mechanism='%s'/>", nsFast, mech)
+						fastAuth = fmt.Sprintf("<request-token xmlns='%s' mechanism='%s'/>", XMPPNS_FAST_0, mech)
 					} else {
 						var fastInvalidate string
 						if o.FastInvalidate {
 							fastInvalidate = " invalidate='true'"
 						}
-						fastAuth = fmt.Sprintf("<fast xmlns='%s'%s/>", nsFast, fastInvalidate)
+						fastAuth = fmt.Sprintf("<fast xmlns='%s'%s/>", XMPPNS_FAST_0, fastInvalidate)
 						tlsState := tlsConn.ConnectionState()
 						mechanism = o.FastMechanism
 						switch mechanism {
-						case htSHA256Expr:
+						case HT_SHA_256_EXPR:
 							if !tls13 {
-								return fmt.Errorf("fast: %s can only be used when using TLSv1.3", htSHA256Expr)
+								return fmt.Errorf("fast: %s can only be used when using TLSv1.3", HT_SHA_256_EXPR)
 							}
 							keyingMaterial, err = tlsState.ExportKeyingMaterial("EXPORTER-Channel-Binding", nil, 32)
 							if err != nil {
 								return err
 							}
-						case htSHA256Uniq:
+						case HT_SHA_256_UNIQ:
 							if tls13 {
-								return fmt.Errorf("fast: %s can not be used when using TLSv1.3", htSHA256Uniq)
+								return fmt.Errorf("fast: %s can not be used when using TLSv1.3", HT_SHA_256_UNIQ)
 							}
 							keyingMaterial = tlsState.TLSUnique
-						case htSHA256Endp:
+						case HT_SHA_256_ENDP:
 							var h hash.Hash
 							switch tlsState.PeerCertificates[0].SignatureAlgorithm {
 							case x509.SHA1WithRSA, x509.SHA256WithRSA, x509.ECDSAWithSHA1,
@@ -889,7 +856,7 @@ func (c *Client) init(o *Options) error {
 							h.Write(tlsState.PeerCertificates[0].Raw)
 							keyingMaterial = h.Sum(nil)
 							h.Reset()
-						case htSHA256None:
+						case HT_SHA_256_NONE:
 							keyingMaterial = []byte("")
 						default:
 							return fmt.Errorf("fast: unsupported auth mechanism %s", mechanism)
@@ -907,10 +874,10 @@ func (c *Client) init(o *Options) error {
 				}
 				fmt.Fprintf(c.stanzaWriter,
 					"<authenticate xmlns='%s' mechanism='%s'>%s<initial-response>%s</initial-response><user-agent%s>%s%s</user-agent>%s%s</authenticate>\n",
-					nsSASL2, mechanism, saslUpgrade, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)), userAgentID, userAgentSW, userAgentDev, bind2Data, fastAuth)
+					XMPPNS_SASL_2, mechanism, saslUpgrade, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)), userAgentID, userAgentSW, userAgentDev, bind2Data, fastAuth)
 			} else {
 				fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='%s'>%s</auth>\n",
-					nsSASL, mechanism, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)))
+					XMPPNS_XMPP_SASL, mechanism, base64.StdEncoding.EncodeToString([]byte(clientFirstMessage)))
 			}
 			var sfm string
 			_, val, err := c.next()
@@ -971,14 +938,14 @@ func (c *Client) init(o *Options) error {
 				if v.Token.Token != "" && v.Token.Token != o.FastToken {
 					m := f.Authentication.Inline.Fast.Mechanism
 					switch {
-					case slices.Contains(m, htSHA256Expr) && tls13:
-						c.Fast.Mechanism = htSHA256Expr
-					case slices.Contains(m, htSHA256Uniq) && !tls13:
-						c.Fast.Mechanism = htSHA256Uniq
-					case slices.Contains(m, htSHA256Endp):
-						c.Fast.Mechanism = htSHA256Endp
-					case slices.Contains(m, htSHA256None):
-						c.Fast.Mechanism = htSHA256None
+					case slices.Contains(m, HT_SHA_256_EXPR) && tls13:
+						c.Fast.Mechanism = HT_SHA_256_EXPR
+					case slices.Contains(m, HT_SHA_256_UNIQ) && !tls13:
+						c.Fast.Mechanism = HT_SHA_256_UNIQ
+					case slices.Contains(m, HT_SHA_256_ENDP):
+						c.Fast.Mechanism = HT_SHA_256_ENDP
+					case slices.Contains(m, HT_SHA_256_NONE):
+						c.Fast.Mechanism = HT_SHA_256_NONE
 					}
 					c.Fast.Token = v.Token.Token
 					c.Fast.Expiry, _ = time.Parse(time.RFC3339, v.Token.Expiry)
@@ -986,7 +953,7 @@ func (c *Client) init(o *Options) error {
 				if o.Session {
 					// if server support session, open it
 					cookie := getCookie() // generate new id value for session
-					fmt.Fprintf(c.stanzaWriter, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>\n", xmlEscape(domain), cookie, nsSession)
+					fmt.Fprintf(c.stanzaWriter, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>\n", xmlEscape(domain), cookie, XMPPNS_XMPP_SESSION)
 				}
 
 				// We're connected and can now receive and send messages.
@@ -1062,7 +1029,7 @@ func (c *Client) init(o *Options) error {
 					return errors.New("scram: server sent reserved 'm' attribute")
 				}
 			}
-			if scramPlus {
+			if scramPLUS {
 				clientFinalMessageBare = "c=" + channelBinding + ",r=" + serverNonce
 			} else {
 				clientFinalMessageBare = "c=biws,r=" + serverNonce
@@ -1081,13 +1048,13 @@ func (c *Client) init(o *Options) error {
 			h.Reset()
 			var storedKey []byte
 			switch mechanism {
-			case scramSHA512, scramSHA512Plus:
+			case SCRAM_SHA_512, SCRAM_SHA_512_PLUS:
 				storedKey512 := sha512.Sum512(clientKey)
 				storedKey = storedKey512[:]
-			case scramSHA256, scramSHA256Plus:
+			case SCRAM_SHA_256, SCRAM_SHA_256_PLUS:
 				storedKey256 := sha256.Sum256(clientKey)
 				storedKey = storedKey256[:]
-			case scramSHA1, scramSHA1Plus:
+			case SCRAM_SHA_1, SCRAM_SHA_1_PLUS:
 				storedKey1 := sha1.Sum(clientKey)
 				storedKey = storedKey1[:]
 			}
@@ -1137,10 +1104,10 @@ func (c *Client) init(o *Options) error {
 			clientFinalMessage := base64.StdEncoding.EncodeToString([]byte(clientFinalMessageBare +
 				",p=" + base64.StdEncoding.EncodeToString(clientProof)))
 			if sasl2 {
-				fmt.Fprintf(c.stanzaWriter, "<response xmlns='%s'>%s</response>\n", nsSASL2,
+				fmt.Fprintf(c.stanzaWriter, "<response xmlns='%s'>%s</response>\n", XMPPNS_SASL_2,
 					clientFinalMessage)
 			} else {
-				fmt.Fprintf(c.stanzaWriter, "<response xmlns='%s'>%s</response>\n", nsSASL,
+				fmt.Fprintf(c.stanzaWriter, "<response xmlns='%s'>%s</response>\n", XMPPNS_XMPP_SASL,
 					clientFinalMessage)
 			}
 		}
@@ -1151,10 +1118,10 @@ func (c *Client) init(o *Options) error {
 			base64.StdEncoding.Encode(enc, []byte(raw))
 			if sasl2 {
 				fmt.Fprintf(c.stanzaWriter, "<authenticate xmlns='%s' mechanism='X-OAUTH2' auth:service='oauth2' "+
-					"xmlns:auth='%s'>%s</authenticate>\n", nsSASL2, o.OAuthXmlNs, enc)
+					"xmlns:auth='%s'>%s</authenticate>\n", XMPPNS_SASL_2, o.OAuthXmlNs, enc)
 			} else {
 				fmt.Fprintf(c.stanzaWriter, "<auth xmlns='%s' mechanism='X-OAUTH2' auth:service='oauth2' "+
-					"xmlns:auth='%s'>%s</auth>\n", nsSASL, o.OAuthXmlNs, enc)
+					"xmlns:auth='%s'>%s</auth>\n", XMPPNS_XMPP_SASL, o.OAuthXmlNs, enc)
 			}
 		}
 		if mechanism == "PLAIN" {
@@ -1163,9 +1130,9 @@ func (c *Client) init(o *Options) error {
 			enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
 			base64.StdEncoding.Encode(enc, []byte(raw))
 			if sasl2 {
-				fmt.Fprintf(c.conn, "<authenticate xmlns='%s' mechanism='PLAIN'>%s</authenticate>\n", nsSASL2, enc)
+				fmt.Fprintf(c.conn, "<authenticate xmlns='%s' mechanism='PLAIN'>%s</authenticate>\n", XMPPNS_SASL_2, enc)
 			} else {
-				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='PLAIN'>%s</auth>\n", nsSASL, enc)
+				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='PLAIN'>%s</auth>\n", XMPPNS_XMPP_SASL, enc)
 			}
 		}
 	}
@@ -1186,7 +1153,7 @@ func (c *Client) init(o *Options) error {
 				return err
 			}
 			fmt.Fprintf(c.stanzaWriter, "<next xmlns='%s' task='%s'/>\n",
-				nsSASL2, saslUpgradeMech)
+				XMPPNS_SASL_2, saslUpgradeMech)
 			name, val, err = c.next()
 			if err != nil {
 				return err
@@ -1195,9 +1162,9 @@ func (c *Client) init(o *Options) error {
 			case *sasl2TaskData:
 				var shaNewFn func() hash.Hash
 				switch saslUpgradeMech {
-				case scramUpSHA512:
+				case UPGR_SCRAM_SHA_512:
 					shaNewFn = sha512.New
-				case scramUpSHA256:
+				case UPGR_SCRAM_SHA_256:
 					shaNewFn = sha256.New
 				}
 				salt, err := base64.StdEncoding.DecodeString(v.Salt.Text)
@@ -1210,7 +1177,7 @@ func (c *Client) init(o *Options) error {
 					return err
 				}
 				saltedPasswordB64 := base64.StdEncoding.EncodeToString(saltedPassword)
-				fmt.Fprintf(c.stanzaWriter, "<task-data xmlns='%s'><hash xmlns='%s'>%s</hash></task-data>\n", nsSASL2, nsSCRAMUpgrade, saltedPasswordB64)
+				fmt.Fprintf(c.stanzaWriter, "<task-data xmlns='%s'><hash xmlns='%s'>%s</hash></task-data>\n", XMPPNS_SASL_2, XMPPNS_SCRAM_UPGRADE_0, saltedPasswordB64)
 				continue
 			default:
 				return fmt.Errorf("sasl2 upgrade failure: expected *sasl2TaskData, got %s", name.Local)
@@ -1244,14 +1211,14 @@ func (c *Client) init(o *Options) error {
 			if v.Token.Token != "" {
 				m := f.Authentication.Inline.Fast.Mechanism
 				switch {
-				case slices.Contains(m, htSHA256Expr) && tls13:
-					c.Fast.Mechanism = htSHA256Expr
-				case slices.Contains(m, htSHA256Uniq) && !tls13:
-					c.Fast.Mechanism = htSHA256Uniq
-				case slices.Contains(m, htSHA256Endp):
-					c.Fast.Mechanism = htSHA256Endp
-				case slices.Contains(m, htSHA256None):
-					c.Fast.Mechanism = htSHA256None
+				case slices.Contains(m, HT_SHA_256_EXPR) && tls13:
+					c.Fast.Mechanism = HT_SHA_256_EXPR
+				case slices.Contains(m, HT_SHA_256_UNIQ) && !tls13:
+					c.Fast.Mechanism = HT_SHA_256_UNIQ
+				case slices.Contains(m, HT_SHA_256_ENDP):
+					c.Fast.Mechanism = HT_SHA_256_ENDP
+				case slices.Contains(m, HT_SHA_256_NONE):
+					c.Fast.Mechanism = HT_SHA_256_NONE
 				}
 				c.Fast.Token = v.Token.Token
 				c.Fast.Expiry, _ = time.Parse(time.RFC3339, v.Token.Expiry)
@@ -1323,9 +1290,9 @@ func (c *Client) init(o *Options) error {
 
 			// Send IQ message asking to bind to the local user name.
 			if o.Resource == "" {
-				fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%x'><bind xmlns='%s'></bind></iq>\n", cookie, nsBind)
+				fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%x'><bind xmlns='%s'></bind></iq>\n", cookie, XMPPNS_XMPP_BIND)
 			} else {
-				fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%x'><bind xmlns='%s'><resource>%s</resource></bind></iq>\n", cookie, nsBind, o.Resource)
+				fmt.Fprintf(c.stanzaWriter, "<iq type='set' id='%x'><bind xmlns='%s'><resource>%s</resource></bind></iq>\n", cookie, XMPPNS_XMPP_BIND, o.Resource)
 			}
 			_, val, err = c.next()
 			if err != nil {
@@ -1341,7 +1308,7 @@ func (c *Client) init(o *Options) error {
 				}
 				return errors.New("stream error: " + errorMessage)
 			case *clientIQ:
-				if v.Bind.XMLName.Space == nsBind {
+				if v.Bind.XMLName.Space == XMPPNS_XMPP_BIND {
 					c.jid = v.Bind.Jid // our local id
 					c.domain = domain
 				} else {
@@ -1352,7 +1319,7 @@ func (c *Client) init(o *Options) error {
 		if o.Session {
 			// if server support session, open it
 			cookie := getCookie() // generate new id value for session
-			fmt.Fprintf(c.stanzaWriter, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>\n", xmlEscape(domain), cookie, nsSession)
+			fmt.Fprintf(c.stanzaWriter, "<iq to='%s' type='set' id='%x'><session xmlns='%s'/></iq>\n", xmlEscape(domain), cookie, XMPPNS_XMPP_SESSION)
 		}
 
 		// We're connected and can now receive and send messages.
@@ -1436,14 +1403,14 @@ func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error)
 		_, err := fmt.Fprintf(c.stanzaWriter, "<?xml version='1.0'?>"+
 			"<stream:stream %sto='%s' xmlns='%s'"+
 			" xmlns:stream='%s' version='1.0'>\n",
-			fromString, xmlEscape(domain), nsClient, nsStream)
+			fromString, xmlEscape(domain), XMPPNS_CLIENT, XMPPNS_STREAM)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		_, err := fmt.Fprintf(c.stanzaWriter, "<?xml version='1.0'?>"+
 			"<stream:stream to='%s' xmlns='%s' xmlns:stream='%s' version='1.0'>\n",
-			xmlEscape(domain), nsClient, nsStream)
+			xmlEscape(domain), XMPPNS_CLIENT, XMPPNS_STREAM)
 		if err != nil {
 			return nil, err
 		}
@@ -1454,7 +1421,7 @@ func (c *Client) startStream(o *Options, domain string) (*streamFeatures, error)
 	if err != nil {
 		return nil, err
 	}
-	if se.Name.Space != nsStream || se.Name.Local != "stream" {
+	if se.Name.Space != XMPPNS_STREAM || se.Name.Local != "stream" {
 		return nil, fmt.Errorf("expected <stream> but got <%v> in %v", se.Name.Local, se.Name.Space)
 	}
 
@@ -1637,7 +1604,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 			}, nil
 		case *clientIQ:
 			switch {
-			case v.Query.XMLName.Space == nsClientPing && v.Type == "get":
+			case v.Query.XMLName.Space == XMPPNS_PING && v.Type == "get":
 				// TODO check more strictly
 				err := c.SendResultPing(v.ID, v.From)
 				if err != nil {
@@ -1645,7 +1612,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				}
 				fallthrough
 
-			case v.Query.XMLName.Space == nsVersion && v.Type == "get":
+			case v.Query.XMLName.Space == XMPPNS_IQ_VERSION && v.Type == "get":
 				if c.Options.ReportSoftwareVersion {
 					var osName string
 
@@ -1671,7 +1638,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				} else {
 					id, err := c.ErrorServiceUnavailable(
 						IQ{ID: v.ID, From: v.From, To: v.To},
-						nsVersion,
+						XMPPNS_IQ_VERSION,
 						"",
 					)
 					if err != nil {
@@ -1748,7 +1715,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 						Identities: clientIdentitiesToReturn(disco.Identities),
 						X:          disco.X,
 					}, nil
-				case v.Query.XMLName.Space == XMPPNS_HTTP_UPLOAD:
+				case v.Query.XMLName.Space == XMPPNS_HTTP_UPLOAD_0:
 					var uploadSlot Slot
 					err := xml.Unmarshal([]byte(v.InnerXML), &uploadSlot)
 					uploadSlot.ID = v.ID
@@ -1910,7 +1877,7 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>%s<body>%s</body>"+
 		"<origin-id xmlns='%s' id='%s'/>%s%s</message>\n",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), id, subtext, xmlEscape(chat.Text),
-		nsStanzaID, id, oobtext, thdtext)
+		XMPPNS_SID_0, id, oobtext, thdtext)
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
@@ -1945,7 +1912,7 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 	id := getUUID()
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+
 		"<origin-id xmlns='%s' id='%s'/>%s%s<body>%s</body></message>\n",
-		xmlEscape(chat.Remote), xmlEscape(chat.Type), id, nsStanzaID, id,
+		xmlEscape(chat.Remote), xmlEscape(chat.Type), id, XMPPNS_SID_0, id,
 		oobtext, thdtext, xmlEscape(chat.Oob.Url))
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
@@ -2024,7 +1991,7 @@ func (c *Client) SendHtml(chat Chat) (n int, err error) {
 	stanza := fmt.Sprintf("<message to='%s' type='%s' xml:lang='en'><body>%s</body><origin-id xmlns='%s' id='%s'/>"+
 		"<html xmlns='http://jabber.org/protocol/xhtml-im'><body xmlns='http://www.w3.org/1999/xhtml'>%s</body>"+
 		"</html></message>\n",
-		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text), nsStanzaID, id, chat.Text)
+		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text), XMPPNS_SID_0, id, chat.Text)
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
@@ -2367,7 +2334,7 @@ func (c *Client) nextStart() (xml.StartElement, error) {
 			c.nextMutex.Unlock()
 			return t, nil
 		case xml.EndElement:
-			if t.Name.Space == nsStream && t.Name.Local == "stream" {
+			if t.Name.Space == XMPPNS_STREAM && t.Name.Local == "stream" {
 				c.nextMutex.Unlock()
 				return xml.StartElement{}, fmt.Errorf("server closed stream")
 			}
@@ -2391,10 +2358,10 @@ func (c *Client) nextEnd() (xml.EndElement, error) {
 		case xml.EndElement:
 			// Do not unlock mutex if the stream is closed to
 			// prevent further reading on the stream.
-			if t.Name.Space == nsStream && t.Name.Local == "error" {
+			if t.Name.Space == XMPPNS_STREAM && t.Name.Local == "error" {
 				return t, fmt.Errorf("server closed stream with error")
 			}
-			if t.Name.Space == nsStream && t.Name.Local == "stream" {
+			if t.Name.Space == XMPPNS_STREAM && t.Name.Local == "stream" {
 				return t, nil
 			}
 			c.nextMutex.Unlock()
@@ -2417,49 +2384,49 @@ func (c *Client) next() (xml.Name, interface{}, error) {
 	// Put it in an interface and allocate one.
 	var nv interface{}
 	switch se.Name.Space + " " + se.Name.Local {
-	case nsStream + " features":
+	case XMPPNS_STREAM + " features":
 		nv = &streamFeatures{}
-	case nsStream + " error":
+	case XMPPNS_STREAM + " error":
 		nv = &streamError{}
-	case nsTLS + " starttls":
+	case XMPPNS_XMPP_TLS + " starttls":
 		nv = &tlsStartTLS{}
-	case nsTLS + " proceed":
+	case XMPPNS_XMPP_TLS + " proceed":
 		nv = &tlsProceed{}
-	case nsTLS + " failure":
+	case XMPPNS_XMPP_TLS + " failure":
 		nv = &tlsFailure{}
-	case nsSASL + " mechanisms":
+	case XMPPNS_XMPP_SASL + " mechanisms":
 		nv = &saslMechanisms{}
-	case nsSASL2 + " challenge":
+	case XMPPNS_SASL_2 + " challenge":
 		nv = &sasl2Challenge{}
-	case nsSASL + " challenge":
+	case XMPPNS_XMPP_SASL + " challenge":
 		nv = &saslChallenge{}
-	case nsSASL + " response":
+	case XMPPNS_XMPP_SASL + " response":
 		nv = ""
-	case nsSASL + " abort":
+	case XMPPNS_XMPP_SASL + " abort":
 		nv = &saslAbort{}
-	case nsSASL2 + " success":
+	case XMPPNS_SASL_2 + " success":
 		nv = &sasl2Success{}
-	case nsSASL2 + " continue":
+	case XMPPNS_SASL_2 + " continue":
 		nv = &sasl2Continue{}
-	case nsSASL2 + " task-data":
+	case XMPPNS_SASL_2 + " task-data":
 		nv = &sasl2TaskData{}
-	case nsSASL + " success":
+	case XMPPNS_XMPP_SASL + " success":
 		nv = &saslSuccess{}
-	case nsSASL2 + " failure":
+	case XMPPNS_SASL_2 + " failure":
 		nv = &sasl2Failure{}
-	case nsSASL + " failure":
+	case XMPPNS_XMPP_SASL + " failure":
 		nv = &saslFailure{}
-	case nsSASLCB + " sasl-channel-binding":
+	case XMPPNS_SASL_CB_0 + " sasl-channel-binding":
 		nv = &saslChannelBindings{}
-	case nsBind + " bind":
+	case XMPPNS_XMPP_BIND + " bind":
 		nv = &bindBind{}
-	case nsClient + " message":
+	case XMPPNS_CLIENT + " message":
 		nv = &clientMessage{}
-	case nsClient + " presence":
+	case XMPPNS_CLIENT + " presence":
 		nv = &clientPresence{}
-	case nsClient + " iq":
+	case XMPPNS_CLIENT + " iq":
 		nv = &clientIQ{}
-	case nsClient + " error":
+	case XMPPNS_CLIENT + " error":
 		nv = &clientError{}
 	default:
 		return xml.Name{}, nil, errors.New("unexpected XMPP message " +

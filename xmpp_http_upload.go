@@ -4,11 +4,6 @@ import (
 	"encoding/xml"
 )
 
-const (
-	XMPPNS_HTTP_UPLOAD = "urn:xmpp:http:upload:0"
-	XMPPNS_X_OOB       = "jabber:x:oob"
-)
-
 type Slot struct {
 	// TODO: Maybe this doesn't belong here
 	ID      string

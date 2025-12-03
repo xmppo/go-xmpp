@@ -9,11 +9,6 @@ import (
 	"strconv"
 )
 
-const (
-	XMPPNS_AVATAR_PEP_DATA     = "urn:xmpp:avatar:data"
-	XMPPNS_AVATAR_PEP_METADATA = "urn:xmpp:avatar:metadata"
-)
-
 type clientAvatarData struct {
 	XMLName xml.Name `xml:"data"`
 	Data    []byte   `xml:",innerxml"`

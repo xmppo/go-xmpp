@@ -297,7 +297,6 @@ var rawOob = strings.TrimSpace(`
 func TestRawOob(t *testing.T) {
 	var s Oob
 	err := xml.Unmarshal([]byte(rawOob), &s)
-
 	if err != nil {
 		t.Errorf("%v", err)
 	}

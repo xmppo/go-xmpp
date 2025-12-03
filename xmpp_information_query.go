@@ -5,13 +5,6 @@ import (
 	"time"
 )
 
-const (
-	IQTypeGet    = "get"
-	IQTypeSet    = "set"
-	IQTypeResult = "result"
-	IQTypeError  = "error"
-)
-
 func (c *Client) Discovery() (string, error) {
 	// use UUIDv4 for a pseudo random id.
 	reqID := getUUID()
@@ -59,7 +52,7 @@ func (c *Client) RawInformation(from, to, id, iqType, body string) (string, erro
 func (c *Client) UrnXMPPTimeResponse(v IQ, timezoneOffset string) (string, error) {
 	query := fmt.Sprintf(
 		"<time xmlns=\"%s\"><tzo>%s</tzo><utc>%s</utc></time>",
-		nsTime,
+		XMPPNS_TIME,
 		timezoneOffset,
 		time.Now().UTC().Format(time.RFC3339),
 	)
@@ -84,7 +77,7 @@ func (c *Client) IqVersionResponse(v IQ, name string, version string, os string)
 		version = "undefined"
 	}
 
-	query := fmt.Sprintf("<query xmlns=\"%s\">", nsVersion)
+	query := fmt.Sprintf("<query xmlns=\"%s\">", XMPPNS_IQ_VERSION)
 	query += fmt.Sprintf("<name>%s</name>", name)
 	query += fmt.Sprintf("<version>%s</version>", version)
 
