@@ -1509,8 +1509,11 @@ type Chat struct {
 	Subject string
 	Thread  string
 	// XEP-0066 Out-Of-Band url/desc
-	Oob  Oob
-	Lang string
+	Oob Oob
+	// Deprecated Oob settings, use Oob.Url and Oob.Desc (above) instead.
+	Ooburl  string
+	Oobdesc string
+	Lang    string
 	// Only for incoming messages, ID for outgoing messages will be generated.
 	OriginID string
 	// Only for incoming messages, ID for outgoing messages will be generated.
@@ -1886,9 +1889,17 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 	if chat.Thread != `` {
 		thdtext = `<thread>` + xmlEscape(chat.Thread) + `</thread>`
 	}
-	if chat.Oob.Url != `` {
+	if chat.Oob.Url != `` || chat.Ooburl != `` {
+		if chat.Oob.Url == `` {
+			chat.Oob.Url = chat.Ooburl
+			fmt.Println("xmpp: chat.Ooburl is deprecated, use chat.Oob.Url instead.")
+		}
 		oobtext = `<x xmlns="jabber:x:oob"><url>` + xmlEscape(chat.Oob.Url) + `</url>`
-		if chat.Oob.Desc != `` {
+		if chat.Oob.Desc != `` || chat.Oobdesc != `` {
+			if chat.Oob.Desc == `` {
+				chat.Oob.Desc = chat.Oobdesc
+				fmt.Println("xmpp: chat.Oobdesc is deprecated, use chat.Oob.Desc instead.")
+			}
 			oobtext += `<desc>` + xmlEscape(chat.Oob.Desc) + `</desc>`
 		}
 		oobtext += `</x>`
@@ -1915,8 +1926,16 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 	if chat.Thread != `` {
 		thdtext = `<thread>` + xmlEscape(chat.Thread) + `</thread>`
 	}
-	if chat.Oob.Url == `` {
+	if chat.Oob.Url == `` && chat.Ooburl == `` {
 		return 0, fmt.Errorf("SendOOB requires chat.Oob.Url to be set")
+	}
+	if chat.Oob.Url == `` {
+		chat.Oob.Url = chat.Ooburl
+		fmt.Println("xmpp: chat.Ooburl is deprecated, use chat.Oob.Url instead.")
+	}
+	if chat.Oob.Desc == `` && chat.Oobdesc != `` {
+		chat.Oob.Desc = chat.Oobdesc
+		fmt.Println("xmpp: chat.Oobdesc is deprecated, use chat.Oob.Desc instead.")
 	}
 	oobtext = `<x xmlns="jabber:x:oob"><url>` + xmlEscape(chat.Oob.Url) + `</url>`
 	if chat.Oob.Desc != `` {
