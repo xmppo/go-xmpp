@@ -2,6 +2,7 @@ package xmpp
 
 import (
 	"fmt"
+	"strings"
 )
 
 // ErrorServiceUnavailable implements error response about a feature that is not available. Currently implemented for
@@ -38,14 +39,19 @@ func (c *Client) ErrorServiceUnavailable(v IQ, queryXmlns, node string) (string,
 // If queried feature is not here because of it under development or for similar reasons, standards suggest to answer with
 // this stanza.
 func (c *Client) ErrorNotImplemented(v IQ, xmlns, feature string) (string, error) {
-	query := "<error type='cancel'>"
-	query += "<feature-not-implemented xmlns='urn:ietf:params:xml:ns:xmpp-stanzas' />"
-	query += fmt.Sprintf(
-		"<unsupported xmlns='%s' feature='%s' />",
-		xmlns,
-		feature,
+	var query = strings.Join(
+		[]string{
+			`<error type='cancel'>`,
+			`<feature-not-implemented xmlns='urn:ietf:params:xml:ns:xmpp-stanzas' />`,
+			fmt.Sprintf(
+				"<unsupported xmlns='%s' feature='%s' />",
+				xmlns,
+				feature,
+			),
+			`</error>`,
+		},
+		"\n",
 	)
-	query += "</error>"
 
 	return c.RawInformation(
 		v.To,

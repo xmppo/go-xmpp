@@ -98,6 +98,7 @@ func clientIdentitiesToReturn(identities []clientDiscoIdentity) []DiscoIdentity 
 
 func clientDiscoItemsToReturn(items []clientDiscoItem) []DiscoItem {
 	var ret []DiscoItem
+
 	for _, item := range items {
 		ret = append(ret, DiscoItem{
 			Jid:  item.Jid,
