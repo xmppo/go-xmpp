@@ -102,6 +102,7 @@ func TestStanzaError(t *testing.T) {
 			},
 		},
 	}
+
 	if !reflect.DeepEqual(v, chat) {
 		t.Errorf("Recv() = %#v; want %#v", v, chat)
 	}
@@ -112,6 +113,7 @@ func TestEOFError(t *testing.T) {
 	c.conn = tConnect("")
 	c.p = xml.NewDecoder(c.conn)
 	_, err := c.Recv()
+
 	if err != io.EOF {
 		t.Errorf("Recv() did not return io.EOF on end of input stream")
 	}
@@ -137,6 +139,7 @@ func TestEmptyPubsub(t *testing.T) {
 		if err == nil {
 			t.Errorf("Expected an error to be returned")
 		}
+
 	default:
 		t.Errorf("Recv() = %v", m)
 		t.Errorf("Expected a return value of AvatarData")
@@ -169,6 +172,7 @@ func TestUploadSlot(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+
 	t.Logf("Recv() = %v", m)
 
 	switch m.(type) {
@@ -188,6 +192,7 @@ func TestUploadSlot(t *testing.T) {
 
 		foundAuthorization := false
 		foundCookie := false
+
 		for _, header := range v.Put.Headers {
 			if header.Name == "Authorization" && header.Value == "Basic Base64String==" {
 				foundAuthorization = true
@@ -208,6 +213,7 @@ func TestUploadSlot(t *testing.T) {
 		if !foundCookie {
 			t.Errorf("Cookie header not found")
 		}
+
 	default:
 		t.Errorf("Recv() = %V", m)
 		t.Errorf("Expected a return value of Slot")
@@ -234,6 +240,7 @@ func TestChatOOB(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+
 	t.Logf("Recv() = %v", m)
 
 	switch m.(type) {
@@ -247,6 +254,7 @@ func TestChatOOB(t *testing.T) {
 		if v.Oob.Desc != "" {
 			t.Errorf("Should not find Desc: `%s`", v.Oob.Desc)
 		}
+
 	default:
 		t.Errorf("Recv() = %v", m)
 		t.Errorf("Expected a return value of AvatarData")
@@ -269,6 +277,7 @@ func TestChatNoOOB(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+
 	t.Logf("Recv() = %v", m)
 
 	switch m.(type) {
@@ -282,6 +291,7 @@ func TestChatNoOOB(t *testing.T) {
 		if v.Oob.Desc != "" {
 			t.Errorf("Should not find Desc: `%s`", v.Oob.Desc)
 		}
+
 	default:
 		t.Errorf("Recv() = %v", m)
 		t.Errorf("Expected a return value of AvatarData")

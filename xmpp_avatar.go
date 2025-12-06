@@ -47,6 +47,7 @@ type AvatarMetadata struct {
 
 func handleAvatarData(itemsBody []byte, from, id string) (AvatarData, error) {
 	var data clientAvatarData
+
 	err := xml.Unmarshal(itemsBody, &data)
 	if err != nil {
 		return AvatarData{}, err
@@ -73,6 +74,7 @@ func handleAvatarData(itemsBody []byte, from, id string) (AvatarData, error) {
 
 func handleAvatarMetadata(body []byte, from string) (AvatarMetadata, error) {
 	var meta clientAvatarMetadata
+
 	err := xml.Unmarshal(body, &meta)
 	if err != nil {
 		return AvatarMetadata{}, err
