@@ -59,7 +59,7 @@ func handleAvatarData(itemsBody []byte, from, id string) (AvatarData, error) {
 		return AvatarData{}, err
 	}
 
-	hash := sha1.Sum(dataRaw)
+	hash := sha1.Sum(dataRaw) //nolint: gosec,G401 // It is not about security.
 	hashStr := hex.EncodeToString(hash[:])
 	if hashStr != id {
 		return AvatarData{}, errors.New("SHA1 hashes do not match")
