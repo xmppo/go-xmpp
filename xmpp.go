@@ -49,7 +49,7 @@ import (
 )
 
 // Default TLS configuration options
-var DefaultConfig = &tls.Config{}
+var DefaultConfig = &tls.Config{} //nolint: gosec,G402 // In go1.25 TLS 1.2 used as default. Used by servers for older clients.
 
 // DebugWriter is the writer used to write debugging output to.
 type debugWriter struct {
@@ -1055,7 +1055,7 @@ func (c *Client) init(o *Options) error {
 				storedKey256 := sha256.Sum256(clientKey)
 				storedKey = storedKey256[:]
 			case SCRAM_SHA_1, SCRAM_SHA_1_PLUS:
-				storedKey1 := sha1.Sum(clientKey)
+				storedKey1 := sha1.Sum(clientKey) //nolint: gosec,G401 // Servers use this because of older clients.
 				storedKey = storedKey1[:]
 			}
 			_, err = h.Write([]byte("Server Key"))
