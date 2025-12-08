@@ -672,7 +672,7 @@ func (c *Client) init(o *Options) error {
 				mechanism = SCRAM_SHA_256
 			case slices.Contains(mechSlice, SCRAM_SHA_1):
 				mechanism = SCRAM_SHA_1
-			case slices.Contains(mechSlice, "X-OAUTH2"):
+			case slices.Contains(mechSlice, "X-OAUTH2") && o.OAuthToken != "" && o.OAuthScope != "":
 				mechanism = "X-OAUTH2"
 				// Do not use PLAIN auth if NoPlain is set.
 			case slices.Contains(mechSlice, "PLAIN") && !o.NoPLAIN && (tlsConnOK || o.InsecureAllowUnencryptedAuth):
@@ -1111,7 +1111,7 @@ func (c *Client) init(o *Options) error {
 					clientFinalMessage)
 			}
 		}
-		if mechanism == "X-OAUTH2" && o.OAuthToken != "" && o.OAuthScope != "" {
+		if mechanism == "X-OAUTH2" {
 			// Oauth authentication: send base64-encoded \x00 user \x00 token.
 			raw := "\x00" + user + "\x00" + o.OAuthToken
 			enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
