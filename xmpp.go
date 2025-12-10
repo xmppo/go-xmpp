@@ -1129,10 +1129,18 @@ func (c *Client) init(o *Options) error {
 			raw := "\x00" + user + "\x00" + o.Password
 			enc := make([]byte, base64.StdEncoding.EncodedLen(len(raw)))
 			base64.StdEncoding.Encode(enc, []byte(raw))
-			if sasl2 {
-				fmt.Fprintf(c.conn, "<authenticate xmlns='%s' mechanism='PLAIN'><initial-response>%s</initial-response></authenticate>\n", XMPPNS_SASL_2, enc)
+			if o.UserAgentSW != "" {
+				resource = o.UserAgentSW
 			} else {
-				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='PLAIN'>%s</auth>\n", XMPPNS_XMPP_SASL, enc)
+				resource = "go-xmpp"
+			}
+			bind2Data = fmt.Sprintf("<bind xmlns='%s'><tag>%s</tag></bind>",
+				XMPPNS_BIND_0, resource)
+
+			if sasl2 {
+				fmt.Fprintf(c.conn, "<authenticate xmlns='%s' mechanism='PLAIN'><initial-response>%s</initial-response>%s</authenticate>\n", XMPPNS_SASL_2, enc, bind2Data)
+			} else {
+				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='PLAIN'>%s%s</auth>\n", XMPPNS_XMPP_SASL, enc, bind2Data)
 			}
 		}
 	}
