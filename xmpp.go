@@ -607,13 +607,12 @@ func (c *Client) init(o *Options) error {
 			}
 			bind2Data = fmt.Sprintf("<bind xmlns='%s'><tag>%s</tag></bind>",
 				XMPPNS_BIND_0, resource)
-			if o.UserAgentDev != "" {
-				userAgentDev = fmt.Sprintf("<device>%s</device>", o.UserAgentDev)
-			}
-			if o.UserAgentID != "" {
-				userAgentID = fmt.Sprintf(" id='%s'", o.UserAgentID)
-			}
-
+		}
+		if o.UserAgentDev != "" {
+			userAgentDev = fmt.Sprintf("<device>%s</device>", o.UserAgentDev)
+		}
+		if o.UserAgentID != "" {
+			userAgentID = fmt.Sprintf(" id='%s'", o.UserAgentID)
 		}
 	} else {
 		mechSlice = f.Mechanisms.Mechanism
