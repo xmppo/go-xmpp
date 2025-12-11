@@ -598,6 +598,22 @@ func (c *Client) init(o *Options) error {
 		// Detect whether bind2 is available
 		if f.Authentication.Inline.Bind.Xmlns != "" {
 			bind2 = true
+			if o.UserAgentSW != "" {
+				userAgentSW = fmt.Sprintf("<software>%s</software>", o.UserAgentSW)
+				resource = o.UserAgentSW
+			} else {
+				userAgentSW = "<software>go-xmpp</software>"
+				resource = "go-xmpp"
+			}
+			bind2Data = fmt.Sprintf("<bind xmlns='%s'><tag>%s</tag></bind>",
+				XMPPNS_BIND_0, resource)
+			if o.UserAgentDev != "" {
+				userAgentDev = fmt.Sprintf("<device>%s</device>", o.UserAgentDev)
+			}
+			if o.UserAgentID != "" {
+				userAgentID = fmt.Sprintf(" id='%s'", o.UserAgentID)
+			}
+
 		}
 	} else {
 		mechSlice = f.Mechanisms.Mechanism
@@ -608,26 +624,6 @@ func (c *Client) init(o *Options) error {
 			if m == "ANONYMOUS" {
 				mechanism = m
 				if sasl2 {
-					if bind2 {
-						if o.UserAgentSW != "" {
-							resource = o.UserAgentSW
-						} else {
-							resource = "go-xmpp"
-						}
-						bind2Data = fmt.Sprintf("<bind xmlns='%s'><tag>%s</tag></bind>",
-							XMPPNS_BIND_0, resource)
-					}
-					if o.UserAgentSW != "" {
-						userAgentSW = fmt.Sprintf("<software>%s</software>", o.UserAgentSW)
-					} else {
-						userAgentSW = "<software>go-xmpp</software>"
-					}
-					if o.UserAgentDev != "" {
-						userAgentDev = fmt.Sprintf("<device>%s</device>", o.UserAgentDev)
-					}
-					if o.UserAgentID != "" {
-						userAgentID = fmt.Sprintf(" id='%s'", o.UserAgentID)
-					}
 					fmt.Fprintf(c.stanzaWriter,
 						"<authenticate xmlns='%s' mechanism='%s'><user-agent%s>%s%s</user-agent>%s%s</authenticate>\n",
 						XMPPNS_SASL_2, mechanism, userAgentID, userAgentSW, userAgentDev, bind2Data, fastAuth)
@@ -782,26 +778,6 @@ func (c *Client) init(o *Options) error {
 						saslUpgrade = fmt.Sprintf("<upgrade xmlns='%s'>%s</upgrade>",
 							XMPPNS_SASL_UPGRADE_0, saslUpgradeMech)
 					}
-				}
-				if bind2 {
-					if o.UserAgentSW != "" {
-						resource = o.UserAgentSW
-					} else {
-						resource = "go-xmpp"
-					}
-					bind2Data = fmt.Sprintf("<bind xmlns='%s'><tag>%s</tag></bind>",
-						XMPPNS_BIND_0, resource)
-				}
-				if o.UserAgentSW != "" {
-					userAgentSW = fmt.Sprintf("<software>%s</software>", o.UserAgentSW)
-				} else {
-					userAgentSW = "<software>go-xmpp</software>"
-				}
-				if o.UserAgentDev != "" {
-					userAgentDev = fmt.Sprintf("<device>%s</device>", o.UserAgentDev)
-				}
-				if o.UserAgentID != "" {
-					userAgentID = fmt.Sprintf(" id='%s'", o.UserAgentID)
 				}
 				if o.Fast && f.Authentication.Inline.Fast.Mechanism != nil && o.UserAgentID != "" && c.IsEncrypted() {
 					var mech string
