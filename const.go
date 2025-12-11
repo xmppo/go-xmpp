@@ -1,7 +1,7 @@
 package xmpp
 
 const (
-	Version = "0.3.1-dev"
+	Version = "0.3.1"
 	// FAST Mechanisms
 	HT_SHA_256_ENDP = "HT-SHA-256-ENDP"
 	HT_SHA_256_EXPR = "HT-SHA-256-EXPR"
