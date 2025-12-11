@@ -1140,7 +1140,7 @@ func (c *Client) init(o *Options) error {
 			if sasl2 {
 				fmt.Fprintf(c.conn, "<authenticate xmlns='%s' mechanism='PLAIN'><initial-response>%s</initial-response>%s</authenticate>\n", XMPPNS_SASL_2, enc, bind2Data)
 			} else {
-				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='PLAIN'>%s%s</auth>\n", XMPPNS_XMPP_SASL, enc, bind2Data)
+				fmt.Fprintf(c.conn, "<auth xmlns='%s' mechanism='PLAIN'>%s</auth>\n", XMPPNS_XMPP_SASL, enc)
 			}
 		}
 	}
