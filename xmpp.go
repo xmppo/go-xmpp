@@ -1585,7 +1585,6 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				if err != nil {
 					return Chat{}, err
 				}
-				fallthrough
 
 			case v.Query.XMLName.Space == XMPPNS_IQ_VERSION && v.Type == "get":
 				if c.Options.ReportSoftwareVersion {
