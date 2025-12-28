@@ -187,7 +187,90 @@ linters:
       concat-loop: true
       loop-other-ops: false
     revive:
-      enable-all-rules: false
+      enable-all-rules: true
+      severity: "warning"
+      rules:
+      # Oh, comon!
+      - name: argument-limit
+        disabled: true
+      - name: bare-return
+        disabled: true
+      # You never know anything about complexity, so fuckoff.
+      - name: cognitive-complexity
+        disabled: true
+      # Really?
+      - name: comments-density
+        disabled: true
+      - name: confusing-results
+        disabled: true
+      - name: cyclomatic
+        disabled: true
+      - name: empty-block
+        disabled: true
+      # Allow wsl.v5 make dicesions about it, okay?
+      - name: empty-lines
+        disabled: true
+      # If you're planning to log contructed errors or show them via other methods capitalisation defined by
+      # each concrete case and usually (bit not always!) capitalization is preferred.
+      - name: error-strings
+        disabled: true
+      # We're not a corporation with it's propertiary licenses. Our license is located in LICENSE file. No
+      # enoforcing common text in all files required.
+      - name: file-header
+        disabled: true
+      # You think you're smart? Think again, dumbass.
+      - name: file-length-limit
+        disabled: true
+      - name: filename-format
+        disabled: true
+      # Never ever enforce that shitty check. Function length should be enough to solve problem, premature split
+      # functions to many smaller ones leads to spagetti code that drasically confuses understanding what going on
+      # except author of this mess is and asshole that prefers rise code complexity rises rocket sky because of
+      # formal rules.
+      - name: function-length
+        disabled: true
+      # Obviously!
+      - name: function-result-limit
+        disabled: true
+      - name: imports-blocklist
+        disabled: true
+      # Someone prefers 78 char lines, others 80, 100, 120, etc.
+      # I persanally prefer 120 char line limit, but in my opinion this limit should depend on common sense and readability
+      # first of all. And because of that it should not be enforced.
+      - name: line-length-limit
+        disabled: true
+      # Let's enable common sence and disable that nonsence.
+      - name: max-control-nesting
+        disabled: true
+      # You're know no shit. So shut up.
+      - name: max-public-structs
+        disabled: true
+      - name: nested-structs
+        disabled: true
+      - name: optimize-operands-order
+        disabled: true
+      # Not for our lib. We use no subdirs.
+      - name: package-directory-mismatch
+        disabled: true
+      # Relevant for go 1.22 and lower.
+      - name: range-val-address
+        disabled: true
+      # Relevant for go 1.22 and lower.
+      - name: range-val-in-closure
+        disabled: true
+      # Code can be unreachable but required for understanding what going on or reserved for future development.
+      - name: unreachable-code
+        disabled: true
+      # Seriously? Fuck off with this pseudo-security bullshit. It is not you who decide what is secure and wat is not secure,
+      # you're have no context of things that happening and pretending that you're understand things by-default?
+      # Really, man, let's just diable it and pretend you're never ask for such stupid checks, okay?
+      - name: unsecure-url-scheme
+        disabled: true
+      # This check reports all capital consts as error which is incorrect in our case. We want to emphasis consts by all capitals
+      # and avoid use of CamelCase/Sausage-case in const names. Looks like this linter check has vaguely documented settings, so
+      # instead of setting it up just disable it entirely as it doe not enforce useful policy at first glance, only problems.
+      - name: var-naming
+        disabled: true
     staticcheck:
       # https://staticcheck.dev/docs/configuration/options/#dot_import_whitelist
       # Default: ["github.com/mmcloughlin/avo/build", "github.com/mmcloughlin/avo/operand", "github.com/mmcloughlin/avo/reg"]
