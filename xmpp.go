@@ -342,7 +342,7 @@ type Options struct {
 	// SoftwareName is client software name (UserAgent in web browsers terms),
 	// reported in response to information query as described in xep-0092.
 	// By default it is "go-xmpp" (no quotes), and can be overridden here.
-	// Responses can be enbled via ReportSoftwareVersion.
+	// Responses can be enabled via ReportSoftwareVersion.
 	SoftwareName string
 
 	// SoftwareVersion reported in response to iq version as described in
@@ -353,7 +353,7 @@ type Options struct {
 
 	// ReportSoftwareOS if set to true information about os go-xmpp being built
 	// for will be reported. It considered not safe (secure) enough in xep-0092
-	// for some unknown reasons, so by defult this option set to false.
+	// for some unknown reasons, so by default this option set to false.
 	ReportSoftwareOS bool
 }
 
