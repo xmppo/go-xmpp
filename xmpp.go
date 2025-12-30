@@ -947,6 +947,7 @@ func (c *Client) init(o *Options) error {
 			var dgProtect, dgProtectSep, dgProtectCBSep []byte
 			var salt []byte
 			var iterations int
+			var dgMechs []string
 			for _, serverReply := range strings.Split(string(b), ",") {
 				switch {
 				case strings.HasPrefix(serverReply, "r="):
@@ -972,8 +973,13 @@ func (c *Client) init(o *Options) error {
 					dgProtectSep = []byte{0x1e}
 					dgProtectCBSep = []byte{0x1f}
 					serverDgProtectHash := strings.SplitN(serverReply, "=", 2)[1]
-					slices.Sort(f.Mechanisms.Mechanism)
-					for _, mech := range f.Mechanisms.Mechanism {
+					if sasl2 {
+						dgMechs = f.Authentication.Mechanism
+					} else {
+						dgMechs = f.Mechanisms.Mechanism
+					}
+					slices.Sort(dgMechs)
+					for _, mech := range dgMechs {
 						if len(dgProtect) == 0 {
 							dgProtect = []byte(mech)
 						} else {
