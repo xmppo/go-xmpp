@@ -2,7 +2,7 @@ package xmpp
 
 const (
 	// Version is current go-xmpp software version.
-	Version = "0.3.2"
+	Version = "0.3.3-dev"
 
 	// HT_SHA_256_ENDP used in XEP-0484: Fast Authentication Streamlining Tokens, https://xmpp.org/extensions/xep-0484.html
 	HT_SHA_256_ENDP = "HT-SHA-256-ENDP"
