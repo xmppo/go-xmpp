@@ -1462,7 +1462,7 @@ type Chat struct {
 	Ooburl  string
 	Oobdesc string
 	Lang    string
-	// Only for incoming messages, ID for outgoing messages will be generated.
+	// Allows to set the origin-id to a unique ID defined by the client.
 	OriginID string
 	// Only for incoming messages, ID for outgoing messages will be generated.
 	StanzaID  StanzaID
@@ -1853,11 +1853,13 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 	}
 
 	chat.Text = validUTF8(chat.Text)
-	id := getUUID()
+	if chat.OriginID == "" {
+		chat.OriginID = getUUID()
+	}
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>%s<body>%s</body>"+
 		"<origin-id xmlns='%s' id='%s'/>%s%s</message>\n",
-		xmlEscape(chat.Remote), xmlEscape(chat.Type), id, subtext, xmlEscape(chat.Text),
-		XMPPNS_SID_0, id, oobtext, thdtext)
+		xmlEscape(chat.Remote), xmlEscape(chat.Type), chat.OriginID, subtext, xmlEscape(chat.Text),
+		XMPPNS_SID_0, chat.OriginID, oobtext, thdtext)
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
@@ -1889,10 +1891,12 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 		oobtext += `<desc>` + xmlEscape(chat.Oob.Desc) + `</desc>`
 	}
 	oobtext += `</x>`
-	id := getUUID()
+	if chat.OriginID == "" {
+		chat.OriginID = getUUID()
+	}
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+
 		"<origin-id xmlns='%s' id='%s'/>%s%s<body>%s</body></message>\n",
-		xmlEscape(chat.Remote), xmlEscape(chat.Type), id, XMPPNS_SID_0, id,
+		xmlEscape(chat.Remote), xmlEscape(chat.Type), chat.OriginID, XMPPNS_SID_0, chat.OriginID,
 		oobtext, thdtext, xmlEscape(chat.Oob.Url))
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
