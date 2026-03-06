@@ -30,7 +30,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"log"
 	"math/big"
 	"net"
 	"net/http"
@@ -95,11 +94,7 @@ func getCookie() Cookie {
 func getUUID() string {
 	// Use github.com/google/uuid as XEP-0359 requires an UUID according to
 	// RFC 4122.
-	id, err := uuid.NewV7()
-	if err != nil {
-		log.Fatal(err)
-	}
-	return id.String()
+	return uuid.Must(uuid.NewV7()).String()
 }
 
 // Fast holds the XEP-0484 fast token, mechanism and expiry date
