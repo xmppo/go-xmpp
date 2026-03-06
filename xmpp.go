@@ -1463,7 +1463,7 @@ type Chat struct {
 	// Only for incoming messages, ID for outgoing messages will be generated.
 	StanzaID StanzaID
 	// XEP-0461
-	Reply     Reply
+	Reply     *Reply
 	Roster    Roster
 	Other     []string
 	OtherElem []XMLElement
@@ -1853,7 +1853,7 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 	}
 
 	var replytext string
-	if chat.Reply.ID != `` {
+	if chat.Reply != nil {
 		replytext = `<reply id='` + xmlEscape(chat.Reply.ID) + `'`
 		if chat.Reply.To != `` {
 			replytext += ` to='` + xmlEscape(chat.Reply.To) + `'`
@@ -2204,7 +2204,7 @@ type clientMessage struct {
 	StanzaID StanzaID `xml:"stanza-id"`
 
 	// XEP-0461
-	Reply Reply `xml:"reply"`
+	Reply *Reply `xml:"reply"`
 
 	// Pubsub
 	Event clientPubsubEvent `xml:"event"`
