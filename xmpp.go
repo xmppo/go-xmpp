@@ -1446,7 +1446,7 @@ func (c *Client) IsEncrypted() bool {
 
 // Chat is an incoming or outgoing XMPP chat message.
 type Chat struct {
-	ID      string
+	ID      string   // if unset, will be generated on send
 	Remote  string
 	Type    string
 	Text    string
@@ -1458,10 +1458,9 @@ type Chat struct {
 	Ooburl  string
 	Oobdesc string
 	Lang    string
-	// Only for incoming messages, ID for outgoing messages will be generated.
-	OriginID string
-	// Only for incoming messages, ID for outgoing messages will be generated.
-	StanzaID StanzaID
+	// XEP-0359
+	StanzaID StanzaID // only for incoming messages
+	OriginID string   // if unset, will be generated on send
 	// XEP-0461
 	Reply     *Reply
 	Roster    Roster
@@ -1862,14 +1861,18 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 	}
 
 	chat.Text = validUTF8(chat.Text)
-	id := chat.ID
-	if id == "" {
-		id = getUUID()
+
+	if chat.OriginID == "" {
+		chat.OriginID = getUUID()
 	}
+	if chat.ID == "" {
+		chat.ID = chat.OriginID
+	}
+
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>%s<body>%s</body>"+
 		"%s<origin-id xmlns='%s' id='%s'/>%s%s</message>\n",
-		xmlEscape(chat.Remote), xmlEscape(chat.Type), id, subtext, xmlEscape(chat.Text),
-		replytext, XMPPNS_SID_0, id, oobtext, thdtext)
+		xmlEscape(chat.Remote), xmlEscape(chat.Type), chat.ID, subtext, xmlEscape(chat.Text),
+		replytext, XMPPNS_SID_0, chat.OriginID, oobtext, thdtext)
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
 		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
