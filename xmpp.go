@@ -1249,6 +1249,14 @@ func (c *Client) init(o *Options) error {
 			if f, err = c.startStream(o, domain); err != nil {
 				return err
 			}
+			// Update the max. stanza size limit if provided again as some servers might apply greater limit after auth.
+			if f.Limits.MaxBytes != "" {
+				lim, err := strconv.Atoi(f.Limits.MaxBytes)
+				// Only overwrite if it can be parsed successfully, otherwise keep the previous limit.
+				if err == nil {
+					c.LimitMaxBytes = lim
+				}
+			}
 		}
 		// Make the max. stanza size limit available.
 		if f.Limits.MaxBytes != "" {
