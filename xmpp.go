@@ -925,6 +925,22 @@ func (c *Client) init(o *Options) error {
 					c.Fast.Token = v.Token.Token
 					c.Fast.Expiry, _ = time.Parse(time.RFC3339, v.Token.Expiry)
 				}
+				// Next message should be update of stream features.
+				_, val, err := c.next()
+				if err != nil {
+					return err
+				}
+				switch v := val.(type) {
+				case *streamFeatures:
+					// Update the max. stanza size limit if provided again as some servers might apply greater limit after auth.
+					if v.Limits.MaxBytes != "" {
+						lim, err := strconv.Atoi(v.Limits.MaxBytes)
+						// Only overwrite if it can be parsed successfully, otherwise keep the previous limit.
+						if err == nil {
+							c.LimitMaxBytes = lim
+						}
+					}
+				}
 				if o.Session {
 					// if server support session, open it
 					cookie := getCookie() // generate new id value for session
@@ -1204,6 +1220,22 @@ func (c *Client) init(o *Options) error {
 				c.Fast.Token = v.Token.Token
 				c.Fast.Expiry, _ = time.Parse(time.RFC3339, v.Token.Expiry)
 			}
+			// Next message should be update of stream features.
+			_, val, err := c.next()
+			if err != nil {
+				return err
+			}
+			switch v := val.(type) {
+			case *streamFeatures:
+				// Update the max. stanza size limit if provided again as some servers might apply greater limit after auth.
+				if v.Limits.MaxBytes != "" {
+					lim, err := strconv.Atoi(v.Limits.MaxBytes)
+					// Only overwrite if it can be parsed successfully, otherwise keep the previous limit.
+					if err == nil {
+						c.LimitMaxBytes = lim
+					}
+				}
+			}
 		case *saslSuccess:
 			if strings.HasPrefix(mechanism, "SCRAM-SHA") {
 				successMsg, err := base64.StdEncoding.DecodeString(v.Text)
@@ -1256,13 +1288,6 @@ func (c *Client) init(o *Options) error {
 				if err == nil {
 					c.LimitMaxBytes = lim
 				}
-			}
-		}
-		// Make the max. stanza size limit available.
-		if f.Limits.MaxBytes != "" {
-			c.LimitMaxBytes, err = strconv.Atoi(f.Limits.MaxBytes)
-			if err != nil {
-				c.LimitMaxBytes = 0
 			}
 		}
 		// Make the servers time limit after which it might consider the stream idle available.
