@@ -932,12 +932,19 @@ func (c *Client) init(o *Options) error {
 				}
 				switch v := val.(type) {
 				case *streamFeatures:
-					// Update the max. stanza size limit if provided again as some servers might apply greater limit after auth.
+					// Update the max. stanza size and idle seconds limit if provided again as some servers might apply greater limit after auth.
 					if v.Limits.MaxBytes != "" {
 						lim, err := strconv.Atoi(v.Limits.MaxBytes)
 						// Only overwrite if it can be parsed successfully, otherwise keep the previous limit.
 						if err == nil {
 							c.LimitMaxBytes = lim
+						}
+					}
+					if v.Limits.IdleSeconds != "" {
+						lim, err = strconv.Atoi(v.Limits.IdleSeconds)
+						// Only overwrite if it can be parsed successfully, otherwise keep the previous limit.
+						if err == nil {
+							c.LimitIdleSeconds = lim
 						}
 					}
 				}
@@ -1227,12 +1234,19 @@ func (c *Client) init(o *Options) error {
 			}
 			switch v := val.(type) {
 			case *streamFeatures:
-				// Update the max. stanza size limit if provided again as some servers might apply greater limit after auth.
+				// Update the max. stanza size and idle limits if provided again as some servers might apply greater limit after auth.
 				if v.Limits.MaxBytes != "" {
 					lim, err := strconv.Atoi(v.Limits.MaxBytes)
 					// Only overwrite if it can be parsed successfully, otherwise keep the previous limit.
 					if err == nil {
 						c.LimitMaxBytes = lim
+					}
+				}
+				if v.Limits.IdleSeconds != "" {
+					lim, err = strconv.Atoi(v.Limits.IdleSeconds)
+					// Only overwrite if it can be parsed successfully, otherwise keep the previous limit.
+					if err == nil {
+						c.LimitIdleSeconds = lim
 					}
 				}
 			}
@@ -1281,12 +1295,19 @@ func (c *Client) init(o *Options) error {
 			if f, err = c.startStream(o, domain); err != nil {
 				return err
 			}
-			// Update the max. stanza size limit if provided again as some servers might apply greater limit after auth.
+			// Update the max. stanza size and idle seconds limits if provided again as some servers might apply greater limit after auth.
 			if f.Limits.MaxBytes != "" {
 				lim, err := strconv.Atoi(f.Limits.MaxBytes)
 				// Only overwrite if it can be parsed successfully, otherwise keep the previous limit.
 				if err == nil {
 					c.LimitMaxBytes = lim
+				}
+			}
+			if f.Limits.IdleSeconds != "" {
+				lim, err = strconv.Atoi(f.Limits.IdleSeconds)
+				// Only overwrite if it can be parsed successfully, otherwise keep the previous limit.
+				if err == nil {
+					c.LimitIdleSeconds = lim
 				}
 			}
 		}
