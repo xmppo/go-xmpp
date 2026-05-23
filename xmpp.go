@@ -941,7 +941,7 @@ func (c *Client) init(o *Options) error {
 						}
 					}
 					if v.Limits.IdleSeconds != "" {
-						lim, err = strconv.Atoi(v.Limits.IdleSeconds)
+						lim, err := strconv.Atoi(v.Limits.IdleSeconds)
 						// Only overwrite if it can be parsed successfully, otherwise keep the previous limit.
 						if err == nil {
 							c.LimitIdleSeconds = lim
@@ -1243,7 +1243,7 @@ func (c *Client) init(o *Options) error {
 					}
 				}
 				if v.Limits.IdleSeconds != "" {
-					lim, err = strconv.Atoi(v.Limits.IdleSeconds)
+					lim, err := strconv.Atoi(v.Limits.IdleSeconds)
 					// Only overwrite if it can be parsed successfully, otherwise keep the previous limit.
 					if err == nil {
 						c.LimitIdleSeconds = lim
@@ -1304,7 +1304,7 @@ func (c *Client) init(o *Options) error {
 				}
 			}
 			if f.Limits.IdleSeconds != "" {
-				lim, err = strconv.Atoi(f.Limits.IdleSeconds)
+				lim, err := strconv.Atoi(f.Limits.IdleSeconds)
 				// Only overwrite if it can be parsed successfully, otherwise keep the previous limit.
 				if err == nil {
 					c.LimitIdleSeconds = lim
