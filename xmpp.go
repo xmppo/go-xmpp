@@ -1546,6 +1546,7 @@ type Presence struct {
 	Affiliation string
 	Role        string
 	JID         string
+	Error       string
 }
 
 type IQ struct {
@@ -1636,6 +1637,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 				v.X.Item.Affiliation,
 				v.X.Item.Role,
 				v.X.Item.Jid,
+				v.Error.Any.Local,
 			}, nil
 		case *clientIQ:
 			switch {
@@ -1651,7 +1653,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 					var osName string
 
 					if c.Options.ReportSoftwareOS {
-						osName = (strings.SplitN(runtime.GOOS, "/", 2))[0]
+						osName = strings.SplitN(runtime.GOOS, "/", 2)[0]
 					}
 
 					id, err := c.IqVersionResponse(
@@ -2310,7 +2312,11 @@ type clientPresence struct {
 	Show     string `xml:"show"`   // away, chat, dnd, xa
 	Status   string `xml:"status"` // sb []clientText
 	Priority string `xml:"priority,attr"`
-	Error    *clientError
+	Error    struct {
+		By   string   `xml:"by,attr"`
+		Type string   `xml:"type,attr"`
+		Any  xml.Name `xml:",any"`
+	} `xml:"error"`
 }
 
 type clientIQ struct {
