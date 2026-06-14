@@ -68,6 +68,7 @@ type DiscoXField struct {
 }
 
 type DiscoItems struct {
+	ID    string
 	Jid   string
 	Items []DiscoItem
 }

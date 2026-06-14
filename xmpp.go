@@ -1733,6 +1733,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 					}
 
 					return DiscoItems{
+						ID:    v.ID,
 						Jid:   v.From,
 						Items: clientDiscoItemsToReturn(itemsQuery.Items),
 					}, nil
