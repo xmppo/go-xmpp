@@ -168,8 +168,8 @@ func connect(host string, user string, timeout time.Duration) (net.Conn, error) 
 			noproxy = os.Getenv("no_proxy")
 		}
 		if noproxy != "" {
-			nplist := strings.Split(noproxy, ",")
-			for _, s := range nplist {
+			nplist := strings.SplitSeq(noproxy, ",")
+			for s := range nplist {
 				if containsIgnoreCase(addr, s) {
 					http_proxy = ""
 					break
@@ -971,7 +971,7 @@ func (c *Client) init(o *Options) error {
 			var salt []byte
 			var iterations int
 			var dgMechs []string
-			for _, serverReply := range strings.Split(string(b), ",") {
+			for serverReply := range strings.SplitSeq(string(b), ",") {
 				switch {
 				case strings.HasPrefix(serverReply, "r="):
 					serverNonce = strings.SplitN(serverReply, "=", 2)[1]
@@ -1565,7 +1565,7 @@ type IQ struct {
 }
 
 // Recv waits to receive the next XMPP stanza.
-func (c *Client) Recv() (stanza interface{}, err error) {
+func (c *Client) Recv() (stanza any, err error) {
 	for {
 		_, val, err := c.next()
 		if err != nil {
@@ -2421,7 +2421,7 @@ func (c *Client) nextEnd() (xml.EndElement, error) {
 // Scan XML token stream for next element and save into val.
 // If val == nil, allocate new element based on proto map.
 // Either way, return val.
-func (c *Client) next() (xml.Name, interface{}, error) {
+func (c *Client) next() (xml.Name, any, error) {
 	// Read start element to find out what type we want.
 	se, err := c.nextStart()
 	if err != nil {
@@ -2429,7 +2429,7 @@ func (c *Client) next() (xml.Name, interface{}, error) {
 	}
 
 	// Put it in an interface and allocate one.
-	var nv interface{}
+	var nv any
 	switch se.Name.Space + " " + se.Name.Local {
 	case XMPPNS_STREAM + " features":
 		nv = &streamFeatures{}
