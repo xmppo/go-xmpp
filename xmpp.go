@@ -1885,7 +1885,7 @@ func (c *Client) Recv() (stanza interface{}, err error) {
 }
 
 // Send sends the message wrapped inside an XMPP message stanza body.
-func (c *Client) Send(chat Chat) (n int, err error) {
+func (c *Client) Send(chat Chat) (int, Chat, error) {
 	var subtext, thdtext, oobtext string
 	if chat.Subject != `` {
 		subtext = `<subject>` + xmlEscape(chat.Subject) + `</subject>`
@@ -1910,28 +1910,29 @@ func (c *Client) Send(chat Chat) (n int, err error) {
 	}
 
 	chat.Text = validUTF8(chat.Text)
-	id := getUUID()
+	chat.OriginID = getUUID()
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>%s<body>%s</body>"+
 		"<origin-id xmlns='%s' id='%s'/>%s%s</message>\n",
-		xmlEscape(chat.Remote), xmlEscape(chat.Type), id, subtext, xmlEscape(chat.Text),
-		XMPPNS_SID_0, id, oobtext, thdtext)
+		xmlEscape(chat.Remote), xmlEscape(chat.Type), chat.OriginID, subtext, xmlEscape(chat.Text),
+		XMPPNS_SID_0, chat.OriginID, oobtext, thdtext)
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
-		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
+		return 0, chat, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
 	}
 
-	return fmt.Fprint(c.stanzaWriter, stanza)
+	bw, err := fmt.Fprint(c.stanzaWriter, stanza)
+	return bw, chat, err
 }
 
 // SendOOB sends OOB data wrapped inside an XMPP message stanza. Any message body will be discarded
 // and replaced by the OOB URL..
-func (c *Client) SendOOB(chat Chat) (n int, err error) {
+func (c *Client) SendOOB(chat Chat) (int, Chat, error) {
 	var thdtext, oobtext string
 	if chat.Thread != `` {
 		thdtext = `<thread>` + xmlEscape(chat.Thread) + `</thread>`
 	}
 	if chat.Oob.Url == `` && chat.Ooburl == `` {
-		return 0, fmt.Errorf("SendOOB requires chat.Oob.Url to be set")
+		return 0, chat, fmt.Errorf("SendOOB requires chat.Oob.Url to be set")
 	}
 	if chat.Oob.Url == `` {
 		chat.Oob.Url = chat.Ooburl
@@ -1946,16 +1947,17 @@ func (c *Client) SendOOB(chat Chat) (n int, err error) {
 		oobtext += `<desc>` + xmlEscape(chat.Oob.Desc) + `</desc>`
 	}
 	oobtext += `</x>`
-	id := getUUID()
+	chat.OriginID = getUUID()
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+
 		"<origin-id xmlns='%s' id='%s'/>%s%s<body>%s</body></message>\n",
-		xmlEscape(chat.Remote), xmlEscape(chat.Type), id, XMPPNS_SID_0, id,
-		oobtext, thdtext, xmlEscape(chat.Oob.Url))
+		xmlEscape(chat.Remote), xmlEscape(chat.Type), chat.OriginID, XMPPNS_SID_0,
+		chat.OriginID, oobtext, thdtext, xmlEscape(chat.Oob.Url))
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
-		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
+		return 0, chat, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
 	}
-	return fmt.Fprint(c.stanzaWriter, stanza)
+	bw, err := fmt.Fprint(c.stanzaWriter, stanza)
+	return bw, chat, err
 }
 
 // SendOrg sends the original text without being wrapped in an XMPP message stanza.
@@ -2023,17 +2025,18 @@ func (c *Client) SendKeepAlive() (n int, err error) {
 }
 
 // SendHtml sends the message as HTML as defined by XEP-0071
-func (c *Client) SendHtml(chat Chat) (n int, err error) {
-	id := getUUID()
+func (c *Client) SendHtml(chat Chat) (int, Chat, error) {
+	chat.OriginID = getUUID()
 	stanza := fmt.Sprintf("<message to='%s' type='%s' xml:lang='en'><body>%s</body><origin-id xmlns='%s' id='%s'/>"+
 		"<html xmlns='http://jabber.org/protocol/xhtml-im'><body xmlns='http://www.w3.org/1999/xhtml'>%s</body>"+
 		"</html></message>\n",
-		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text), XMPPNS_SID_0, id, chat.Text)
+		xmlEscape(chat.Remote), xmlEscape(chat.Type), xmlEscape(chat.Text), XMPPNS_SID_0, chat.OriginID, chat.Text)
 	if c.LimitMaxBytes != 0 && len(stanza) > c.LimitMaxBytes {
-		return 0, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
+		return 0, chat, fmt.Errorf("stanza size (%v bytes) exceeds server limit (%v bytes)",
 			len(stanza), c.LimitMaxBytes)
 	}
-	return fmt.Fprint(c.stanzaWriter, stanza)
+	bw, err := fmt.Fprint(c.stanzaWriter, stanza)
+	return bw, chat, err
 }
 
 // Roster asks for the chat roster.
