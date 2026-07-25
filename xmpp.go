@@ -1517,6 +1517,8 @@ type Chat struct {
 	Oobdesc string
 	Lang    string
 	// Only for incoming messages, ID for outgoing messages will be generated.
+	ID string
+	// Only for incoming messages, ID for outgoing messages will be generated.
 	OriginID string
 	// Only for incoming messages, ID for outgoing messages will be generated.
 	StanzaID  StanzaID
@@ -1621,6 +1623,7 @@ func (c *Client) Recv() (stanza any, err error) {
 				OtherElem: v.Other,
 				Stamp:     stamp,
 				Lang:      v.Lang,
+				ID:        v.ID,
 				OriginID:  v.OriginID.ID,
 				StanzaID:  v.StanzaID,
 				Oob:       v.Oob,
@@ -1911,6 +1914,7 @@ func (c *Client) Send(chat Chat) (int, Chat, error) {
 
 	chat.Text = validUTF8(chat.Text)
 	chat.OriginID = getUUID()
+	chat.ID = chat.OriginID
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>%s<body>%s</body>"+
 		"<origin-id xmlns='%s' id='%s'/>%s%s</message>\n",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), chat.OriginID, subtext, xmlEscape(chat.Text),
@@ -1948,6 +1952,7 @@ func (c *Client) SendOOB(chat Chat) (int, Chat, error) {
 	}
 	oobtext += `</x>`
 	chat.OriginID = getUUID()
+	chat.ID = chat.OriginID
 	stanza := fmt.Sprintf("<message to='%s' type='%s' id='%s' xml:lang='en'>"+
 		"<origin-id xmlns='%s' id='%s'/>%s%s<body>%s</body></message>\n",
 		xmlEscape(chat.Remote), xmlEscape(chat.Type), chat.OriginID, XMPPNS_SID_0,
@@ -2027,6 +2032,7 @@ func (c *Client) SendKeepAlive() (n int, err error) {
 // SendHtml sends the message as HTML as defined by XEP-0071
 func (c *Client) SendHtml(chat Chat) (int, Chat, error) {
 	chat.OriginID = getUUID()
+	chat.ID = chat.OriginID
 	stanza := fmt.Sprintf("<message to='%s' type='%s' xml:lang='en'><body>%s</body><origin-id xmlns='%s' id='%s'/>"+
 		"<html xmlns='http://jabber.org/protocol/xhtml-im'><body xmlns='http://www.w3.org/1999/xhtml'>%s</body>"+
 		"</html></message>\n",
