@@ -973,6 +973,13 @@ func (c *Client) init(o *Options) error {
 			var dgMechs []string
 			for serverReply := range strings.SplitSeq(string(b), ",") {
 				switch {
+				// XEP-0515: TLS Channel-Binding Downgrade Protection
+				// https://xmpp.org/extensions/xep-0515.html
+				case strings.HasPrefix(serverReply, "t="):
+					serverTLSString := strconv.FormatUint(uint64(tlsConn.ConnectionState().Version), 10)
+					if strings.SplitN(serverReply, "=", 2)[1] != serverTLSString {
+						return errors.New("TLS Channel-Binding Downgrade Protection: possible MITM detected")
+					}
 				case strings.HasPrefix(serverReply, "r="):
 					serverNonce = strings.SplitN(serverReply, "=", 2)[1]
 					if !strings.HasPrefix(serverNonce, clientNonce) {
