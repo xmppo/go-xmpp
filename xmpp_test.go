@@ -80,7 +80,7 @@ func TestStanzaError(t *testing.T) {
 
 	chat := Chat{
 		Type: "error",
-		ID: "3",
+		ID:   "3",
 		Other: []string{
 			"\n\t\t{\"random\": \"<text>\"}\n\t",
 			"\n\t\t\n\t\t\n\t",
