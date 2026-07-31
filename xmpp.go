@@ -586,9 +586,9 @@ func (c *Client) init(o *Options) error {
 	}
 	var mechanism, channelBinding, clientFirstMessage, clientFinalMessageBare, authMessage string
 	var bind2Data, resource, userAgentSW, userAgentDev, userAgentID, fastAuth, saslUpgrade string
-	var saslUpgradeMech string
+	var saslUpgradeMech, cbMech string
 	var serverSignature, keyingMaterial, successMsg []byte
-	var scramPLUS, ok, tlsConnOK, tls13, serverEndPoint, sasl2, bind2 bool
+	var scramPLUS, ok, tlsConnOK, tls13, sasl2, bind2, mandatorySSDP, passedSSDP bool
 	var cbsSlice, mechSlice, upgrSlice []string
 	var tlsConn *tls.Conn
 	// Use SASL2 if available
@@ -678,6 +678,16 @@ func (c *Client) init(o *Options) error {
 			if strings.HasSuffix(mechanism, "PLUS") {
 				scramPLUS = true
 			}
+			// https://xmpp.org/extensions/xep-0440.html#business-rules
+			// Rule 4
+			if scramPLUS && len(f.ChannelBindings.ChannelBinding) == 0 {
+				return errors.New("SCRAM mechanisms supporting channel-binding were offered, but no channel binding types")
+			}
+			// https://xmpp.org/extensions/xep-0440.html#business-rules
+			// Rule 5
+			if !scramPLUS && len(f.ChannelBindings.ChannelBinding) != 0 {
+				return errors.New("channel-binding types were offered, but no SCRAM mechanisms supporting channel-binding")
+			}
 			for _, cbs := range f.ChannelBindings.ChannelBinding {
 				cbsSlice = append(cbsSlice, cbs.Type)
 			}
@@ -686,24 +696,48 @@ func (c *Client) init(o *Options) error {
 				switch tlsState.Version {
 				case tls.VersionTLS13:
 					tls13 = true
-					if slices.Contains(cbsSlice, "tls-server-end-point") && !slices.Contains(cbsSlice, "tls-exporter") {
-						serverEndPoint = true
-					} else {
+					switch {
+					case slices.Contains(cbsSlice, "tls-exporter"):
+						cbMech = "tls-exporter"
 						keyingMaterial, err = tlsState.ExportKeyingMaterial("EXPORTER-Channel-Binding", nil, 32)
 						if err != nil {
 							return err
 						}
+					case slices.Contains(cbsSlice, "tls-server-end-point"):
+						cbMech = "tls-server-endpoint"
+					default:
+						if o.SSDP {
+							mechanism = strings.TrimSuffix(mechanism, "-PLUS")
+							cbMech = "none"
+						} else {
+							return errors.New("SCRAM mechanism with channel-binding were offered, but no known channel-binding type was available and SSDP not enabled")
+						}
 					}
 				case tls.VersionTLS10, tls.VersionTLS11, tls.VersionTLS12:
-					if slices.Contains(cbsSlice, "tls-server-end-point") && !slices.Contains(cbsSlice, "tls-unique") {
-						serverEndPoint = true
-					} else {
+					switch {
+					case slices.Contains(cbsSlice, "tls-exporter"):
+						cbMech = "tls-exporter"
+						keyingMaterial, err = tlsState.ExportKeyingMaterial("EXPORTER-Channel-Binding", nil, 32)
+						if err != nil {
+							return err
+						}
+					case slices.Contains(cbsSlice, "tls-unique"):
+						cbMech = "tls-unique"
 						keyingMaterial = tlsState.TLSUnique
+					case slices.Contains(cbsSlice, "tls-server-end-point"):
+						cbMech = "tls-server-endpoint"
+					default:
+						if o.SSDP {
+							mechanism = strings.TrimSuffix(mechanism, "-PLUS")
+							cbMech = "none"
+						} else {
+							return errors.New("SCRAM mechanism with channel-binding were offered, but no known channel-binding type was available and SSDP not enabled")
+						}
 					}
 				default:
 					return errors.New(mechanism + ": unknown TLS version")
 				}
-				if serverEndPoint {
+				if cbMech == "tls-server-end-point" {
 					var h hash.Hash
 					// This material is not necessary for `tls-server-end-point` binding, but it is required to check that
 					// the TLS connection was not renegotiated. This function will fail if that's the case (see
@@ -725,17 +759,10 @@ func (c *Client) init(o *Options) error {
 					keyingMaterial = h.Sum(nil)
 					h.Reset()
 				}
-				if len(keyingMaterial) == 0 {
+				if cbMech != "none" && len(keyingMaterial) == 0 {
 					return errors.New(mechanism + ": no keying material")
 				}
-				switch {
-				case tls13 && !serverEndPoint:
-					channelBinding = base64.StdEncoding.EncodeToString(slices.Concat([]byte("p=tls-exporter,,"), keyingMaterial))
-				case serverEndPoint:
-					channelBinding = base64.StdEncoding.EncodeToString(slices.Concat([]byte("p=tls-server-end-point,,"), keyingMaterial))
-				default:
-					channelBinding = base64.StdEncoding.EncodeToString(slices.Concat([]byte("p=tls-unique,,"), keyingMaterial))
-				}
+				channelBinding = base64.StdEncoding.EncodeToString(slices.Concat([]byte("p="+cbMech+",,"), keyingMaterial))
 			}
 			var shaNewFn func() hash.Hash
 			switch mechanism {
@@ -750,16 +777,15 @@ func (c *Client) init(o *Options) error {
 			}
 			clientNonce := cnonce()
 			if scramPLUS {
-				switch {
-				case tls13 && !serverEndPoint:
-					clientFirstMessage = "p=tls-exporter,,n=" + user + ",r=" + clientNonce
-				case serverEndPoint:
-					clientFirstMessage = "p=tls-server-end-point,,n=" + user + ",r=" + clientNonce
-				default:
-					clientFirstMessage = "p=tls-unique,,n=" + user + ",r=" + clientNonce
+				if cbMech == "none" {
+					clientFirstMessage = fmt.Sprintf("n,,n=%s,r=%s", user, clientNonce)
+					scramPLUS = false
+					mandatorySSDP = true
+				} else {
+					clientFirstMessage = fmt.Sprintf("p=%s,,n=%s,r=%s", cbMech, user, clientNonce)
 				}
 			} else {
-				clientFirstMessage = "n,,n=" + user + ",r=" + clientNonce
+				clientFirstMessage = fmt.Sprintf("y,,n=%s,r=%s", user, clientNonce)
 			}
 			if sasl2 {
 				if !o.NoSASLUpgrade &&
@@ -783,7 +809,7 @@ func (c *Client) init(o *Options) error {
 					if o.FastToken == "" {
 						m := f.Authentication.Inline.Fast.Mechanism
 						switch {
-						case slices.Contains(m, HT_SHA_256_EXPR) && tls13:
+						case slices.Contains(m, HT_SHA_256_EXPR):
 							mech = HT_SHA_256_EXPR
 						case slices.Contains(m, HT_SHA_256_UNIQ) && !tls13:
 							mech = HT_SHA_256_UNIQ
@@ -805,9 +831,6 @@ func (c *Client) init(o *Options) error {
 						mechanism = o.FastMechanism
 						switch mechanism {
 						case HT_SHA_256_EXPR:
-							if !tls13 {
-								return fmt.Errorf("fast: %s can only be used when using TLSv1.3", HT_SHA_256_EXPR)
-							}
 							keyingMaterial, err = tlsState.ExportKeyingMaterial("EXPORTER-Channel-Binding", nil, 32)
 							if err != nil {
 								return err
@@ -1040,10 +1063,14 @@ func (c *Client) init(o *Options) error {
 						return fmt.Errorf("SCRAM: downgrade protection hash mismatch, expected: %s (hash of %s), received: %s",
 							dHashb64, dgProtect, serverDgProtectHash)
 					}
+					passedSSDP = true
 					dgh.Reset()
 				case strings.HasPrefix(serverReply, "m="):
 					return errors.New("scram: server sent reserved 'm' attribute")
 				}
+			}
+			if mandatorySSDP && !passedSSDP {
+				return errors.New("ssdp was mandatory due to server not offering known channel-binding types but was not offered")
 			}
 			if scramPLUS {
 				clientFinalMessageBare = "c=" + channelBinding + ",r=" + serverNonce
