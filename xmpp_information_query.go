@@ -78,7 +78,7 @@ func (c *Client) RawInformation(from, to, id, iqType, body string) (string, erro
 	return id, err
 }
 
-// UrnXMPPTimeResponse implements response to query entity's current time accodring to
+// UrnXMPPTimeResponse implements response to query entity's current time according to
 // https://xmpp.org/extensions/xep-0202.html#example-2 (A Response to the Query).
 func (c *Client) UrnXMPPTimeResponse(v IQ, timezoneOffset string) (string, error) {
 	query := fmt.Sprintf(

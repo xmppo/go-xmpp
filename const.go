@@ -45,7 +45,7 @@ const (
 	// XMPPNS_AVATAR_PEP_METADATA represents xml namespace for https://xmpp.org/extensions/xep-0084.html#process-pubmeta
 	// (User Publishes Metadata Notification).
 	XMPPNS_AVATAR_PEP_METADATA = "urn:xmpp:avatar:metadata"
-	// XMPPNS_BIND_0 used in bunding resource identifier to a session as described in https://xmpp.org/extensions/xep-0386.html
+	// XMPPNS_BIND_0 used in binding resource identifier to a session as described in https://xmpp.org/extensions/xep-0386.html
 	XMPPNS_BIND_0 = "urn:xmpp:bind:0"
 	// XMPPNS_CLIENT namespace is a foundational XML namespace used in the Extensible Messaging and Presence Protocol
 	// (XMPP) to scope the core client-to-server (C2S) communication stanzas.
@@ -84,7 +84,7 @@ const (
 	// and XEP-0480: SASL Upgrade Tasks, https://xmpp.org/extensions/xep-0480.html
 	XMPPNS_SCRAM_UPGRADE_0 = "urn:xmpp:scram-upgrade:0"
 	// XMPPNS_SID_0 namespace used in XEP-0359: Unique and Stable Stanza IDs, https://xmpp.org/extensions/xep-0359.html
-	// to implement unique and relible id.
+	// to implement unique and reliable id.
 	XMPPNS_SID_0 = "urn:xmpp:sid:0"
 	// XMPPNS_STREAM namespace used in description of clients xml data stream as described in XEP-0044: Full Namespace
 	// Support for XML Streams, https://xmpp.org/extensions/xep-0044.html

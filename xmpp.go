@@ -680,7 +680,7 @@ func (c *Client) init(o *Options) error {
 			}
 			// https://xmpp.org/extensions/xep-0440.html#business-rules
 			// Rule 4
-			if scramPLUS && len(f.ChannelBindings.ChannelBinding) == 0 {
+			if sasl2 && scramPLUS && len(f.ChannelBindings.ChannelBinding) == 0 {
 				return errors.New("SCRAM mechanisms supporting channel-binding were offered, but no channel binding types")
 			}
 			// https://xmpp.org/extensions/xep-0440.html#business-rules
