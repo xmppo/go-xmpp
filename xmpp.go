@@ -976,8 +976,13 @@ func (c *Client) init(o *Options) error {
 				// XEP-0515: TLS Channel-Binding Downgrade Protection
 				// https://xmpp.org/extensions/xep-0515.html
 				case strings.HasPrefix(serverReply, "t="):
-					serverTLSString := strconv.FormatUint(uint64(tlsConn.ConnectionState().Version), 10)
-					if strings.SplitN(serverReply, "=", 2)[1] != serverTLSString {
+					ourTLSVer := uint64(tlsConn.ConnectionState().Version)
+					rcvTLSVerString := strings.SplitN(serverReply, "=", 2)[1]
+					rcvTLSVer, err := strconv.ParseUint(rcvTLSVerString, 16, 32)
+					if err != nil {
+						return errors.New("TLS Channel-Binding Downgrade Protection: can't parse TLS version server sent")
+					}
+					if ourTLSVer != rcvTLSVer {
 						return errors.New("TLS Channel-Binding Downgrade Protection: possible MITM detected")
 					}
 				case strings.HasPrefix(serverReply, "r="):
