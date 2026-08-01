@@ -589,6 +589,7 @@ func (c *Client) init(o *Options) error {
 	var saslUpgradeMech, cbMech string
 	var serverSignature, keyingMaterial, successMsg []byte
 	var scramPLUS, ok, tlsConnOK, tls13, sasl2, bind2, mandatorySSDP, passedSSDP bool
+	var enforceTLSServerEndPoint bool
 	var cbsSlice, mechSlice, upgrSlice []string
 	var tlsConn *tls.Conn
 	// Use SASL2 if available
@@ -680,8 +681,13 @@ func (c *Client) init(o *Options) error {
 			}
 			// https://xmpp.org/extensions/xep-0440.html#business-rules
 			// Rule 4
-			if sasl2 && scramPLUS && len(f.ChannelBindings.ChannelBinding) == 0 {
-				return errors.New("SCRAM mechanisms supporting channel-binding were offered, but no channel binding types")
+			if scramPLUS && len(f.ChannelBindings.ChannelBinding) == 0 {
+				if sasl2 {
+					return errors.New("SCRAM mechanisms supporting channel-binding were offered, but no channel binding types")
+				} else {
+					enforceTLSServerEndPoint = true
+					cbMech = "tls-server-end-point"
+				}
 			}
 			// https://xmpp.org/extensions/xep-0440.html#business-rules
 			// Rule 5
@@ -691,7 +697,7 @@ func (c *Client) init(o *Options) error {
 			for _, cbs := range f.ChannelBindings.ChannelBinding {
 				cbsSlice = append(cbsSlice, cbs.Type)
 			}
-			if scramPLUS {
+			if scramPLUS && !enforceTLSServerEndPoint {
 				tlsState := tlsConn.ConnectionState()
 				switch tlsState.Version {
 				case tls.VersionTLS13:
@@ -704,7 +710,7 @@ func (c *Client) init(o *Options) error {
 							return err
 						}
 					case slices.Contains(cbsSlice, "tls-server-end-point"):
-						cbMech = "tls-server-endpoint"
+						cbMech = "tls-server-end-point"
 					default:
 						if o.SSDP {
 							mechanism = strings.TrimSuffix(mechanism, "-PLUS")
@@ -725,7 +731,7 @@ func (c *Client) init(o *Options) error {
 						cbMech = "tls-unique"
 						keyingMaterial = tlsState.TLSUnique
 					case slices.Contains(cbsSlice, "tls-server-end-point"):
-						cbMech = "tls-server-endpoint"
+						cbMech = "tls-server-end-point"
 					default:
 						if o.SSDP {
 							mechanism = strings.TrimSuffix(mechanism, "-PLUS")
@@ -785,7 +791,13 @@ func (c *Client) init(o *Options) error {
 					clientFirstMessage = fmt.Sprintf("p=%s,,n=%s,r=%s", cbMech, user, clientNonce)
 				}
 			} else {
-				clientFirstMessage = fmt.Sprintf("y,,n=%s,r=%s", user, clientNonce)
+				// https://xmpp.org/extensions/xep-0440.html#business-rules
+				// Rule 3
+				if !scramPLUS && len(f.ChannelBindings.ChannelBinding) == 0 {
+					clientFirstMessage = fmt.Sprintf("y,,n=%s,r=%s", user, clientNonce)
+				} else {
+					clientFirstMessage = fmt.Sprintf("n,,n=%s,r=%s", user, clientNonce)
+				}
 			}
 			if sasl2 {
 				if !o.NoSASLUpgrade &&
