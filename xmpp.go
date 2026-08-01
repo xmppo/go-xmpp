@@ -719,7 +719,7 @@ func (c *Client) init(o *Options) error {
 							return errors.New("SCRAM mechanism with channel-binding were offered, but no known channel-binding type was available and SSDP not enabled")
 						}
 					}
-				case tls.VersionTLS10, tls.VersionTLS11, tls.VersionTLS12:
+				default:
 					switch {
 					case slices.Contains(cbsSlice, "tls-exporter"):
 						cbMech = "tls-exporter"
@@ -740,8 +740,6 @@ func (c *Client) init(o *Options) error {
 							return errors.New("SCRAM mechanism with channel-binding were offered, but no known channel-binding type was available and SSDP not enabled")
 						}
 					}
-				default:
-					return errors.New(mechanism + ": unknown TLS version")
 				}
 				if cbMech == "tls-server-end-point" {
 					var h hash.Hash
