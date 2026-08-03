@@ -589,7 +589,6 @@ func (c *Client) init(o *Options) error {
 	var saslUpgradeMech, cbMech string
 	var serverSignature, keyingMaterial, successMsg []byte
 	var scramPLUS, ok, tlsConnOK, tls13, sasl2, bind2, mandatorySSDP, passedSSDP bool
-	var enforceTLSServerEndPoint bool
 	var cbsSlice, mechSlice, upgrSlice []string
 	var tlsConn *tls.Conn
 	// Use SASL2 if available
@@ -685,8 +684,13 @@ func (c *Client) init(o *Options) error {
 				if sasl2 {
 					return errors.New("SCRAM mechanisms supporting channel-binding were offered, but no channel binding types")
 				} else {
-					enforceTLSServerEndPoint = true
-					cbMech = "tls-server-end-point"
+					tlsState := tlsConn.ConnectionState()
+					switch tlsState.Version {
+					case tls.VersionTLS13:
+						cbMech = "tls-exporter"
+					default:
+						cbMech = "tls-unique"
+					}
 				}
 			}
 			// https://xmpp.org/extensions/xep-0440.html#business-rules
@@ -697,7 +701,7 @@ func (c *Client) init(o *Options) error {
 			for _, cbs := range f.ChannelBindings.ChannelBinding {
 				cbsSlice = append(cbsSlice, cbs.Type)
 			}
-			if scramPLUS && !enforceTLSServerEndPoint {
+			if scramPLUS {
 				tlsState := tlsConn.ConnectionState()
 				switch tlsState.Version {
 				case tls.VersionTLS13:
@@ -705,10 +709,6 @@ func (c *Client) init(o *Options) error {
 					switch {
 					case slices.Contains(cbsSlice, "tls-exporter"):
 						cbMech = "tls-exporter"
-						keyingMaterial, err = tlsState.ExportKeyingMaterial("EXPORTER-Channel-Binding", nil, 32)
-						if err != nil {
-							return err
-						}
 					case slices.Contains(cbsSlice, "tls-server-end-point"):
 						cbMech = "tls-server-end-point"
 					default:
@@ -723,13 +723,8 @@ func (c *Client) init(o *Options) error {
 					switch {
 					case slices.Contains(cbsSlice, "tls-exporter"):
 						cbMech = "tls-exporter"
-						keyingMaterial, err = tlsState.ExportKeyingMaterial("EXPORTER-Channel-Binding", nil, 32)
-						if err != nil {
-							return err
-						}
 					case slices.Contains(cbsSlice, "tls-unique"):
 						cbMech = "tls-unique"
-						keyingMaterial = tlsState.TLSUnique
 					case slices.Contains(cbsSlice, "tls-server-end-point"):
 						cbMech = "tls-server-end-point"
 					default:
@@ -741,7 +736,15 @@ func (c *Client) init(o *Options) error {
 						}
 					}
 				}
-				if cbMech == "tls-server-end-point" {
+				switch cbMech {
+				case "tls-exporter":
+					keyingMaterial, err = tlsState.ExportKeyingMaterial("EXPORTER-Channel-Binding", nil, 32)
+					if err != nil {
+						return err
+					}
+				case "tls-unique":
+					keyingMaterial = tlsState.TLSUnique
+				case "tls-server-end-point":
 					var h hash.Hash
 					// This material is not necessary for `tls-server-end-point` binding, but it is required to check that
 					// the TLS connection was not renegotiated. This function will fail if that's the case (see
@@ -1080,7 +1083,7 @@ func (c *Client) init(o *Options) error {
 				}
 			}
 			if mandatorySSDP && !passedSSDP {
-				return errors.New("ssdp was mandatory due to server not offering known channel-binding types but was not offered")
+				return errors.New("SSDP was mandatory due to server not offering known channel-binding types but was not offered")
 			}
 			if scramPLUS {
 				clientFinalMessageBare = "c=" + channelBinding + ",r=" + serverNonce
