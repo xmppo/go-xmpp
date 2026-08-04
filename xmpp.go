@@ -679,6 +679,11 @@ func (c *Client) init(o *Options) error {
 				scramPLUS = true
 			}
 			// https://xmpp.org/extensions/xep-0440.html#business-rules
+			// Rule 5
+			if !scramPLUS && len(f.ChannelBindings.ChannelBinding) != 0 {
+				return errors.New("channel-binding types were offered, but no SCRAM mechanisms supporting channel-binding")
+			}
+			// https://xmpp.org/extensions/xep-0440.html#business-rules
 			// Rule 4
 			if scramPLUS && len(f.ChannelBindings.ChannelBinding) == 0 {
 				if sasl2 {
@@ -692,16 +697,10 @@ func (c *Client) init(o *Options) error {
 						cbMech = "tls-unique"
 					}
 				}
-			}
-			// https://xmpp.org/extensions/xep-0440.html#business-rules
-			// Rule 5
-			if !scramPLUS && len(f.ChannelBindings.ChannelBinding) != 0 {
-				return errors.New("channel-binding types were offered, but no SCRAM mechanisms supporting channel-binding")
-			}
-			for _, cbs := range f.ChannelBindings.ChannelBinding {
-				cbsSlice = append(cbsSlice, cbs.Type)
-			}
-			if scramPLUS {
+			} else if scramPLUS {
+				for _, cbs := range f.ChannelBindings.ChannelBinding {
+					cbsSlice = append(cbsSlice, cbs.Type)
+				}
 				tlsState := tlsConn.ConnectionState()
 				switch tlsState.Version {
 				case tls.VersionTLS13:
