@@ -878,7 +878,7 @@ func (c *Client) init(o *Options) error {
 							return err
 						}
 						initiatorHashedToken := h.Sum(nil)
-						user := strings.Split(o.User, "@")[0]
+						user, _, _ := strings.Cut(o.User, "@")
 						clientFirstMessage = user + "\x00" + string(initiatorHashedToken)
 					}
 				}
